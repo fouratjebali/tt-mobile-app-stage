@@ -1,0 +1,11 @@
+.git/
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+credentials.json
+token.json
+data/logs/
+data/training/*.json

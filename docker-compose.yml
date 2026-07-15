@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tt_mail_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-tt_mail_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - tt_mail_net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tt_mail_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - tt_mail_net
+    restart: unless-stopped
+
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tt_mail_backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+      - agent1
+      - agent2
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    environment:
+      AGENT1_URL: http://agent1:8001
+      AGENT2_URL: http://agent2:8002
+    networks:
+      - tt_mail_net
+    restart: unless-stopped
+
+  agent1:
+    build:
+      context: ./ai-email-agent
+      dockerfile: Dockerfile
+    container_name: tt_mail_agent1
+    command: uvicorn api:app --host 0.0.0.0 --port 8001 --reload
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./ai-email-agent:/app
+    env_file:
+      - .env
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - tt_mail_net
+    restart: unless-stopped
+
+  agent2:
+    build:
+      context: ./jury-agent
+      dockerfile: Dockerfile
+    container_name: tt_mail_agent2
+    command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./jury-agent:/app
+    networks:
+      - tt_mail_net
+    restart: unless-stopped
+
+
+networks:
+  tt_mail_net:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -1,0 +1,788 @@
+
+<h2 class="sr-only">Mobile app wireframes — 10 screens for the AI email management application</h2>
+
+<style>
+:root {
+  --brand: #4F46E5;
+  --brand-light: #EEF2FF;
+  --brand-mid: #818CF8;
+  --success: #10B981;
+  --success-light: #ECFDF5;
+  --danger: #EF4444;
+  --danger-light: #FEF2F2;
+  --warning: #F59E0B;
+  --warning-light: #FFFBEB;
+  --neutral-50: #F9FAFB;
+  --neutral-100: #F3F4F6;
+  --neutral-200: #E5E7EB;
+  --neutral-400: #9CA3AF;
+  --neutral-500: #6B7280;
+  --neutral-700: #374151;
+  --neutral-900: #111827;
+  --screen-w: 220px;
+  --screen-h: 390px;
+}
+.ws { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 1.5rem 0; }
+.grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+.label { font-size: 11px; font-weight: 500; color: var(--neutral-500); text-align: center; margin-top: 8px; letter-spacing: .03em; }
+.phone {
+  width: var(--screen-w); height: var(--screen-h);
+  background: #fff; border-radius: 24px;
+  border: 2px solid var(--neutral-200);
+  overflow: hidden; position: relative;
+  box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  flex-shrink: 0; cursor: pointer; transition: box-shadow .2s;
+}
+.phone:hover { box-shadow: 0 8px 32px rgba(79,70,229,.18); border-color: var(--brand-mid); }
+.phone.active { border-color: var(--brand); box-shadow: 0 8px 32px rgba(79,70,229,.28); }
+.notch { width: 60px; height: 10px; background: var(--neutral-900); border-radius: 0 0 8px 8px; margin: 0 auto 0; }
+.status { display: flex; justify-content: space-between; padding: 2px 14px 4px; font-size: 8px; color: var(--neutral-500); }
+.topbar { padding: 4px 12px 6px; border-bottom: 1px solid var(--neutral-100); }
+.topbar h1 { font-size: 13px; font-weight: 600; color: var(--neutral-900); margin: 0; }
+.topbar p { font-size: 8px; color: var(--neutral-400); margin: 1px 0 0; }
+.content { padding: 8px 10px; overflow: hidden; height: calc(var(--screen-h) - 120px); }
+.content.nopad { padding: 0; }
+.bottomnav {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 46px; background: #fff;
+  border-top: 1px solid var(--neutral-100);
+  display: flex; align-items: center; justify-content: space-around;
+  padding: 0 4px;
+}
+.navitem { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 7px; color: var(--neutral-400); }
+.navitem.on { color: var(--brand); }
+.navitem i { font-size: 16px; }
+.badge-dot { width: 6px; height: 6px; background: var(--danger); border-radius: 50%; position: absolute; top: -1px; right: -1px; }
+.badge-num { font-size: 6px; background: var(--danger); color: #fff; border-radius: 8px; padding: 0 3px; position: absolute; top: -4px; right: -6px; }
+
+/* Cards */
+.card { background: var(--neutral-50); border-radius: 10px; padding: 7px 9px; margin-bottom: 6px; border: 1px solid var(--neutral-100); }
+.card.white { background: #fff; }
+.card-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
+.card-title { font-size: 9px; font-weight: 600; color: var(--neutral-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.card-sub { font-size: 7.5px; color: var(--neutral-500); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.card-body { font-size: 7px; color: var(--neutral-400); margin-top: 3px; line-height: 1.4; }
+
+/* Pills / badges */
+.pill { font-size: 6.5px; font-weight: 600; padding: 2px 5px; border-radius: 20px; white-space: nowrap; }
+.pill.rec { background: #FEE2E2; color: #B91C1C; }
+.pill.sup { background: #DBEAFE; color: #1D4ED8; }
+.pill.inf { background: #D1FAE5; color: #065F46; }
+.pill.com { background: #FEF3C7; color: #92400E; }
+.pill.urg { background: var(--danger); color: #fff; }
+.pill.nor { background: var(--warning-light); color: #92400E; }
+.pill.low { background: var(--success-light); color: #065F46; }
+.pill.auto { background: var(--success-light); color: #065F46; }
+.pill.rev { background: var(--danger-light); color: #B91C1C; }
+.pill.purple { background: #EDE9FE; color: #5B21B6; }
+
+/* KPI cards */
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 8px; }
+.kpi { background: #fff; border: 1px solid var(--neutral-100); border-radius: 8px; padding: 6px 8px; }
+.kpi .val { font-size: 16px; font-weight: 700; color: var(--neutral-900); }
+.kpi .kl { font-size: 7px; color: var(--neutral-500); }
+
+/* Sections */
+.section-label { font-size: 8px; font-weight: 700; color: var(--neutral-500); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 5px; }
+
+/* Avatar */
+.avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--brand-light); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: var(--brand); flex-shrink: 0; }
+
+/* Input */
+.input-mock { background: var(--neutral-50); border: 1px solid var(--neutral-200); border-radius: 8px; padding: 6px 8px; font-size: 8px; color: var(--neutral-500); margin-bottom: 6px; }
+
+/* Chat */
+.bubble { max-width: 80%; padding: 5px 8px; border-radius: 10px; font-size: 7.5px; line-height: 1.4; margin-bottom: 4px; }
+.bubble.user { background: var(--brand); color: #fff; margin-left: auto; border-bottom-right-radius: 3px; }
+.bubble.agent { background: var(--neutral-100); color: var(--neutral-700); border-bottom-left-radius: 3px; }
+
+/* Chart bars */
+.bar-row { display: flex; align-items: flex-end; gap: 4px; height: 48px; margin-bottom: 4px; }
+.bar { background: var(--brand-light); border-radius: 3px 3px 0 0; width: 100%; border: 1px solid var(--brand-mid); flex: 1; transition: background .2s; }
+.bar:hover { background: var(--brand); }
+.bar-labels { display: flex; gap: 4px; }
+.bar-label { flex: 1; font-size: 6px; text-align: center; color: var(--neutral-400); }
+
+/* Big button */
+.btn { background: var(--brand); color: #fff; border: none; border-radius: 8px; padding: 7px; font-size: 8.5px; font-weight: 600; text-align: center; margin-top: 4px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--brand); border: 1px solid var(--brand); }
+.btn.danger { background: var(--danger); }
+
+/* Divider */
+.divider { height: 1px; background: var(--neutral-100); margin: 6px 0; }
+
+/* FAB */
+.fab { position: absolute; bottom: 54px; right: 12px; width: 30px; height: 30px; background: var(--brand); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; box-shadow: 0 3px 10px rgba(79,70,229,.4); }
+
+/* Detail row */
+.det-row { display: flex; justify-content: space-between; padding: 3px 0; }
+.det-key { font-size: 7.5px; color: var(--neutral-500); }
+.det-val { font-size: 7.5px; color: var(--neutral-900); font-weight: 500; text-align: right; max-width: 110px; }
+
+/* Progress bar */
+.progress-wrap { background: var(--neutral-100); border-radius: 4px; height: 5px; overflow: hidden; margin: 3px 0 6px; }
+.progress-fill { height: 100%; border-radius: 4px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 3px; background: var(--neutral-100); border-radius: 8px; padding: 2px; margin-bottom: 8px; }
+.tab { flex: 1; text-align: center; font-size: 7px; font-weight: 500; padding: 3px 2px; border-radius: 6px; color: var(--neutral-500); }
+.tab.on { background: #fff; color: var(--brand); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+
+/* Toggle */
+.toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+.toggle-lbl { font-size: 8.5px; color: var(--neutral-700); }
+.toggle { width: 26px; height: 14px; background: var(--brand); border-radius: 7px; position: relative; }
+.toggle .knob { width: 10px; height: 10px; background: #fff; border-radius: 50%; position: absolute; top: 2px; right: 2px; }
+.toggle.off { background: var(--neutral-200); }
+.toggle.off .knob { right: auto; left: 2px; }
+
+/* Dot step */
+.step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brand); flex-shrink: 0; margin-top: 4px; }
+.step-line { width: 1px; background: var(--neutral-200); flex: 1; min-height: 8px; margin: 2px auto; }
+</style>
+
+<div class="ws">
+<div class="grid" id="screenGrid">
+
+<!-- ══ S01 LOGIN ═══════════════════════════════════ -->
+<div>
+<div class="phone active" id="s01" onclick="select('s01')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div style="display:flex;flex-direction:column;align-items:center;padding:20px 18px 0;">
+    <div style="width:44px;height:44px;background:var(--brand-light);border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+      <i class="ti ti-mail-ai" style="font-size:24px;color:var(--brand);" aria-hidden="true"></i>
+    </div>
+    <div style="font-size:14px;font-weight:700;color:var(--neutral-900);margin-bottom:3px;">MailMind AI</div>
+    <div style="font-size:8px;color:var(--neutral-500);text-align:center;margin-bottom:18px;">Your intelligent email assistant</div>
+    <div class="input-mock" style="width:100%;box-sizing:border-box;">
+      <i class="ti ti-mail" style="font-size:10px;color:var(--neutral-400);" aria-hidden="true"></i>
+      &nbsp;email@example.com
+    </div>
+    <div style="background:var(--brand);color:#fff;border-radius:10px;padding:8px;font-size:9px;font-weight:600;text-align:center;width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:5px;">
+      <i class="ti ti-brand-google" aria-hidden="true"></i>
+      Continue with Google
+    </div>
+    <div class="divider" style="width:100%;margin:12px 0;"></div>
+    <div style="font-size:7.5px;color:var(--neutral-400);text-align:center;">Gmail OAuth 2.0 — your data stays private</div>
+    <div style="margin-top:14px;font-size:7px;color:var(--neutral-400);text-align:center;">By continuing you agree to our Terms and Privacy Policy</div>
+  </div>
+</div>
+<div class="label">S01 — Login</div>
+</div>
+
+<!-- ══ S02 ONBOARDING ══════════════════════════════ -->
+<div>
+<div class="phone" id="s02" onclick="select('s02')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div style="padding:14px 16px 0;">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <div style="font-size:7.5px;color:var(--neutral-400);">1 of 3</div>
+    </div>
+    <div style="display:flex;gap:3px;margin-bottom:16px;">
+      <div style="flex:1;height:3px;background:var(--brand);border-radius:2px;"></div>
+      <div style="flex:1;height:3px;background:var(--neutral-200);border-radius:2px;"></div>
+      <div style="flex:1;height:3px;background:var(--neutral-200);border-radius:2px;"></div>
+    </div>
+    <div style="width:48px;height:48px;background:var(--brand-light);border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+      <i class="ti ti-robot" style="font-size:26px;color:var(--brand);" aria-hidden="true"></i>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:var(--neutral-900);margin-bottom:5px;">Your AI agent is ready</div>
+    <div style="font-size:8px;color:var(--neutral-500);line-height:1.5;margin-bottom:14px;">Two AI agents work together to read, classify, prioritise, and reply to your emails — automatically.</div>
+    <div class="card white" style="margin-bottom:5px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="width:20px;height:20px;background:var(--success-light);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="ti ti-check" style="font-size:12px;color:var(--success);" aria-hidden="true"></i>
+        </div>
+        <div>
+          <div style="font-size:8.5px;font-weight:600;color:var(--neutral-900);">Auto-reply (LOW & NORMAL)</div>
+          <div style="font-size:7px;color:var(--neutral-400);">Sent automatically after jury approval</div>
+        </div>
+      </div>
+    </div>
+    <div class="card white">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="width:20px;height:20px;background:var(--danger-light);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="ti ti-alert-triangle" style="font-size:12px;color:var(--danger);" aria-hidden="true"></i>
+        </div>
+        <div>
+          <div style="font-size:8.5px;font-weight:600;color:var(--neutral-900);">You review URGENT emails</div>
+          <div style="font-size:7px;color:var(--neutral-400);">You get a push notification to act</div>
+        </div>
+      </div>
+    </div>
+    <div style="position:absolute;bottom:55px;left:10px;right:10px;" class="btn">Get started</div>
+  </div>
+  <div class="bottomnav" style="justify-content:center;">
+    <div style="display:flex;gap:5px;">
+      <div style="width:6px;height:6px;background:var(--brand);border-radius:50%;"></div>
+      <div style="width:6px;height:6px;background:var(--neutral-200);border-radius:50%;"></div>
+      <div style="width:6px;height:6px;background:var(--neutral-200);border-radius:50%;"></div>
+    </div>
+  </div>
+</div>
+<div class="label">S02 — Onboarding</div>
+</div>
+
+<!-- ══ S03 HOME ════════════════════════════════════ -->
+<div>
+<div class="phone" id="s03" onclick="select('s03')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div class="topbar">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <h1>Good morning, Elking 👋</h1>
+        <p>Saturday, 12 Jul · Agent active</p>
+      </div>
+      <div class="avatar">EL</div>
+    </div>
+  </div>
+  <div class="content">
+    <div class="kpi-grid">
+      <div class="kpi"><div class="val">47</div><div class="kl">Processed today</div></div>
+      <div class="kpi"><div class="val" style="color:var(--success);">38</div><div class="kl">Auto-sent</div></div>
+      <div class="kpi"><div class="val" style="color:var(--danger);">3</div><div class="kl">Need review</div></div>
+      <div class="kpi"><div class="val">81%</div><div class="kl">Auto-rate</div></div>
+    </div>
+    <div style="background:var(--danger-light);border:1px solid #FECACA;border-radius:8px;padding:6px 8px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:8.5px;font-weight:600;color:#B91C1C;">3 emails need your attention</div>
+        <div style="font-size:7px;color:#EF4444;">Review required — tap to act</div>
+      </div>
+      <i class="ti ti-chevron-right" style="font-size:14px;color:#EF4444;" aria-hidden="true"></i>
+    </div>
+    <div class="section-label">Recent activity</div>
+    <div class="card white">
+      <div class="card-row">
+        <div style="flex:1;min-width:0;">
+          <div class="card-title">Invoice #8821 received</div>
+          <div class="card-sub">billing@supplier.com</div>
+        </div>
+        <span class="pill com">COMMERCIAL</span>
+      </div>
+      <div style="display:flex;gap:3px;margin-top:3px;">
+        <span class="pill low">LOW</span>
+        <span class="pill auto">Auto-sent</span>
+      </div>
+    </div>
+    <div class="card white">
+      <div class="card-row">
+        <div style="flex:1;min-width:0;">
+          <div class="card-title">Server outage — critical!</div>
+          <div class="card-sub">ops@company.com</div>
+        </div>
+        <span class="pill rec">RECLAMATION</span>
+      </div>
+      <div style="display:flex;gap:3px;margin-top:3px;">
+        <span class="pill urg">URGENT</span>
+        <span class="pill rev">Review</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px;">
+      <div style="background:var(--brand-light);border-radius:8px;padding:7px;text-align:center;">
+        <i class="ti ti-chart-bar" style="font-size:16px;color:var(--brand);" aria-hidden="true"></i>
+        <div style="font-size:7.5px;font-weight:600;color:var(--brand);margin-top:2px;">Dashboard</div>
+      </div>
+      <div style="background:#FEF3C7;border-radius:8px;padding:7px;text-align:center;">
+        <i class="ti ti-send" style="font-size:16px;color:#D97706;" aria-hidden="true"></i>
+        <div style="font-size:7.5px;font-weight:600;color:#D97706;margin-top:2px;">Bulk email</div>
+      </div>
+    </div>
+  </div>
+  <div class="fab"><i class="ti ti-message-circle-2" style="font-size:15px;" aria-hidden="true"></i></div>
+  <div class="bottomnav">
+    <div class="navitem on"><i class="ti ti-home" aria-hidden="true"></i>Home</div>
+    <div class="navitem"><i class="ti ti-inbox" aria-hidden="true"></i>Today</div>
+    <div class="navitem" style="position:relative;"><i class="ti ti-urgent" aria-hidden="true"></i><div class="badge-num">3</div>Review</div>
+    <div class="navitem"><i class="ti ti-user" aria-hidden="true"></i>Profile</div>
+  </div>
+</div>
+<div class="label">S03 — Home</div>
+</div>
+
+<!-- ══ S04 TODAY ACTIVITY ══════════════════════════ -->
+<div>
+<div class="phone" id="s04" onclick="select('s04')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div class="topbar">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h1>Today's activity</h1>
+      <div style="font-size:8px;color:var(--neutral-400);">Sat 12 Jul</div>
+    </div>
+  </div>
+  <div class="content">
+    <div class="tabs">
+      <div class="tab on">All (47)</div>
+      <div class="tab">Auto-sent</div>
+      <div class="tab">Review</div>
+      <div class="tab">Ignored</div>
+    </div>
+    <div class="card white">
+      <div class="card-row">
+        <div style="flex:1;min-width:0;">
+          <div class="card-title">Project brief attached</div>
+          <div class="card-sub">alice@client.com · 09:14</div>
+        </div>
+        <span class="pill sup">SUPPORT</span>
+      </div>
+      <div style="display:flex;gap:3px;margin-top:3px;">
+        <span class="pill nor">NORMAL</span>
+        <span class="pill auto" style="font-size:6px;">✓ Auto-sent 09:16</span>
+      </div>
+    </div>
+    <div class="card white">
+      <div class="card-row">
+        <div style="flex:1;min-width:0;">
+          <div class="card-title">Monthly newsletter</div>
+          <div class="card-sub">no-reply@news.com · 08:30</div>
+        </div>
+        <span class="pill inf">INFO</span>
+      </div>
+      <div style="display:flex;gap:3px;margin-top:3px;">
+        <span class="pill low">LOW</span>
+        <span class="pill auto" style="font-size:6px;">✓ Auto-sent</span>
+      </div>
+    </div>
+    <div class="card white" style="border-left:2px solid var(--danger);">
+      <div class="card-row">
+        <div style="flex:1;min-width:0;">
+          <div class="card-title">Urgent: server outage</div>
+          <div class="card-sub">ops@company.com · 08:02</div>
+        </div>
+        <span class="pill rec">RECLAMATION</span>
+      </div>
+      <div style="display:flex;gap:3px;margin-top:3px;">
+        <span class="pill urg">URGENT</span>
+        <span class="pill rev">Needs review</span>
+      </div>
+    </div>
+    <div class="card white">
+      <div class="card-row">
+        <div style="flex:1;min-width:0;">
+          <div class="card-title">Q3 invoice #8821</div>
+          <div class="card-sub">billing@supplier.com · 07:45</div>
+        </div>
+        <span class="pill com">COMMERCIAL</span>
+      </div>
+      <div style="display:flex;gap:3px;margin-top:3px;">
+        <span class="pill low">LOW</span>
+        <span class="pill auto" style="font-size:6px;">✓ Auto-sent</span>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:7px;color:var(--neutral-400);margin-top:4px;">43 more emails processed today →</div>
+  </div>
+  <div class="bottomnav">
+    <div class="navitem"><i class="ti ti-home" aria-hidden="true"></i>Home</div>
+    <div class="navitem on"><i class="ti ti-inbox" aria-hidden="true"></i>Today</div>
+    <div class="navitem" style="position:relative;"><i class="ti ti-urgent" aria-hidden="true"></i><div class="badge-num">3</div>Review</div>
+    <div class="navitem"><i class="ti ti-user" aria-hidden="true"></i>Profile</div>
+  </div>
+</div>
+<div class="label">S04 — Today's Activity</div>
+</div>
+
+<!-- ══ S05 EMAIL DETAIL (read-only) ════════════════ -->
+<div>
+<div class="phone" id="s05" onclick="select('s05')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div style="padding:8px 10px 4px;border-bottom:1px solid var(--neutral-100);display:flex;align-items:center;gap:6px;">
+    <i class="ti ti-arrow-left" style="font-size:14px;color:var(--neutral-500);" aria-hidden="true"></i>
+    <div style="font-size:11px;font-weight:600;color:var(--neutral-900);">Email detail</div>
+  </div>
+  <div class="content" style="height:calc(var(--screen-h) - 110px);">
+    <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;">
+      <div class="avatar" style="width:22px;height:22px;font-size:8px;">AL</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:9px;font-weight:600;color:var(--neutral-900);">Project brief attached</div>
+        <div style="font-size:7px;color:var(--neutral-400);">alice@client.com · Sat 9:14</div>
+      </div>
+      <div style="display:flex;gap:2px;">
+        <span class="pill sup">SUPPORT</span>
+        <span class="pill nor">NORMAL</span>
+      </div>
+    </div>
+    <div style="font-size:7.5px;color:var(--neutral-600);line-height:1.5;margin-bottom:8px;padding:6px 8px;background:var(--neutral-50);border-radius:6px;">
+      Hi, I've attached the updated project brief for Q3. Please review section 3.2 regarding the timeline. Let me know if you need any clarification.
+    </div>
+    <div class="section-label">Agent IA 1 — analysis</div>
+    <div class="card white" style="margin-bottom:5px;">
+      <div class="det-row"><span class="det-key">Category</span><span class="det-val"><span class="pill sup">SUPPORT</span></span></div>
+      <div class="det-row"><span class="det-key">Priority</span><span class="det-val"><span class="pill nor">NORMAL</span></span></div>
+      <div class="det-row"><span class="det-key">Urgency score</span><span class="det-val" style="color:var(--warning);">5 / 10</span></div>
+      <div class="det-row"><span class="det-key">Confidence</span><span class="det-val">91%</span></div>
+      <div class="divider"></div>
+      <div style="font-size:7.5px;color:var(--neutral-700);">Client requests review of Q3 timeline. Needs response within 24h.</div>
+    </div>
+    <div class="section-label">Jury Agent 2 — verdict</div>
+    <div class="card white" style="margin-bottom:5px;">
+      <div class="det-row"><span class="det-key">Verdict</span><span class="det-val" style="color:var(--success);font-weight:700;">✓ Validated</span></div>
+      <div class="det-row"><span class="det-key">Confidence</span><span class="det-val">88%</span></div>
+    </div>
+    <div class="section-label">Reply sent automatically</div>
+    <div style="background:var(--success-light);border:1px solid #A7F3D0;border-radius:8px;padding:6px 8px;">
+      <div style="font-size:7px;color:#065F46;">Sent 09:16 · auto-sent · not edited</div>
+      <div style="font-size:7.5px;color:var(--neutral-700);margin-top:3px;line-height:1.4;">Hi Alice, thank you for sending the brief. I'll review section 3.2 and come back to you shortly.</div>
+    </div>
+  </div>
+</div>
+<div class="label">S05 — Email Detail (read)</div>
+</div>
+
+<!-- ══ S06 REVIEW ══════════════════════════════════ -->
+<div>
+<div class="phone" id="s06" onclick="select('s06')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div class="topbar">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h1>Review</h1>
+      <div style="background:var(--danger-light);color:#B91C1C;font-size:7.5px;font-weight:700;padding:2px 7px;border-radius:10px;">3 pending</div>
+    </div>
+    <p>Emails that need your validation</p>
+  </div>
+  <div class="content">
+    <div class="card white" style="border-left:2px solid var(--danger);margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
+        <span class="pill urg">URGENT</span>
+        <span style="font-size:6.5px;color:var(--danger);">● 45 min ago</span>
+      </div>
+      <div class="card-title" style="max-width:none;">Server outage — need immediate fix</div>
+      <div class="card-sub" style="max-width:none;margin-top:2px;">ops@company.com</div>
+      <div class="card-body">Reason: Priority = URGENT — your approval required</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
+        <div class="btn" style="padding:5px;font-size:7.5px;">Send reply</div>
+        <div class="btn ghost" style="padding:5px;font-size:7.5px;">Edit first</div>
+      </div>
+    </div>
+    <div class="card white" style="border-left:2px solid var(--warning);margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
+        <span class="pill nor">NORMAL</span>
+        <span style="font-size:6.5px;color:var(--warning);">● 1h ago</span>
+      </div>
+      <div class="card-title" style="max-width:none;">Refund not processed after 2 weeks</div>
+      <div class="card-sub" style="max-width:none;margin-top:2px;">customer@gmail.com</div>
+      <div class="card-body">Reason: Jury confidence 61% — below 80% threshold</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
+        <div class="btn" style="padding:5px;font-size:7.5px;">Send reply</div>
+        <div class="btn ghost" style="padding:5px;font-size:7.5px;">Edit first</div>
+      </div>
+    </div>
+    <div class="card white" style="border-left:2px solid var(--neutral-200);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
+        <span class="pill nor">NORMAL</span>
+        <span style="font-size:6.5px;color:var(--neutral-400);">● 2h ago</span>
+      </div>
+      <div class="card-title" style="max-width:none;">Access request for staging env</div>
+      <div class="card-sub" style="max-width:none;margin-top:2px;">dev@partner.com</div>
+      <div class="card-body">Reason: Jury rejected the generated reply</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;">
+        <div class="btn" style="padding:5px;font-size:7.5px;">Send reply</div>
+        <div class="btn ghost" style="padding:5px;font-size:7.5px;">Edit first</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottomnav">
+    <div class="navitem"><i class="ti ti-home" aria-hidden="true"></i>Home</div>
+    <div class="navitem"><i class="ti ti-inbox" aria-hidden="true"></i>Today</div>
+    <div class="navitem on" style="position:relative;"><i class="ti ti-urgent" aria-hidden="true"></i><div class="badge-num">3</div>Review</div>
+    <div class="navitem"><i class="ti ti-user" aria-hidden="true"></i>Profile</div>
+  </div>
+</div>
+<div class="label">S06 — Review</div>
+</div>
+
+<!-- ══ S07 EMAIL DETAIL (edit mode) ════════════════ -->
+<div>
+<div class="phone" id="s07" onclick="select('s07')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div style="padding:8px 10px 4px;border-bottom:1px solid var(--neutral-100);display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <i class="ti ti-arrow-left" style="font-size:14px;color:var(--neutral-500);" aria-hidden="true"></i>
+      <div style="font-size:11px;font-weight:600;color:var(--neutral-900);">Review &amp; respond</div>
+    </div>
+    <span class="pill urg">URGENT</span>
+  </div>
+  <div class="content" style="height:calc(var(--screen-h) - 116px);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+      <div style="font-size:8.5px;font-weight:600;color:var(--neutral-900);">Server outage — critical</div>
+      <div style="font-size:7px;color:var(--neutral-400);">ops@company.com</div>
+    </div>
+    <div style="font-size:7.5px;color:var(--neutral-500);padding:5px 7px;background:var(--neutral-50);border-radius:6px;margin-bottom:6px;line-height:1.4;">
+      "Our production server has been down for 2 hours. This is causing major revenue loss. Please escalate immediately."
+    </div>
+    <div class="section-label">AI-suggested reply</div>
+    <div style="background:#fff;border:1.5px solid var(--brand);border-radius:8px;padding:6px 8px;margin-bottom:6px;position:relative;">
+      <div style="font-size:6.5px;color:var(--brand);font-weight:700;margin-bottom:3px;">✏ Edit before sending</div>
+      <div style="font-size:7.5px;color:var(--neutral-700);line-height:1.5;">Hi, thank you for reaching out. Our infrastructure team has been alerted and is actively working on the resolution. We expect normal service to resume within 30 minutes. We sincerely apologise for the disruption.</div>
+    </div>
+    <div class="section-label">Jury Agent 2 verdict</div>
+    <div class="card white" style="margin-bottom:8px;">
+      <div class="det-row"><span class="det-key">Verdict</span><span class="det-val" style="color:var(--danger);">✗ Rejected</span></div>
+      <div class="det-row"><span class="det-key">Confidence</span><span class="det-val">58%</span></div>
+      <div style="font-size:7px;color:var(--neutral-500);margin-top:3px;">Reply lacks urgency and specific timeline.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
+      <div class="btn" style="padding:5px;font-size:7px;">Send as-is</div>
+      <div class="btn" style="padding:5px;font-size:7px;background:var(--brand);">Edit &amp; send</div>
+      <div class="btn ghost" style="padding:5px;font-size:7px;color:var(--neutral-500);border-color:var(--neutral-200);">Ignore</div>
+    </div>
+  </div>
+</div>
+<div class="label">S07 — Email Detail (edit)</div>
+</div>
+
+<!-- ══ S08 PROMPT / CHAT ════════════════════════════ -->
+<div>
+<div class="phone" id="s08" onclick="select('s08')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div class="topbar">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h1>Agent prompt</h1>
+      <i class="ti ti-refresh" style="font-size:14px;color:var(--neutral-400);" aria-hidden="true"></i>
+    </div>
+  </div>
+  <div class="content" style="display:flex;flex-direction:column;justify-content:space-between;height:calc(var(--screen-h) - 116px);">
+    <div>
+      <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px;">
+        <div style="background:var(--brand-light);color:var(--brand);font-size:7px;padding:3px 7px;border-radius:20px;font-weight:500;">Urgent emails</div>
+        <div style="background:var(--brand-light);color:var(--brand);font-size:7px;padding:3px 7px;border-radius:20px;font-weight:500;">Classify inbox</div>
+        <div style="background:var(--brand-light);color:var(--brand);font-size:7px;padding:3px 7px;border-radius:20px;font-weight:500;">Daily report</div>
+      </div>
+      <div class="bubble agent">Hello! I'm your email agent. What would you like me to do?</div>
+      <div class="bubble user">Read my unread emails and classify them, then reply to any complaints</div>
+      <div class="bubble agent" style="background:#F0F4FF;border:1px solid #C7D2FE;">
+        <div style="font-size:6.5px;color:var(--brand);font-weight:700;margin-bottom:2px;">⚙ Agent thinking...</div>
+        <div style="font-size:6.5px;color:var(--neutral-600);">→ Calling read_emails(is:unread)</div>
+        <div style="font-size:6.5px;color:var(--neutral-600);">→ Calling classify_email(id1)</div>
+        <div style="font-size:6.5px;color:var(--neutral-600);">→ Calling suggest_reply(id1)</div>
+      </div>
+      <div class="bubble agent">Found 5 unread emails: 1 RECLAMATION (URGENT), 2 SUPPORT, 2 INFO. I've prepared a reply for the complaint — confirm to send?</div>
+      <div style="background:var(--warning-light);border:1px solid #FCD34D;border-radius:8px;padding:5px 8px;margin-top:2px;">
+        <div style="font-size:7px;font-weight:600;color:#92400E;margin-bottom:2px;">Confirm action</div>
+        <div style="font-size:7px;color:var(--neutral-700);">Send reply to customer@gmail.com?</div>
+        <div style="display:flex;gap:4px;margin-top:4px;">
+          <div class="btn" style="padding:4px;font-size:7px;flex:1;">Confirm</div>
+          <div class="btn ghost" style="padding:4px;font-size:7px;flex:1;">Cancel</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:5px;align-items:center;margin-top:6px;">
+      <div class="input-mock" style="flex:1;margin-bottom:0;">Type an instruction...</div>
+      <div style="width:26px;height:26px;background:var(--brand);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="ti ti-send" style="font-size:13px;color:#fff;" aria-hidden="true"></i>
+      </div>
+    </div>
+  </div>
+  <div class="bottomnav">
+    <div class="navitem"><i class="ti ti-home" aria-hidden="true"></i>Home</div>
+    <div class="navitem"><i class="ti ti-inbox" aria-hidden="true"></i>Today</div>
+    <div class="navitem" style="position:relative;"><i class="ti ti-urgent" aria-hidden="true"></i><div class="badge-num">3</div>Review</div>
+    <div class="navitem"><i class="ti ti-user" aria-hidden="true"></i>Profile</div>
+  </div>
+</div>
+<div class="label">S08 — Prompt / Chat</div>
+</div>
+
+<!-- ══ S09 DASHBOARD ═══════════════════════════════ -->
+<div>
+<div class="phone" id="s09" onclick="select('s09')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div class="topbar">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h1>Dashboard</h1>
+      <div class="tabs" style="margin-bottom:0;background:var(--neutral-100);">
+        <div class="tab on" style="padding:2px 5px;">7d</div>
+        <div class="tab" style="padding:2px 5px;">30d</div>
+        <div class="tab" style="padding:2px 5px;">90d</div>
+      </div>
+    </div>
+  </div>
+  <div class="content">
+    <div class="kpi-grid">
+      <div class="kpi"><div class="val">312</div><div class="kl">Emails total</div></div>
+      <div class="kpi"><div class="val" style="color:var(--success);">81%</div><div class="kl">Auto-handled</div></div>
+      <div class="kpi"><div class="val" style="color:var(--brand);">88%</div><div class="kl">Jury approval</div></div>
+      <div class="kpi"><div class="val">4.2s</div><div class="kl">Avg. process</div></div>
+    </div>
+    <div class="section-label">Emails / day — last 7 days</div>
+    <div class="bar-row">
+      <div class="bar" style="height:60%;"></div>
+      <div class="bar" style="height:80%;"></div>
+      <div class="bar" style="height:45%;"></div>
+      <div class="bar" style="height:90%;"></div>
+      <div class="bar" style="height:70%;"></div>
+      <div class="bar" style="height:55%;"></div>
+      <div class="bar" style="height:100%;background:var(--brand);border-color:var(--brand);"></div>
+    </div>
+    <div class="bar-labels">
+      <div class="bar-label">Mon</div><div class="bar-label">Tue</div><div class="bar-label">Wed</div>
+      <div class="bar-label">Thu</div><div class="bar-label">Fri</div><div class="bar-label">Sat</div><div class="bar-label">Today</div>
+    </div>
+    <div class="section-label" style="margin-top:6px;">Category breakdown</div>
+    <div style="display:flex;gap:3px;margin-bottom:6px;">
+      <div style="flex:38;background:#DBEAFE;height:10px;border-radius:4px 0 0 4px;"></div>
+      <div style="flex:29;background:#D1FAE5;height:10px;"></div>
+      <div style="flex:22;background:#FEE2E2;height:10px;"></div>
+      <div style="flex:11;background:#FEF3C7;height:10px;border-radius:0 4px 4px 0;"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:3px;"><div style="width:7px;height:7px;background:#DBEAFE;border-radius:2px;border:1px solid #93C5FD;"></div><div style="font-size:7px;color:var(--neutral-500);">Support 38%</div></div>
+      <div style="display:flex;align-items:center;gap:3px;"><div style="width:7px;height:7px;background:#D1FAE5;border-radius:2px;border:1px solid #6EE7B7;"></div><div style="font-size:7px;color:var(--neutral-500);">Info 29%</div></div>
+      <div style="display:flex;align-items:center;gap:3px;"><div style="width:7px;height:7px;background:#FEE2E2;border-radius:2px;border:1px solid #FCA5A5;"></div><div style="font-size:7px;color:var(--neutral-500);">Reclamation 22%</div></div>
+      <div style="display:flex;align-items:center;gap:3px;"><div style="width:7px;height:7px;background:#FEF3C7;border-radius:2px;border:1px solid #FCD34D;"></div><div style="font-size:7px;color:var(--neutral-500);">Commercial 11%</div></div>
+    </div>
+    <div class="section-label" style="margin-top:6px;">Avg. sentiment score</div>
+    <div class="progress-wrap" style="height:8px;border-radius:4px;">
+      <div class="progress-fill" style="width:68%;background:linear-gradient(90deg,#F59E0B,#10B981);"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:7px;color:var(--neutral-400);">
+      <span>Negative</span><span style="color:var(--success);font-weight:600;">68% positive</span><span>Positive</span>
+    </div>
+    <div class="btn" style="margin-top:8px;background:#fff;color:var(--brand);border:1px solid var(--brand);font-size:8px;display:flex;align-items:center;justify-content:center;gap:4px;">
+      <i class="ti ti-download" style="font-size:12px;" aria-hidden="true"></i> Export PDF report
+    </div>
+  </div>
+</div>
+<div class="label">S09 — Dashboard</div>
+</div>
+
+<!-- ══ S10 BULK EMAIL ══════════════════════════════ -->
+<div>
+<div class="phone" id="s10" onclick="select('s10')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div class="topbar">
+    <h1>Bulk email</h1>
+    <p>AI-personalised emails for multiple recipients</p>
+  </div>
+  <div class="content">
+    <div class="section-label">Campaign topic</div>
+    <div class="input-mock">Q3 team meeting — Friday 10h</div>
+    <div class="section-label">Recipients</div>
+    <div class="card white" style="margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div class="avatar">AL</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:8.5px;font-weight:600;color:var(--neutral-900);">Alice Dupont</div>
+          <div style="font-size:7px;color:var(--neutral-400);">alice@co.com · Project manager</div>
+          <div style="font-size:7px;color:var(--neutral-500);">"Prepare the agenda"</div>
+        </div>
+        <i class="ti ti-x" style="font-size:12px;color:var(--neutral-400);" aria-hidden="true"></i>
+      </div>
+    </div>
+    <div class="card white" style="margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div class="avatar" style="background:#FEF3C7;color:#92400E;">BO</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:8.5px;font-weight:600;color:var(--neutral-900);">Bob Martin</div>
+          <div style="font-size:7px;color:var(--neutral-400);">bob@co.com · Developer</div>
+          <div style="font-size:7px;color:var(--neutral-500);">"Present the sprint demo"</div>
+        </div>
+        <i class="ti ti-x" style="font-size:12px;color:var(--neutral-400);" aria-hidden="true"></i>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px dashed var(--neutral-300);border-radius:8px;cursor:pointer;margin-bottom:8px;">
+      <div style="width:24px;height:24px;border-radius:50%;background:var(--neutral-100);display:flex;align-items:center;justify-content:center;">
+        <i class="ti ti-plus" style="font-size:14px;color:var(--neutral-400);" aria-hidden="true"></i>
+      </div>
+      <div style="font-size:8px;color:var(--neutral-400);">Add recipient</div>
+    </div>
+    <div class="section-label">Instructions (optional)</div>
+    <div class="input-mock" style="height:24px;">Mention the importance of punctuality...</div>
+    <div class="btn" style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:6px;">
+      <i class="ti ti-sparkles" style="font-size:13px;" aria-hidden="true"></i>
+      Generate personalised emails
+    </div>
+    <div class="btn ghost" style="margin-top:4px;">Preview &amp; send</div>
+  </div>
+</div>
+<div class="label">S10 — Bulk Email</div>
+</div>
+
+<!-- ══ S11 PROFILE & SETTINGS ══════════════════════ -->
+<div>
+<div class="phone" id="s11" onclick="select('s11')">
+  <div class="notch"></div>
+  <div class="status"><span>9:41</span><span>●●●</span></div>
+  <div class="topbar">
+    <h1>Profile &amp; settings</h1>
+  </div>
+  <div class="content">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:1px solid var(--neutral-100);margin-bottom:8px;">
+      <div class="avatar" style="width:36px;height:36px;font-size:13px;">EL</div>
+      <div>
+        <div style="font-size:10px;font-weight:600;color:var(--neutral-900);">Elking</div>
+        <div style="font-size:7.5px;color:var(--neutral-400);">elking@gmail.com</div>
+        <div style="font-size:7px;color:var(--success);">● Gmail connected</div>
+      </div>
+    </div>
+    <div class="section-label">Agent settings</div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-lbl">Auto-processing</div>
+        <div style="font-size:7px;color:var(--neutral-400);">Agent replies automatically</div>
+      </div>
+      <div class="toggle"><div class="knob"></div></div>
+    </div>
+    <div class="det-row" style="padding:4px 0;">
+      <span class="det-key" style="font-size:8.5px;">Urgency threshold</span>
+      <span class="det-val" style="color:var(--brand);">Score ≥ 7</span>
+    </div>
+    <div class="det-row" style="padding:4px 0;">
+      <span class="det-key" style="font-size:8.5px;">Jury confidence min.</span>
+      <span class="det-val" style="color:var(--brand);">80%</span>
+    </div>
+    <div class="divider"></div>
+    <div class="section-label">App preferences</div>
+    <div class="toggle-row">
+      <div class="toggle-lbl">Push notifications</div>
+      <div class="toggle"><div class="knob"></div></div>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-lbl">Daily summary</div>
+      <div class="toggle"><div class="knob"></div></div>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-lbl">Dark mode</div>
+      <div class="toggle off"><div class="knob"></div></div>
+    </div>
+    <div class="det-row" style="padding:4px 0;">
+      <span class="det-key" style="font-size:8.5px;">Reply language</span>
+      <span class="det-val" style="color:var(--brand);">French</span>
+    </div>
+    <div class="divider"></div>
+    <div style="display:flex;align-items:center;gap:5px;padding:4px 0;cursor:pointer;">
+      <i class="ti ti-trash" style="font-size:13px;color:var(--neutral-400);" aria-hidden="true"></i>
+      <div style="font-size:8.5px;color:var(--neutral-500);">Clear conversation history</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:5px;padding:4px 0;cursor:pointer;">
+      <i class="ti ti-logout" style="font-size:13px;color:var(--danger);" aria-hidden="true"></i>
+      <div style="font-size:8.5px;color:var(--danger);">Sign out</div>
+    </div>
+  </div>
+  <div class="bottomnav">
+    <div class="navitem"><i class="ti ti-home" aria-hidden="true"></i>Home</div>
+    <div class="navitem"><i class="ti ti-inbox" aria-hidden="true"></i>Today</div>
+    <div class="navitem" style="position:relative;"><i class="ti ti-urgent" aria-hidden="true"></i><div class="badge-num">3</div>Review</div>
+    <div class="navitem on"><i class="ti ti-user" aria-hidden="true"></i>Profile</div>
+  </div>
+</div>
+<div class="label">S11 — Profile & Settings</div>
+</div>
+
+</div>
+</div>
+
+<script>
+function select(id) {
+  document.querySelectorAll('.phone').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+</script>
