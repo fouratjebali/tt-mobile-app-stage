@@ -1,4 +1,4 @@
-# GEMINI.md
+# arch.md
 
 > Context file for AI assistants working on this repository. Read this
 > file in full before making changes, answering architecture questions,
