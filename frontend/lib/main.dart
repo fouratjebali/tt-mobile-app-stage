@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/app/app.dart';
-import 'package:frontend/core/di/di.dart' as di;
+import 'package:tt_mail_assistant/app/app.dart';
+import 'package:tt_mail_assistant/core/di/di.dart' as di;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
