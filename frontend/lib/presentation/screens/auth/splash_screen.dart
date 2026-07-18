@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/services/launch_preferences.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
+import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
+import 'package:tt_mail_assistant/presentation/screens/auth/login_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/auth/onboarding_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/inbox/inbox_screen.dart';
 
@@ -12,7 +15,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  static const _minimumSplashDuration = Duration(milliseconds: 2400);
+  static const _minimumSplashDuration = Duration(milliseconds: 900);
 
   @override
   void initState() {
@@ -23,16 +26,27 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _openNextScreen() async {
-    final results = await Future.wait([
-      LaunchPreferences.hasSeenOnboarding(),
+    var hasSeenOnboarding = false;
+    Object? currentUser;
+
+    await Future.wait<void>([
+      LaunchPreferences.hasSeenOnboarding().then((value) {
+        hasSeenOnboarding = value;
+      }),
+      getIt<AuthUseCase>().getCurrentUser().then((value) {
+        currentUser = value;
+      }),
       Future<void>.delayed(_minimumSplashDuration),
     ]);
 
     if (!mounted) return;
 
-    final hasSeenOnboarding = results.first as bool;
-    final nextScreen =
-        hasSeenOnboarding ? const InboxScreen() : const OnboardingScreen();
+    final Widget nextScreen =
+        !hasSeenOnboarding
+            ? const OnboardingScreen()
+            : currentUser == null
+            ? const LoginScreen()
+            : const InboxScreen();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(

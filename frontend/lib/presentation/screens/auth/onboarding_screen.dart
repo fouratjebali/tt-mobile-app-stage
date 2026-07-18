@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/services/launch_preferences.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
-import 'package:tt_mail_assistant/presentation/screens/inbox/inbox_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/auth/login_screen.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -56,7 +56,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const InboxScreen()),
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
     );
   }
 

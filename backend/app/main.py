@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.db.session import init_db
 
 
 def create_app() -> FastAPI:
@@ -12,6 +13,10 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+    @app.on_event("startup")
+    def on_startup() -> None:
+        init_db()
 
     @app.get("/")
     def root() -> dict[str, str]:
