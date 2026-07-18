@@ -1,4 +1,4 @@
-package com.example.frontend
+package com.tunisietelecom.ttmailassistant
 
 import io.flutter.embedding.android.FlutterActivity
 

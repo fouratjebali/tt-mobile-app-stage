@@ -1,4 +1,5 @@
 from pydantic import Field
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,8 +16,18 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379"
     AGENT1_URL: str = Field(default="http://agent1:8001")
     AGENT2_URL: str = Field(default="http://agent2:8002")
+    GOOGLE_OAUTH_CLIENT_ID: str = ""
+    GOOGLE_OAUTH_SERVER_CLIENT_ID: str = ""
 
     HTTP_TIMEOUT_SECONDS: float = 120.0
+
+    @model_validator(mode="after")
+    def normalize_database_url(self) -> "Settings":
+        if self.DATABASE_URL.startswith("postgresql://"):
+            self.DATABASE_URL = self.DATABASE_URL.replace(
+                "postgresql://", "postgresql+psycopg://", 1
+            )
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",

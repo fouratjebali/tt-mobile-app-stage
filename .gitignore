@@ -22,6 +22,8 @@ __pycache__/
 venv/
 .venv/
 env/
+rapport_de_stage.tex
+clientandroidid.json
 
 # Flutter / Dart
 frontend/.dart_tool/

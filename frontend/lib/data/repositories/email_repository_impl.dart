@@ -1,6 +1,6 @@
-import 'package:frontend/data/datasources/remote/api_service.dart';
-import 'package:frontend/domain/entities/email.dart';
-import 'package:frontend/domain/repositories/email_repository.dart';
+import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
+import 'package:tt_mail_assistant/domain/entities/email.dart';
+import 'package:tt_mail_assistant/domain/repositories/email_repository.dart';
 
 class EmailRepositoryImpl implements EmailRepository {
   final ApiService apiService;
@@ -22,4 +22,3 @@ class EmailRepositoryImpl implements EmailRepository {
     throw UnimplementedError();
   }
 }
-
