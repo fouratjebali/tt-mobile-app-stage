@@ -1,0 +1,25 @@
+# Secrets 
+credentials.json
+token.json
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# VS Code
+.vscode/
+
+# Data
+data/training/*.json
+
+# Data logs — can be large
+data/logs/
+
+# OS
+.DS_Store
+Thumbs.db
+backlog-produit.tex

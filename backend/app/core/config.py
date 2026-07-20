@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379"
     AGENT1_URL: str = Field(default="http://agent1:8001")
     AGENT2_URL: str = Field(default="http://agent2:8002")
+    SENTIMENT_AGENT_URL: str = Field(default="http://sentiment-agent:8003")
     GOOGLE_OAUTH_CLIENT_ID: str = ""
     GOOGLE_OAUTH_SERVER_CLIENT_ID: str = ""
 

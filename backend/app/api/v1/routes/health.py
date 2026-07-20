@@ -15,4 +15,5 @@ def health() -> HealthResponse:
         version=settings.APP_VERSION,
         agent1_url=settings.AGENT1_URL,
         agent2_url=settings.AGENT2_URL,
+        sentiment_agent_url=settings.SENTIMENT_AGENT_URL,
     )

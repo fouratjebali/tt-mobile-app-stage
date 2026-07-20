@@ -9,6 +9,7 @@ Read `Architecture.md` before changing architecture or business rules. It is the
 ```text
 TT-Mail-Assistant/
 |-- ai-email-agent/      # Agent 1: Gmail tools, LangGraph/LangChain agent, FastAPI wrapper
+|-- ai-email-agent-social-media/ # Sentiment agent for future social media analysis
 |-- backend/             # FastAPI backend used by the mobile app
 |-- frontend/            # Flutter mobile/web app
 |-- jury-agent/          # Agent 2 placeholder API; replace with teammate's real Jury Agent
@@ -79,6 +80,7 @@ Useful API URLs:
 - Backend health: `http://localhost:8000/api/v1/health`
 - Agent 1 health: `http://localhost:8001/health`
 - Jury Agent health: `http://localhost:8002/health`
+- Social sentiment agent health: `http://localhost:8003/health`
 
 ## Flutter Setup
 
@@ -126,6 +128,7 @@ Current backend routes:
 - `GET /api/v1/health`
 - `POST /api/v1/agent/chat`
 - `POST /api/v1/jury/verify`
+- `POST /api/v1/sentiment/analyze`
 
 ## Agent 1 Development
 
@@ -175,6 +178,32 @@ Expected Jury response contract:
   "comment": "Explanation of the verdict"
 }
 ```
+
+## Social Sentiment Agent
+
+The future social media sentiment feature lives in:
+
+```text
+ai-email-agent-social-media/
+```
+
+It is exposed in Docker Compose as:
+
+- Direct agent health: `GET http://localhost:8003/health`
+- Direct sentiment analysis: `POST http://localhost:8003/sentiment/analyze`
+- Backend proxy: `POST http://localhost:8000/api/v1/sentiment/analyze`
+
+Example request through the backend:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://localhost:8000/api/v1/sentiment/analyze `
+  -ContentType "application/json" `
+  -Body '{"text":"Votre service est vraiment nul"}'
+```
+
+The first sentiment request can be slow because the Hugging Face model is downloaded and cached. Docker Compose stores that cache in the `sentiment_agent_cache` volume.
 
 ## Rules For Everyone
 

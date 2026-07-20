@@ -7,3 +7,4 @@ class HealthResponse(BaseModel):
     version: str
     agent1_url: str
     agent2_url: str
+    sentiment_agent_url: str

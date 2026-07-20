@@ -1,0 +1,30 @@
+# LLM & Agent Framework
+langchain==0.2.16
+langchain-ollama==0.1.3
+langchain-community==0.2.16
+langgraph==0.2.14
+langchain-core==0.2.38
+
+# Numpy — wheel précompilé pour Python 3.11 (évite la compilation)
+numpy==1.26.4
+
+# Gmail API
+google-auth==2.34.0
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
+google-api-python-client==2.143.0
+
+# Configuration
+python-dotenv==1.0.1
+pydantic==2.8.2
+pydantic-settings==2.4.0
+
+# Affichage console
+rich==13.8.1
+
+# API
+fastapi==0.115.0
+uvicorn==0.30.6
+
+# Tests
+pytest==8.3.3

@@ -1,0 +1,11 @@
+# Dépendances SUPPLÉMENTAIRES pour l'Agent 2 (Jury + Réseaux Sociaux)
+# À installer EN PLUS du requirements.txt existant de l'Agent 1 :
+#
+#   pip install -r requirements_agent2.txt
+#
+# Le reste (langchain, langchain-ollama, langgraph, rich, google-api-python-client...)
+# est déjà dans le requirements.txt du projet original.
+
+transformers>=4.40.0
+torch>=2.2.0
+sentencepiece>=0.2.0

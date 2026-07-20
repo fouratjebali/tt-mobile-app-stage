@@ -37,6 +37,7 @@ services:
       - redis
       - agent1
       - agent2
+      - sentiment-agent
     volumes:
       - ./backend:/app
     env_file:
@@ -44,6 +45,7 @@ services:
     environment:
       AGENT1_URL: http://agent1:8001
       AGENT2_URL: http://agent2:8002
+      SENTIMENT_AGENT_URL: http://sentiment-agent:8003
     networks:
       - tt_mail_net
     restart: unless-stopped
@@ -83,6 +85,30 @@ services:
       - tt_mail_net
     restart: unless-stopped
 
+  sentiment-agent:
+    build:
+      context: ./ai-email-agent-social-media
+      dockerfile: Dockerfile
+    container_name: tt_mail_sentiment_agent
+    command: uvicorn api:app --host 0.0.0.0 --port 8003 --reload
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./ai-email-agent-social-media:/app
+      - sentiment_agent_cache:/root/.cache/huggingface
+    env_file:
+      - .env
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      HF_HOME: /root/.cache/huggingface
+      TRANSFORMERS_CACHE: /root/.cache/huggingface
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - tt_mail_net
+    restart: unless-stopped
+
 
 networks:
   tt_mail_net:
@@ -90,3 +116,4 @@ networks:
 
 volumes:
   postgres_data:
+  sentiment_agent_cache:
