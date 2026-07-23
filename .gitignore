@@ -60,3 +60,5 @@ ai-email-agent/data/logs/
 ai-email-agent-social-media/data/training/*.json
 ai-email-agent-social-media/data/logs/
 ai-email-agent-social-media/.cache/
+*.db
+local_cache.db

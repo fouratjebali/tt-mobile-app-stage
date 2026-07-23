@@ -56,3 +56,5 @@ class EmailAnalysis(Base):
     email: Mapped["Email"] = relationship(
         back_populates="analyses",
     )
+
+    )
