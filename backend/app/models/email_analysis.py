@@ -1,10 +1,15 @@
 from datetime import datetime
 from uuid import uuid4
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+
+if TYPE_CHECKING:
+    from app.models.email import Email
 
 
 class EmailAnalysis(Base):
