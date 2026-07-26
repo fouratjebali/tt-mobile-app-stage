@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/theme/app_theme.dart';
 import 'package:tt_mail_assistant/presentation/screens/auth/splash_screen.dart';
-
+import 'package:frontend/presentation/screens/inbox/inbox_screen.dart';
+import 'package:frontend/presentation/screens/profile/profile_screen.dart';
 class TTMailApp extends StatelessWidget {
   const TTMailApp({super.key});
 
@@ -12,6 +13,8 @@ class TTMailApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: const SplashScreen(),
+      theme: ThemeData.dark(useMaterial3: true),
+      home: const ProfileScreen(),
     );
   }
 }
