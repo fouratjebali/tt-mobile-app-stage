@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/presentation/screens/inbox/inbox_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/profile/profile_screen.dart';
-
+import 'package:tt_mail_assistant/presentation/screens/prompt/prompt_screen.dart';
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -26,7 +26,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Open Prompt Screen
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const PromptScreen(),
+            ),
+          );
         },
         child: const Icon(Icons.add),
       ),
@@ -44,20 +49,41 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           });
         },
 
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
+
+          const BottomNavigationBarItem(
             icon: Icon(Icons.today),
             label: 'Today',
           ),
+
           BottomNavigationBarItem(
-            icon: Icon(Icons.mark_email_unread),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.mark_email_unread),
+
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             label: 'Review',
           ),
-          BottomNavigationBarItem(
+
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: 'Profile',
           ),
