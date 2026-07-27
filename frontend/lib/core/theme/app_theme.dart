@@ -35,8 +35,27 @@ class AppTheme {
           fontWeight: FontWeight.w500,
           height: 1.45,
         ),
-        bodyMedium: TextStyle(color: AppPalette.pine, height: 1.4),
+        bodyMedium: TextStyle(
+          color: AppPalette.pine,
+          height: 1.4,
+        ),
       ),
+    );
+  }
+
+  static ThemeData get dark {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: AppPalette.teal,
+      brightness: Brightness.dark,
+      primary: AppPalette.teal,
+      secondary: AppPalette.lavender,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: Colors.black,
+      fontFamily: 'Roboto',
     );
   }
 }

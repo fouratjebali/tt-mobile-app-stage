@@ -12,13 +12,22 @@ import 'package:tt_mail_assistant/domain/repositories/auth_repository.dart';
 import 'package:tt_mail_assistant/domain/repositories/email_repository.dart';
 import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
 import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
-
-/// DI tool: get_it (already in pubspec.yaml, chosen as the service locator
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tt_mail_assistant/data/repositories/settings_repository_impl.dart';
+import 'package:tt_mail_assistant/domain/repositories/settings_repository.dart';
+import 'package:tt_mail_assistant/core/theme/theme_controller.dart';
+/// Dtool: get_it (already in pubspec.yaml, chosen as the service locator
 /// for this project — see the "Choisir l'outil DI" subtask).
 final getIt = GetIt.instance;
 
 Future<void> init() async {
   if (getIt.isRegistered<AuthUseCase>()) return;
+
+  final prefs = await SharedPreferences.getInstance();
+  getIt.registerSingleton<SharedPreferences>(prefs);
+  getIt.registerSingleton<ThemeController>(
+    ThemeController(getIt<SharedPreferences>()),
+  );
 
   // ---------------------------------------------------------------------
   // DataSources
@@ -39,6 +48,7 @@ Future<void> init() async {
 
   // ---------------------------------------------------------------------
   // Repositories
+
   // ---------------------------------------------------------------------
   getIt.registerLazySingleton<AuthRepository>(
         () => AuthRepositoryImpl(
@@ -49,6 +59,11 @@ Future<void> init() async {
   );
   getIt.registerLazySingleton<EmailRepository>(
         () => EmailRepositoryImpl(apiService: getIt<ApiService>()),
+  );
+  getIt.registerLazySingleton<SettingsRepository>(
+        () => SettingsRepositoryImpl(
+      getIt<SharedPreferences>(),
+    ),
   );
 
   // ---------------------------------------------------------------------
