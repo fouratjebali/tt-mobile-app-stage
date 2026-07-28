@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/theme_controller.dart';
+import 'package:tt_mail_assistant/domain/repositories/auth_repository.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -131,8 +132,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton.icon(
             icon: const Icon(Icons.logout),
             label: const Text("Logout"),
-            onPressed: () {
-              // TODO: logout logic
+            onPressed: () async {
+
+              await getIt<AuthRepository>().signOut();
+
+              if (context.mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const Scaffold(
+                      body: Center(
+                        child: Text("Logged out"),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
             },
           ),
         ],
