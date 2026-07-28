@@ -57,4 +57,3 @@ class EmailAnalysis(Base):
         back_populates="analyses",
     )
 
-    )

@@ -45,4 +45,4 @@ class DashboardStats(Base):
         default=datetime.utcnow,
         nullable=False,
     )
-    )
+

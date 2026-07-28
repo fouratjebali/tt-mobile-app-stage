@@ -46,5 +46,3 @@ class AppSettings(Base):
         onupdate=datetime.utcnow,
         nullable=False,
     )
-    )
-    (Add offline cache database schema and Alembic migrations)
