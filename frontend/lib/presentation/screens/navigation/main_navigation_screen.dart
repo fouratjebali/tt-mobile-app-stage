@@ -11,9 +11,8 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
-
   final List<Widget> _screens = const [
-    InboxScreen(), // Home
+    Center(child: Text('HOME')),
     Center(child: Text('Today')),
     Center(child: Text('Review')),
     ProfileScreen(),

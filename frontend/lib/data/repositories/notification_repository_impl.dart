@@ -1,4 +1,4 @@
-import '../../domain/entities/notification.dart';
+import '../../domain/entities/notification_entity.dart';
 import '../../domain/repositories/notification_repository.dart';
 
 
