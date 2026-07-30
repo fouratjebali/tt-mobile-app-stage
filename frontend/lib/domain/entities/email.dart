@@ -1,5 +1,7 @@
 enum Priority { URGENT, NORMAL, LOW }
 
+enum EmailCategory { RECLAMATION, INFORMATION, SUPPORT, COMMERCIAL }
+
 enum Status { PENDING_ANALYSIS, PENDING_JURY, PENDING_USER_REVIEW, DONE }
 
 enum JuryVerdict { APPROVED, REJECTED, UNCERTAIN }
@@ -37,12 +39,14 @@ class Analysis {
   final String suggestedReply;
   final Priority priority;
   final double confidence;
+  final EmailCategory? category;
 
   Analysis({
     required this.summary,
     required this.suggestedReply,
     required this.priority,
     required this.confidence,
+    this.category,
   });
 }
 

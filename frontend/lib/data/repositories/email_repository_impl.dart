@@ -21,4 +21,20 @@ class EmailRepositoryImpl implements EmailRepository {
   Future<void> sendReply({required String emailId, required String body}) {
     throw UnimplementedError();
   }
+
+  // --- AJOUT : stubs en attendant la vraie intégration API (carte séparée) ---
+  @override
+  Future<List<Email>> getTodayEmails() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<Email>> getReviewRequiredEmails() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Email?> getEmailById(String id) {
+    throw UnimplementedError();
+  }
 }
