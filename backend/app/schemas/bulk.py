@@ -20,4 +20,9 @@ class BulkRequest(BaseModel):
 
 
 class BulkResponse(BaseModel):
-    result: str
+    status: str = "ok"
+    total: int = 0
+    sent: int = 0
+    errors: int = 0
+    details: list[dict[str, Any]] = Field(default_factory=list)
+    raw_result: str | None = None
