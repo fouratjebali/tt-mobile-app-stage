@@ -17,10 +17,12 @@ class Settings(BaseSettings):
     AGENT1_URL: str = Field(default="http://agent1:8001")
     AGENT2_URL: str = Field(default="http://agent2:8002")
     SENTIMENT_AGENT_URL: str = Field(default="http://sentiment-agent:8003")
+    OLLAMA_BASE_URL: str = Field(default="http://host.docker.internal:11434")
     GOOGLE_OAUTH_CLIENT_ID: str = ""
     GOOGLE_OAUTH_SERVER_CLIENT_ID: str = ""
 
     HTTP_TIMEOUT_SECONDS: float = 120.0
+    HEALTHCHECK_TIMEOUT_SECONDS: float = 4.0
 
     @model_validator(mode="after")
     def normalize_database_url(self) -> "Settings":
