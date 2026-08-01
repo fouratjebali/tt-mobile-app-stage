@@ -47,6 +47,7 @@ class EmailDetailResponse(BaseModel):
 class SendEmailResponse(BaseModel):
     status: str = "ok"
     message_id: str | None = None
+    jury_verdict: dict[str, Any] | None = None
     raw_result: str | None = None
 
 

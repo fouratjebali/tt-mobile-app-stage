@@ -1,22 +1,14 @@
-from typing import Any, Literal
-
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+
+from schemas import JuryRequest, JuryResponse
+from verifier import JuryVerifier
 
 
-app = FastAPI(title="TT Mail Assistant Jury Agent")
-
-
-class JuryRequest(BaseModel):
-    email: dict[str, Any]
-    analysis: dict[str, Any]
-    agent_response: dict[str, Any]
-
-
-class JuryResponse(BaseModel):
-    verdict: Literal["VALIDATED", "REJECTED", "PENDING"]
-    confidenceScore: float = Field(ge=0.0, le=1.0)
-    comment: str
+app = FastAPI(
+    title="TT Mail Assistant Jury Agent",
+    description="Rule-based verifier for Agent 1 email analyses and draft replies.",
+)
+verifier = JuryVerifier()
 
 
 @app.get("/health")
@@ -25,9 +17,5 @@ def health() -> dict[str, str]:
 
 
 @app.post("/verify", response_model=JuryResponse)
-def verify(_: JuryRequest) -> JuryResponse:
-    return JuryResponse(
-        verdict="PENDING",
-        confidenceScore=0.0,
-        comment="Placeholder Jury Agent. Replace this with the external Agent 2 implementation.",
-    )
+def verify(request: JuryRequest) -> JuryResponse:
+    return verifier.verify(request)
