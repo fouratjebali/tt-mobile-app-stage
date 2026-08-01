@@ -13,7 +13,15 @@ from app.services.agent_service import AgentService, get_agent_service
 router = APIRouter()
 
 
-@router.post("/chat", response_model=AgentChatResponse)
+@router.post(
+    "/chat",
+    response_model=AgentChatResponse,
+    summary="Chat with the email agent",
+    description=(
+        "Sends a natural-language instruction to the email AI agent. This is "
+        "used by the mobile assistant screen."
+    ),
+)
 async def chat(
     request: AgentChatRequest,
     service: AgentService = Depends(get_agent_service),
@@ -21,7 +29,14 @@ async def chat(
     return await service.chat(request)
 
 
-@router.post("/chat/stream")
+@router.post(
+    "/chat/stream",
+    summary="Stream chat with the email agent",
+    description=(
+        "Streams the email agent response as Server-Sent Events. The current "
+        "implementation emits the final response as one event."
+    ),
+)
 async def stream_chat(
     request: AgentChatRequest,
     bridge: AgentBridge = Depends(get_agent_bridge),
@@ -33,7 +48,15 @@ async def stream_chat(
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
-@router.post("/confirm-action", response_model=AgentChatResponse)
+@router.post(
+    "/confirm-action",
+    response_model=AgentChatResponse,
+    summary="Confirm an AI action",
+    description=(
+        "Confirms a pending action requested by the AI agent, such as sending "
+        "a prepared reply or executing a bulk email operation."
+    ),
+)
 async def confirm_action(
     request: AgentConfirmActionRequest,
     bridge: AgentBridge = Depends(get_agent_bridge),

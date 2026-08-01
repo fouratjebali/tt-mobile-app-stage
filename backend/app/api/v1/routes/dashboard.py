@@ -7,7 +7,14 @@ from app.services.agent_bridge import AgentBridge, get_agent_bridge
 router = APIRouter()
 
 
-@router.get("/stats", response_model=DashboardStatsResponse)
+@router.get(
+    "/stats",
+    response_model=DashboardStatsResponse,
+    summary="Get dashboard statistics",
+    description=(
+        "Builds aggregated email activity statistics for the mobile dashboard."
+    ),
+)
 async def dashboard_stats(
     bridge: AgentBridge = Depends(get_agent_bridge),
 ) -> DashboardStatsResponse:
@@ -35,7 +42,14 @@ async def dashboard_stats(
     )
 
 
-@router.post("/export", response_model=DashboardExportResponse)
+@router.post(
+    "/export",
+    response_model=DashboardExportResponse,
+    summary="Prepare dashboard export",
+    description=(
+        "Reserved endpoint for future PDF/report export of dashboard metrics."
+    ),
+)
 async def dashboard_export() -> DashboardExportResponse:
     return DashboardExportResponse(
         status="pending",

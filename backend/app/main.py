@@ -9,7 +9,45 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
-        description="Backend API bridge for the mobile app, Agent 1, Jury Agent, PostgreSQL, and Redis.",
+        description=(
+            "REST API for TT Mail Assistant. It connects the Flutter mobile app "
+            "to Google OAuth, PostgreSQL, Redis, the email AI agent, the jury "
+            "agent, and the social sentiment agent."
+        ),
+        openapi_tags=[
+            {
+                "name": "health",
+                "description": "Backend and infrastructure readiness checks.",
+            },
+            {
+                "name": "auth",
+                "description": "Google OAuth 2.0 login, session validation, refresh and logout.",
+            },
+            {
+                "name": "email",
+                "description": "Mobile email workflows: today inbox, review queue, details and replies.",
+            },
+            {
+                "name": "agent",
+                "description": "Conversational bridge to the email AI agent and action confirmation.",
+            },
+            {
+                "name": "jury",
+                "description": "Independent verification of AI analyses and generated responses.",
+            },
+            {
+                "name": "sentiment",
+                "description": "Text sentiment analysis through the social sentiment agent.",
+            },
+            {
+                "name": "bulk",
+                "description": "Bulk email generation and sending workflows.",
+            },
+            {
+                "name": "dashboard",
+                "description": "Dashboard statistics and export-oriented endpoints.",
+            },
+        ],
     )
 
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)

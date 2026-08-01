@@ -18,7 +18,16 @@ from app.services.auth_service import AuthService
 router = APIRouter()
 
 
-@router.post("/google", response_model=AuthResponse)
+@router.post(
+    "/google",
+    response_model=AuthResponse,
+    summary="Sign in with Google tokens",
+    description=(
+        "Receives Google Sign-In tokens from the Android app, verifies the "
+        "Google ID token, upserts the user, creates a backend session and "
+        "returns a Bearer session token."
+    ),
+)
 def sign_in_with_google(
     request: GoogleAuthRequest,
     db: Session = Depends(get_db),
@@ -27,7 +36,16 @@ def sign_in_with_google(
     return AuthResponse(session_token=session_token, user=_to_user_response(user))
 
 
-@router.get("/gmail/url", response_model=GmailAuthUrlResponse)
+@router.get(
+    "/gmail/url",
+    response_model=GmailAuthUrlResponse,
+    summary="Describe the Gmail OAuth entry point",
+    description=(
+        "Documents the OAuth entry point for the mobile flow. Android uses "
+        "native Google Sign-In, so this endpoint explains where tokens must "
+        "be submitted."
+    ),
+)
 def gmail_auth_url() -> GmailAuthUrlResponse:
     return GmailAuthUrlResponse(
         flow="mobile_google_sign_in",
@@ -39,7 +57,15 @@ def gmail_auth_url() -> GmailAuthUrlResponse:
     )
 
 
-@router.post("/gmail/callback", response_model=AuthResponse)
+@router.post(
+    "/gmail/callback",
+    response_model=AuthResponse,
+    summary="Complete Gmail OAuth callback",
+    description=(
+        "Compatibility endpoint for the OAuth callback naming used in the "
+        "Sprint 4 backlog. It accepts the same payload as /auth/google."
+    ),
+)
 def gmail_callback(
     request: GoogleAuthRequest,
     db: Session = Depends(get_db),
@@ -48,28 +74,51 @@ def gmail_callback(
     return AuthResponse(session_token=session_token, user=_to_user_response(user))
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Get current user",
+    description="Returns the authenticated user from the Bearer session token.",
+)
 def me(
     user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
     return _to_user_response(user)
 
 
-@router.get("/session", response_model=UserResponse)
+@router.get(
+    "/session",
+    response_model=UserResponse,
+    summary="Validate current session",
+    description="Validates the Bearer token and returns the session user.",
+)
 def session(
     user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
     return _to_user_response(user)
 
 
-@router.post("/refresh", response_model=UserResponse)
+@router.post(
+    "/refresh",
+    response_model=UserResponse,
+    summary="Refresh current session",
+    description=(
+        "Validates the current backend session. A future iteration can extend "
+        "this endpoint to rotate session tokens or refresh Google tokens."
+    ),
+)
 def refresh_session(
     user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
     return _to_user_response(user)
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout current session",
+    description="Deletes the backend session associated with the Bearer token.",
+)
 def logout(
     response: Response,
     token: Annotated[str, Depends(get_bearer_token)],

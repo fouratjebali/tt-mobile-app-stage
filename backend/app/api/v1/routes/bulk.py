@@ -8,7 +8,15 @@ from app.utils.json_tools import list_from_payload
 router = APIRouter()
 
 
-@router.post("/generate", response_model=BulkResponse)
+@router.post(
+    "/generate",
+    response_model=BulkResponse,
+    summary="Generate bulk email drafts",
+    description=(
+        "Generates personalized emails for multiple recipients without "
+        "sending them. Used for preview and review in the mobile app."
+    ),
+)
 async def generate_bulk(
     request: BulkRequest,
     bridge: AgentBridge = Depends(get_agent_bridge),
@@ -21,7 +29,15 @@ async def generate_bulk(
     return _to_bulk_response(result.payload, result.raw_result)
 
 
-@router.post("/send", response_model=BulkResponse)
+@router.post(
+    "/send",
+    response_model=BulkResponse,
+    summary="Send bulk emails",
+    description=(
+        "Generates and sends personalized emails to the provided recipients "
+        "through the email agent and Gmail sender."
+    ),
+)
 async def send_bulk(
     request: BulkRequest,
     bridge: AgentBridge = Depends(get_agent_bridge),

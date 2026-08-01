@@ -15,7 +15,15 @@ from app.utils.json_tools import list_from_payload
 router = APIRouter()
 
 
-@router.get("/today", response_model=EmailListResponse)
+@router.get(
+    "/today",
+    response_model=EmailListResponse,
+    summary="Get today's emails",
+    description=(
+        "Reads recent Gmail messages through the email agent and returns a "
+        "mobile-friendly list of email previews."
+    ),
+)
 async def today_emails(
     max_results: int = Query(default=10, ge=1, le=50),
     bridge: AgentBridge = Depends(get_agent_bridge),
@@ -24,7 +32,15 @@ async def today_emails(
     return _to_email_list_response(result.payload, result.raw_result)
 
 
-@router.get("/review", response_model=EmailListResponse)
+@router.get(
+    "/review",
+    response_model=EmailListResponse,
+    summary="Get emails requiring review",
+    description=(
+        "Returns urgent or sensitive emails that should be reviewed by the "
+        "user before an automatic response is sent."
+    ),
+)
 async def review_emails(
     max_results: int = Query(default=10, ge=1, le=50),
     bridge: AgentBridge = Depends(get_agent_bridge),
@@ -33,7 +49,15 @@ async def review_emails(
     return _to_email_list_response(result.payload, result.raw_result)
 
 
-@router.get("/{email_id}", response_model=EmailDetailResponse)
+@router.get(
+    "/{email_id}",
+    response_model=EmailDetailResponse,
+    summary="Get email details and AI analysis",
+    description=(
+        "Runs classification, prioritization, summarization and reply "
+        "suggestion through the email agent for a single Gmail message."
+    ),
+)
 async def email_detail(
     email_id: str,
     bridge: AgentBridge = Depends(get_agent_bridge),
@@ -50,7 +74,15 @@ async def email_detail(
     )
 
 
-@router.post("/{email_id}/send", response_model=SendEmailResponse)
+@router.post(
+    "/{email_id}/send",
+    response_model=SendEmailResponse,
+    summary="Send a reply for an email",
+    description=(
+        "Confirms and sends a reply for the selected Gmail message through "
+        "the email agent."
+    ),
+)
 async def send_reply(
     email_id: str,
     request: SendEmailRequest,

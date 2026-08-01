@@ -55,4 +55,7 @@ class EmailListQuery(BaseModel):
 
 
 class SendEmailRequest(BaseModel):
-    body: str = Field(min_length=1)
+    body: str = Field(
+        min_length=1,
+        examples=["Bonjour, merci pour votre message. Nous traitons votre demande."],
+    )
