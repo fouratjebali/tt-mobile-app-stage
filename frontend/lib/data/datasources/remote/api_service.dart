@@ -1,41 +1,53 @@
-import 'dart:async';
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:tt_mail_assistant/data/datasources/local/auth_secure_storage.dart';
 
 class ApiService {
   ApiService({
     required AuthSecureStorage secureStorage,
-    http.Client? client,
+    Dio? dio,
     String? baseUrl,
   }) : _secureStorage = secureStorage,
-       _client = client ?? http.Client(),
-       _baseUrl =
-           baseUrl ??
-           const String.fromEnvironment(
-             'API_BASE_URL',
-             defaultValue: 'http://10.0.2.2:8000/api/v1',
-           );
+       _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               baseUrl:
+                   baseUrl ??
+                   const String.fromEnvironment(
+                     'API_BASE_URL',
+                     defaultValue: 'http://10.0.2.2:8000/api/v1',
+                   ),
+               connectTimeout: requestTimeout,
+               receiveTimeout: requestTimeout,
+               sendTimeout: requestTimeout,
+               headers: const {
+                 'Accept': 'application/json',
+                 'Content-Type': 'application/json',
+               },
+             ),
+           ) {
+    _dio.interceptors.add(_AuthInterceptor(_secureStorage));
+  }
 
   final AuthSecureStorage _secureStorage;
-  final http.Client _client;
-  final String _baseUrl;
+  final Dio _dio;
 
   static const requestTimeout = Duration(seconds: 12);
 
   Future<Map<String, dynamic>> get(
     String path, {
     bool authenticated = true,
+    Map<String, dynamic>? queryParameters,
   }) async {
     final response = await _send(
-      () async => _client.get(
-        _uri(path),
-        headers: await _headers(authenticated: authenticated),
+      () => _dio.get<Object?>(
+        _normalizePath(path),
+        queryParameters: queryParameters,
+        options: _options(authenticated: authenticated),
       ),
     );
 
-    return _decodeMap(response);
+    return _decodeMap(response.data);
   }
 
   Future<Map<String, dynamic>> post(
@@ -44,14 +56,14 @@ class ApiService {
     bool authenticated = true,
   }) async {
     final response = await _send(
-      () async => _client.post(
-        _uri(path),
-        headers: await _headers(authenticated: authenticated),
-        body: jsonEncode(body ?? const <String, dynamic>{}),
+      () => _dio.post<Object?>(
+        _normalizePath(path),
+        data: body ?? const <String, dynamic>{},
+        options: _options(authenticated: authenticated),
       ),
     );
 
-    return _decodeMap(response);
+    return _decodeMap(response.data);
   }
 
   Future<Map<String, dynamic>> delete(
@@ -59,77 +71,87 @@ class ApiService {
     bool authenticated = true,
   }) async {
     final response = await _send(
-      () async => _client.delete(
-        _uri(path),
-        headers: await _headers(authenticated: authenticated),
+      () => _dio.delete<Object?>(
+        _normalizePath(path),
+        options: _options(authenticated: authenticated),
       ),
     );
 
-    return _decodeMap(response);
+    return _decodeMap(response.data);
   }
 
-  Uri _uri(String path) {
-    final normalizedPath = path.startsWith('/') ? path : '/$path';
-    return Uri.parse('$_baseUrl$normalizedPath');
+  Options _options({required bool authenticated}) {
+    return Options(extra: {'authenticated': authenticated});
   }
 
-  Future<Map<String, String>> _headers({required bool authenticated}) async {
-    final headers = <String, String>{
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    };
-
-    if (authenticated) {
-      final token = await _secureStorage.readBackendToken();
-      if (token != null && token.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-    }
-
-    return headers;
+  String _normalizePath(String path) {
+    return path.startsWith('/') ? path : '/$path';
   }
 
-  Future<http.Response> _send(Future<http.Response> Function() request) async {
-    late final http.Response response;
-
+  Future<Response<Object?>> _send(
+    Future<Response<Object?>> Function() request,
+  ) async {
     try {
-      response = await request().timeout(requestTimeout);
-    } on TimeoutException {
-      throw const ApiException(
-        'Backend is taking too long to respond. Check Docker and try again.',
-      );
-    } on http.ClientException {
-      throw const ApiException(
-        'Cannot reach the backend. Make sure Docker is running.',
-      );
+      return await request();
+    } on DioException catch (error) {
+      throw ApiException(_messageForDioError(error));
     }
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(_errorMessage(response));
-    }
-
-    return response;
   }
 
-  Map<String, dynamic> _decodeMap(http.Response response) {
-    if (response.body.isEmpty) return <String, dynamic>{};
-
-    final payload = jsonDecode(response.body);
-    if (payload is Map<String, dynamic>) return payload;
+  Map<String, dynamic> _decodeMap(Object? data) {
+    if (data == null || data == '') return <String, dynamic>{};
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
 
     throw const ApiException('Backend returned an unexpected response.');
   }
 
-  String _errorMessage(http.Response response) {
-    try {
-      final payload = jsonDecode(response.body) as Map<String, dynamic>;
-      final detail = payload['detail'];
+  String _messageForDioError(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Backend is taking too long to respond. Check Docker and try again.';
+      case DioExceptionType.connectionError:
+        return 'Cannot reach the backend. Make sure Docker is running.';
+      default:
+        return _backendErrorMessage(error.response?.data);
+    }
+  }
+
+  String _backendErrorMessage(Object? data) {
+    if (data is Map<String, dynamic>) {
+      final detail = data['detail'];
       if (detail is String && detail.isNotEmpty) return detail;
-    } catch (_) {
-      // Fall back to a generic message below.
+    }
+    if (data is Map) {
+      final detail = data['detail'];
+      if (detail is String && detail.isNotEmpty) return detail;
     }
 
     return 'Backend request failed.';
+  }
+}
+
+class _AuthInterceptor extends Interceptor {
+  _AuthInterceptor(this._secureStorage);
+
+  final AuthSecureStorage _secureStorage;
+
+  @override
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    final authenticated = options.extra['authenticated'] != false;
+    if (authenticated) {
+      final token = await _secureStorage.readBackendToken();
+      if (token != null && token.isNotEmpty) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
+    }
+
+    handler.next(options);
   }
 }
 
