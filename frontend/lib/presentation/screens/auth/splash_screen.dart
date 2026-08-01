@@ -5,7 +5,7 @@ import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
 import 'package:tt_mail_assistant/presentation/screens/auth/login_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/auth/onboarding_screen.dart';
-import 'package:tt_mail_assistant/presentation/screens/inbox/inbox_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/navigation/main_navigation_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -46,7 +46,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ? const OnboardingScreen()
             : currentUser == null
             ? const LoginScreen()
-            : const InboxScreen();
+            : const MainNavigationScreen();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(

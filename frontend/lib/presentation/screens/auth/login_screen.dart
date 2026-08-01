@@ -3,7 +3,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
-import 'package:tt_mail_assistant/presentation/screens/inbox/inbox_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/navigation/main_navigation_screen.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/auth_view_model.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted || user == null) return;
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const InboxScreen()),
+      MaterialPageRoute<void>(builder: (_) => const MainNavigationScreen()),
     );
   }
 

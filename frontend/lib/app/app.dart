@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/app_theme.dart';
 import 'package:tt_mail_assistant/core/theme/theme_controller.dart';
-import 'package:tt_mail_assistant/presentation/screens/navigation/main_navigation_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/auth/splash_screen.dart';
 
 class TTMailApp extends StatelessWidget {
   const TTMailApp({super.key});
@@ -20,7 +20,7 @@ class TTMailApp extends StatelessWidget {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: themeController.themeMode,
-          home: const MainNavigationScreen(),
+          home: const SplashScreen(),
         );
       },
     );

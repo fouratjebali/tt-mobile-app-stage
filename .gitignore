@@ -27,6 +27,10 @@ env/
 **/env/
 rapport_de_stage.tex
 clientandroidid.json
+frontend/Get
+frontend/Process
+frontend/Run
+frontend/android/app/google-service.json
 
 # Flutter / Dart
 frontend/.dart_tool/

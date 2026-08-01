@@ -10,7 +10,7 @@ from app.db.base import Base
 
 
 if TYPE_CHECKING:
-    from app.db.models.email_analysis import EmailAnalysis
+    from app.models.email_analysis import EmailAnalysis
 
 
 class EmailStatus(str, Enum):

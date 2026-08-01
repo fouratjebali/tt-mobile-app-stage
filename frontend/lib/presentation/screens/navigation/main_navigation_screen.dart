@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/presentation/screens/inbox/inbox_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/profile/profile_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/prompt/prompt_screen.dart';
+
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -12,7 +13,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
   final List<Widget> _screens = const [
-    Center(child: Text('HOME')),
+    InboxScreen(),
     Center(child: Text('Today')),
     Center(child: Text('Review')),
     ProfileScreen(),
@@ -27,16 +28,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const PromptScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const PromptScreen()),
           );
         },
         child: const Icon(Icons.add),
       ),
 
-      floatingActionButtonLocation:
-      FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -49,10 +47,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         },
 
         items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
 
           const BottomNavigationBarItem(
             icon: Icon(Icons.today),
