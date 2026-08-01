@@ -21,3 +21,9 @@ class AuthResponse(BaseModel):
     token_type: str = "Bearer"
     expires_at: datetime | None = None
     user: UserResponse
+
+
+class GmailAuthUrlResponse(BaseModel):
+    flow: str
+    auth_url: str | None = None
+    message: str

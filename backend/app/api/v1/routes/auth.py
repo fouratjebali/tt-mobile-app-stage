@@ -2,7 +2,12 @@ from fastapi import APIRouter, Depends, Header, Response, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.auth import AuthResponse, GoogleAuthRequest, UserResponse
+from app.schemas.auth import (
+    AuthResponse,
+    GmailAuthUrlResponse,
+    GoogleAuthRequest,
+    UserResponse,
+)
 from app.services.auth_service import AuthService
 
 
@@ -18,8 +23,47 @@ def sign_in_with_google(
     return AuthResponse(session_token=session_token, user=_to_user_response(user))
 
 
+@router.get("/gmail/url", response_model=GmailAuthUrlResponse)
+def gmail_auth_url() -> GmailAuthUrlResponse:
+    return GmailAuthUrlResponse(
+        flow="mobile_google_sign_in",
+        auth_url=None,
+        message=(
+            "Android uses native Google Sign-In. Send the Google tokens to "
+            "POST /api/v1/auth/google or /api/v1/auth/gmail/callback."
+        ),
+    )
+
+
+@router.post("/gmail/callback", response_model=AuthResponse)
+def gmail_callback(
+    request: GoogleAuthRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    user, session_token = AuthService(db).sign_in_with_google(request)
+    return AuthResponse(session_token=session_token, user=_to_user_response(user))
+
+
 @router.get("/me", response_model=UserResponse)
 def me(
+    authorization: str = Header(default=""),
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    user = AuthService(db).get_current_user(_extract_bearer_token(authorization))
+    return _to_user_response(user)
+
+
+@router.get("/session", response_model=UserResponse)
+def session(
+    authorization: str = Header(default=""),
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    user = AuthService(db).get_current_user(_extract_bearer_token(authorization))
+    return _to_user_response(user)
+
+
+@router.post("/refresh", response_model=UserResponse)
+def refresh_session(
     authorization: str = Header(default=""),
     db: Session = Depends(get_db),
 ) -> UserResponse:
