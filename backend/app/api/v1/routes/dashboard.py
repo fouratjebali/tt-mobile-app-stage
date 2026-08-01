@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 
 from app.schemas.dashboard import DashboardExportResponse, DashboardStatsResponse
 from app.services.agent_bridge import AgentBridge, get_agent_bridge
-from app.utils.json_tools import parse_agent_json
 
 
 router = APIRouter()
@@ -12,8 +11,8 @@ router = APIRouter()
 async def dashboard_stats(
     bridge: AgentBridge = Depends(get_agent_bridge),
 ) -> DashboardStatsResponse:
-    raw_result = await bridge.dashboard_stats()
-    payload = parse_agent_json(raw_result)
+    result = await bridge.dashboard_stats()
+    payload = result.payload
     return DashboardStatsResponse(
         processed_count=int(payload.get("processed_count", 0) or 0),
         urgent_count=int(payload.get("urgent_count", 0) or 0),
@@ -32,7 +31,7 @@ async def dashboard_stats(
                 "categories",
             }
         },
-        raw_result=raw_result,
+        raw_result=result.raw_result,
     )
 
 

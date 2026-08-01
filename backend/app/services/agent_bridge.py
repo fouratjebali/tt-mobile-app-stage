@@ -1,10 +1,18 @@
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+from app.utils.json_tools import parse_agent_json
+
+
+@dataclass(frozen=True)
+class AgentBridgeResult:
+    payload: dict[str, Any]
+    raw_result: str
 
 
 class AgentBridge:
@@ -58,36 +66,58 @@ class AgentBridge:
             json={"text": text},
         )
 
-    async def read_today_emails(self, max_results: int = 10) -> str:
-        return await self.chat(
-            "Read today's Gmail inbox messages using read_emails. "
-            "Return only structured JSON with id, subject, sender, date, "
-            "is_read and body_preview.\n"
-            f"max_results={max_results}"
+    async def read_today_emails(self, max_results: int = 10) -> AgentBridgeResult:
+        return await self._chat_json(
+            task=(
+                "Read today's Gmail inbox messages using read_emails.\n"
+                f"max_results={max_results}"
+            ),
+            expected_schema=(
+                '{"status":"ok","count":0,"emails":[{"id":"","subject":"",'
+                '"sender":"","date":"","is_read":false,"body_preview":""}]}'
+            ),
         )
 
-    async def read_review_emails(self, max_results: int = 10) -> str:
-        return await self.chat(
-            "Find emails that need user review. Use get_urgent_emails first. "
-            "Return only structured JSON for the mobile review screen.\n"
-            f"max_results={max_results}"
+    async def read_review_emails(self, max_results: int = 10) -> AgentBridgeResult:
+        return await self._chat_json(
+            task=(
+                "Find emails that need user review. Use get_urgent_emails first.\n"
+                f"max_results={max_results}"
+            ),
+            expected_schema=(
+                '{"status":"ok","count":0,"urgent_emails":[{"id":"","subject":"",'
+                '"sender":"","category":"","priority":"URGENT","urgency_score":0,'
+                '"body_preview":""}]}'
+            ),
         )
 
-    async def get_email_detail(self, email_id: str) -> str:
-        return await self.chat(
-            "Analyze this Gmail message for the mobile detail screen. "
-            "Use classify_email, prioritize_email, summarize_email and "
-            "suggest_reply. Return only structured JSON.\n"
-            f"email_id={email_id}"
+    async def get_email_detail(self, email_id: str) -> AgentBridgeResult:
+        return await self._chat_json(
+            task=(
+                "Analyze this Gmail message for the mobile detail screen. "
+                "Use classify_email, prioritize_email, summarize_email and "
+                "suggest_reply.\n"
+                f"email_id={email_id}"
+            ),
+            expected_schema=(
+                '{"email":{"id":"","subject":"","sender":"","date":"",'
+                '"body_preview":""},"category":"","confidence":0.0,'
+                '"priority":"","urgency_score":0,"summary":"",'
+                '"action_required":"","language":"","suggested_reply":"",'
+                '"reply_subject":""}'
+            ),
         )
 
-    async def send_email_reply(self, email_id: str, body: str) -> str:
-        return await self.chat(
-            "Send the following reply for the selected Gmail message. "
-            "Use the email id to identify the recipient if needed, then send "
-            "with send_single_email. Return only structured JSON.\n"
-            f"email_id={email_id}\n"
-            f"body={body}"
+    async def send_email_reply(self, email_id: str, body: str) -> AgentBridgeResult:
+        return await self._chat_json(
+            task=(
+                "Send the following reply for the selected Gmail message. "
+                "Use the email id to identify the recipient if needed, then send "
+                "with send_single_email.\n"
+                f"email_id={email_id}\n"
+                f"body={body}"
+            ),
+            expected_schema='{"status":"sent","message_id":""}',
         )
 
     async def generate_bulk(
@@ -96,14 +126,19 @@ class AgentBridge:
         recipients: list[dict[str, Any]],
         topic: str,
         instructions: str = "",
-    ) -> str:
-        return await self.chat(
-            "Generate personalized bulk emails for preview only. "
-            "Use generate_and_send_bulk_emails with dry_run=true. "
-            "Return only structured JSON.\n"
-            f"recipients={recipients}\n"
-            f"topic={topic}\n"
-            f"instructions={instructions}"
+    ) -> AgentBridgeResult:
+        return await self._chat_json(
+            task=(
+                "Generate personalized bulk emails for preview only. "
+                "Use generate_and_send_bulk_emails with dry_run=true.\n"
+                f"recipients={recipients}\n"
+                f"topic={topic}\n"
+                f"instructions={instructions}"
+            ),
+            expected_schema=(
+                '{"status":"ok","total":0,"sent":0,"errors":0,'
+                '"details":[{"to":"","subject":"","body":"","status":"draft"}]}'
+            ),
         )
 
     async def send_bulk(
@@ -112,21 +147,42 @@ class AgentBridge:
         recipients: list[dict[str, Any]],
         topic: str,
         instructions: str = "",
-    ) -> str:
-        return await self.chat(
-            "Generate and send personalized bulk emails. "
-            "Use generate_and_send_bulk_emails with dry_run=false. "
-            "Return only structured JSON.\n"
-            f"recipients={recipients}\n"
-            f"topic={topic}\n"
-            f"instructions={instructions}"
+    ) -> AgentBridgeResult:
+        return await self._chat_json(
+            task=(
+                "Generate and send personalized bulk emails. "
+                "Use generate_and_send_bulk_emails with dry_run=false.\n"
+                f"recipients={recipients}\n"
+                f"topic={topic}\n"
+                f"instructions={instructions}"
+            ),
+            expected_schema=(
+                '{"status":"ok","total":0,"sent":0,"errors":0,'
+                '"details":[{"to":"","subject":"","status":"sent","message_id":""}]}'
+            ),
         )
 
-    async def dashboard_stats(self) -> str:
-        return await self.chat(
-            "Build dashboard stats from recent Gmail activity. "
-            "Return only structured JSON with processed_count, urgent_count, "
-            "review_count, sent_count and categories."
+    async def dashboard_stats(self) -> AgentBridgeResult:
+        return await self._chat_json(
+            task="Build dashboard stats from recent Gmail activity.",
+            expected_schema=(
+                '{"processed_count":0,"urgent_count":0,"review_count":0,'
+                '"sent_count":0,"categories":{"RECLAMATION":0,"INFORMATION":0,'
+                '"SUPPORT":0,"COMMERCIAL":0}}'
+            ),
+        )
+
+    async def _chat_json(self, *, task: str, expected_schema: str) -> AgentBridgeResult:
+        raw_result = await self.chat(
+            "You are serving a mobile REST API. Return ONLY valid JSON. "
+            "Do not include markdown fences, commentary, explanations, or prose. "
+            "Use this exact shape when possible:\n"
+            f"{expected_schema}\n\n"
+            f"Task:\n{task}"
+        )
+        return AgentBridgeResult(
+            payload=parse_agent_json(raw_result),
+            raw_result=raw_result,
         )
 
     async def _post(
