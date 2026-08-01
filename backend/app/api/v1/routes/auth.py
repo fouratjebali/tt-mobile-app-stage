@@ -1,7 +1,11 @@
-from fastapi import APIRouter, Depends, Header, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_bearer_token, get_current_user
 from app.db.session import get_db
+from app.models.auth import User
 from app.schemas.auth import (
     AuthResponse,
     GmailAuthUrlResponse,
@@ -46,47 +50,34 @@ def gmail_callback(
 
 @router.get("/me", response_model=UserResponse)
 def me(
-    authorization: str = Header(default=""),
-    db: Session = Depends(get_db),
+    user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
-    user = AuthService(db).get_current_user(_extract_bearer_token(authorization))
     return _to_user_response(user)
 
 
 @router.get("/session", response_model=UserResponse)
 def session(
-    authorization: str = Header(default=""),
-    db: Session = Depends(get_db),
+    user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
-    user = AuthService(db).get_current_user(_extract_bearer_token(authorization))
     return _to_user_response(user)
 
 
 @router.post("/refresh", response_model=UserResponse)
 def refresh_session(
-    authorization: str = Header(default=""),
-    db: Session = Depends(get_db),
+    user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
-    user = AuthService(db).get_current_user(_extract_bearer_token(authorization))
     return _to_user_response(user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
     response: Response,
-    authorization: str = Header(default=""),
+    token: Annotated[str, Depends(get_bearer_token)],
+    _: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ) -> Response:
-    AuthService(db).logout(_extract_bearer_token(authorization))
+    AuthService(db).logout(token)
     return response
-
-
-def _extract_bearer_token(authorization: str) -> str:
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not token:
-        return ""
-
-    return token
 
 
 def _to_user_response(user) -> UserResponse:
