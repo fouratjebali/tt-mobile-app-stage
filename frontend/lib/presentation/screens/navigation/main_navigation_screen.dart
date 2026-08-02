@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tt_mail_assistant/presentation/screens/inbox/inbox_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/home/home_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/profile/profile_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/prompt/prompt_screen.dart';
 
@@ -13,7 +13,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
   final List<Widget> _screens = const [
-    InboxScreen(),
+    HomeScreen(),
     Center(child: Text('Today')),
     Center(child: Text('Review')),
     ProfileScreen(),
