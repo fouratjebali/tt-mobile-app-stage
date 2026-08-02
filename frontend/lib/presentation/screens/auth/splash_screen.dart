@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tt_mail_assistant/core/di/di.dart';
-import 'package:tt_mail_assistant/core/services/launch_preferences.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
-import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
-import 'package:tt_mail_assistant/presentation/screens/auth/login_screen.dart';
-import 'package:tt_mail_assistant/presentation/screens/auth/onboarding_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/navigation/main_navigation_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -20,41 +15,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _openNextScreen();
     });
   }
 
   Future<void> _openNextScreen() async {
-    var hasSeenOnboarding = false;
-    Object? currentUser;
-
-    await Future.wait<void>([
-      LaunchPreferences.hasSeenOnboarding().then((value) {
-        hasSeenOnboarding = value;
-      }),
-      getIt<AuthUseCase>().getCurrentUser().then((value) {
-        currentUser = value;
-      }),
-      Future<void>.delayed(_minimumSplashDuration),
-    ]);
+    await Future<void>.delayed(_minimumSplashDuration);
 
     if (!mounted) return;
 
-    final Widget nextScreen =
-        !hasSeenOnboarding
-            ? const OnboardingScreen()
-            : currentUser == null
-            ? const LoginScreen()
-            : const MainNavigationScreen();
-
     Navigator.of(context).pushReplacement(
-      PageRouteBuilder<void>(
-        pageBuilder: (_, __, ___) => nextScreen,
-        transitionDuration: const Duration(milliseconds: 520),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
+      MaterialPageRoute(
+        builder: (_) => const MainNavigationScreen(),
       ),
     );
   }
@@ -67,7 +41,11 @@ class _SplashScreenState extends State<SplashScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppPalette.ink, AppPalette.pine, AppPalette.teal],
+            colors: [
+              AppPalette.ink,
+              AppPalette.pine,
+              AppPalette.teal,
+            ],
           ),
         ),
         child: Center(
@@ -94,14 +72,17 @@ class _SplashScreenState extends State<SplashScreen> {
                   fit: BoxFit.contain,
                 ),
               ),
+
               const SizedBox(height: 34),
+
               SizedBox(
                 width: 34,
                 height: 34,
                 child: CircularProgressIndicator(
                   strokeWidth: 3.2,
                   color: AppPalette.lavender,
-                  backgroundColor: AppPalette.mist.withValues(alpha: 0.18),
+                  backgroundColor:
+                  AppPalette.mist.withValues(alpha: 0.18),
                 ),
               ),
             ],

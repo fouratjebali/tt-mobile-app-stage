@@ -8,5 +8,6 @@ abstract class EmailRepository {
   // --- AJOUT pour la carte "Domain layer -- Email module" ---
   Future<List<Email>> getTodayEmails();
   Future<List<Email>> getReviewRequiredEmails();
+  Future<void> markAsRead(String id);
   Future<Email?> getEmailById(String id);
 }

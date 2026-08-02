@@ -1,11 +1,15 @@
 import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/domain/repositories/email_repository.dart';
-
+import 'package:tt_mail_assistant/data/datasources/local/email_local_datasource.dart';
 class EmailRepositoryImpl implements EmailRepository {
-  EmailRepositoryImpl({required this.apiService});
+  EmailRepositoryImpl({
+    required this.apiService,
+    required this.localDataSource,
+  });
 
   final ApiService apiService;
+  final EmailLocalDataSource localDataSource;
 
   @override
   Future<List<Email>> getEmails() => getTodayEmails();
@@ -29,34 +33,63 @@ class EmailRepositoryImpl implements EmailRepository {
 
   @override
   Future<List<Email>> getTodayEmails() async {
-    final payload = await apiService.get('/email/today');
-    return _parseEmailList(payload);
+    try {
+      final payload = await apiService.get('/email/today');
+
+      final emails = _parseEmailList(payload);
+
+      await localDataSource.saveEmails(emails);
+
+      return emails;
+    } catch (_) {
+      return await localDataSource.getTodayEmails();
+    }
   }
 
   @override
   Future<List<Email>> getReviewRequiredEmails() async {
-    final payload = await apiService.get('/email/review');
-    return _parseEmailList(payload);
-  }
+    try {
+      final payload = await apiService.get('/email/review');
 
+      final emails = _parseEmailList(payload);
+
+      await localDataSource.saveEmails(emails);
+
+      return emails;
+    } catch (_) {
+      return await localDataSource.getReviewEmails();
+    }
+  }
   @override
   Future<Email?> getEmailById(String id) async {
-    final payload = await apiService.get('/email/$id');
-    final map = _asMap(payload);
-    if (map.isEmpty) return null;
+    try {
+      final payload = await apiService.get('/email/$id');
 
-    final emailPayload = map['email'];
-    if (emailPayload is Map) {
-      return _parseEmail({
-        ..._asMap(emailPayload),
-        if (map.containsKey('analysis')) 'analysis': map['analysis'],
-        if (map.containsKey('jury')) 'jury': map['jury'],
-        if (map.containsKey('jury_verdict'))
-          'jury_verdict': map['jury_verdict'],
-      });
+      final map = _asMap(payload);
+      if (map.isEmpty) return null;
+
+      Email email;
+
+      final emailPayload = map['email'];
+
+      if (emailPayload is Map) {
+        email = _parseEmail({
+          ..._asMap(emailPayload),
+          if (map.containsKey('analysis')) 'analysis': map['analysis'],
+          if (map.containsKey('jury')) 'jury': map['jury'],
+          if (map.containsKey('jury_verdict'))
+            'jury_verdict': map['jury_verdict'],
+        });
+      } else {
+        email = _parseEmail(map);
+      }
+
+      await localDataSource.saveEmail(email);
+
+      return email;
+    } catch (_) {
+      return await localDataSource.getEmailById(id);
     }
-
-    return _parseEmail(map);
   }
 
   List<Email> _parseEmailList(Object? payload) {
@@ -245,5 +278,9 @@ class EmailRepositoryImpl implements EmailRepository {
   double _double(Object? value) {
     if (value is num) return value.toDouble();
     return double.tryParse(_string(value)) ?? 0;
+  }
+  @override
+  Future<void> markAsRead(String id) async {
+    await localDataSource.markAsRead(id);
   }
 }
