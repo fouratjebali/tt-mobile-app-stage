@@ -11,7 +11,15 @@ abstract class SettingsRepository {
 
   Future<void> setDarkMode(bool value);
 
-  Future<double> getThreshold();
+  Future<bool> getDailySummary();
 
-  Future<void> setThreshold(double value);
+  Future<void> setDailySummary(bool value);
+
+  Future<double> getConfidenceThreshold();
+
+  Future<void> setConfidenceThreshold(double value);
+
+  Future<double> getUrgencyThreshold();
+
+  Future<void> setUrgencyThreshold(double value);
 }

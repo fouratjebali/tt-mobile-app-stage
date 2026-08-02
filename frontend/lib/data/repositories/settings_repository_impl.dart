@@ -37,12 +37,32 @@ class SettingsRepositoryImpl implements SettingsRepository {
   }
 
   @override
-  Future<double> getThreshold() async {
-    return prefs.getDouble('threshold') ?? 80;
+  Future<bool> getDailySummary() async {
+    return prefs.getBool('dailySummary') ?? true;
   }
 
   @override
-  Future<void> setThreshold(double value) async {
-    await prefs.setDouble('threshold', value);
+  Future<void> setDailySummary(bool value) async {
+    await prefs.setBool('dailySummary', value);
+  }
+
+  @override
+  Future<double> getConfidenceThreshold() async {
+    return prefs.getDouble('confidenceThreshold') ?? 80.0;
+  }
+
+  @override
+  Future<void> setConfidenceThreshold(double value) async {
+    await prefs.setDouble('confidenceThreshold', value);
+  }
+
+  @override
+  Future<double> getUrgencyThreshold() async {
+    return prefs.getDouble('urgencyThreshold') ?? 7.0;
+  }
+
+  @override
+  Future<void> setUrgencyThreshold(double value) async {
+    await prefs.setDouble('urgencyThreshold', value);
   }
 }
