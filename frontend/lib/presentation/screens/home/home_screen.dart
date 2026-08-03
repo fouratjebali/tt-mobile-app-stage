@@ -5,6 +5,7 @@ import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/domain/repositories/auth_repository.dart';
 import 'package:tt_mail_assistant/domain/repositories/settings_repository.dart';
 import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
+import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/prompt/prompt_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -142,7 +143,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   else
                     ...recentEmails
-                        .map((email) => _ActivityCard(email: email))
+                        .map((email) => GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => EmailDetailScreen(
+                                      email: email,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: _ActivityCard(email: email),
+                            ))
                         .toList(),
                   const SizedBox(height: 24),
 

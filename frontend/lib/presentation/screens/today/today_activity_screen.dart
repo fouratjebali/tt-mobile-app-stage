@@ -3,6 +3,7 @@ import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
+import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
 
 class TodayActivityScreen extends StatefulWidget {
   const TodayActivityScreen({super.key});
@@ -214,8 +215,20 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
                           ),
                           itemCount: filteredEmails.length,
                           itemBuilder: (context, index) {
-                            return _EmailActivityCard(
-                              email: filteredEmails[index],
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => EmailDetailScreen(
+                                      email: filteredEmails[index],
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: _EmailActivityCard(
+                                email: filteredEmails[index],
+                              ),
                             );
                           },
                         ),
