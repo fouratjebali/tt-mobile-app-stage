@@ -1,6 +1,5 @@
 param(
     [string]$DeviceId = "emulator-5554",
-    [string]$TargetPlatform = "",
     [switch]$Profile
 )
 
@@ -44,13 +43,6 @@ if (Test-Path (Join-Path $androidStudioJava "bin\java.exe")) {
 $modeArgs = @()
 if ($Profile) {
     $modeArgs += "--profile"
-    if ([string]::IsNullOrWhiteSpace($TargetPlatform)) {
-        $TargetPlatform = "android-x64"
-    }
-}
-
-if (-not [string]::IsNullOrWhiteSpace($TargetPlatform)) {
-    $modeArgs += "--target-platform=$TargetPlatform"
 }
 
 Push-Location $frontendPath
