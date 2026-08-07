@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 
-class ApiServiceImpl implements ApiService {
+class ApiServiceImpl {
   ApiServiceImpl({required this.baseUrl, http.Client? client})
       : _client = client ?? http.Client();
 
@@ -12,13 +12,11 @@ class ApiServiceImpl implements ApiService {
 
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
 
-  @override
   Future<dynamic> get(String path, {Map<String, String>? headers}) async {
     final response = await _client.get(_uri(path), headers: headers);
     return _decode(response);
   }
 
-  @override
   Future<dynamic> post(
       String path, {
         Object? body,

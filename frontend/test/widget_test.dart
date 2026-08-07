@@ -30,7 +30,7 @@ void main() {
 
 
     expect(
-      find.text('Inbox'),
+      find.text('Home'),
       findsOneWidget,
     );
 
@@ -68,7 +68,7 @@ void main() {
 
 
     expect(
-      find.text('Inbox'),
+      find.text('Home'),
       findsOneWidget,
     );
 

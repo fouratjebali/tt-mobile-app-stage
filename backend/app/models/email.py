@@ -1,24 +1,12 @@
 from datetime import datetime
-<<<<<<< HEAD
 from enum import Enum
-from uuid import uuid4
-from typing import TYPE_CHECKING
-
-from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, String, Text
-=======
 from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
->>>>>>> origin/sprint-4-backend-api-mobile-foundations
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-
-
-<<<<<<< HEAD
-if TYPE_CHECKING:
-    from app.models.email_analysis import EmailAnalysis
 
 
 class EmailStatus(str, Enum):
@@ -30,67 +18,10 @@ class EmailStatus(str, Enum):
     IGNORED = "IGNORED"
 
 
-=======
->>>>>>> origin/sprint-4-backend-api-mobile-foundations
 class Email(Base):
     __tablename__ = "emails"
 
     id: Mapped[str] = mapped_column(
-<<<<<<< HEAD
-        String(36),
-        primary_key=True,
-        default=lambda: str(uuid4()),
-    )
-
-    gmail_id: Mapped[str] = mapped_column(
-        String(255),
-        unique=True,
-        index=True,
-        nullable=False,
-    )
-
-    subject: Mapped[str] = mapped_column(
-        String(500),
-        nullable=False,
-    )
-
-    sender: Mapped[str] = mapped_column(
-        String(320),
-        nullable=False,
-    )
-
-    recipients: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-    )
-
-    body_text: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-    )
-
-    received_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-    )
-
-    status: Mapped[EmailStatus] = mapped_column(
-        SqlEnum(EmailStatus),
-        default=EmailStatus.PENDING,
-        nullable=False,
-    )
-
-    is_read: Mapped[bool] = mapped_column(
-        Boolean,
-        default=False,
-        nullable=False,
-    )
-
-    analyses: Mapped[list["EmailAnalysis"]] = relationship(
-        back_populates="email",
-        cascade="all, delete-orphan",
-    )
-=======
         String(36), primary_key=True, default=lambda: str(uuid4())
     )
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
@@ -123,6 +54,14 @@ class Email(Base):
     jury_verdicts: Mapped[list["JuryVerdict"]] = relationship(
         back_populates="email", cascade="all, delete-orphan"
     )
+
+    @property
+    def gmail_id(self) -> str:
+        return self.gmail_message_id
+
+    @property
+    def body_text(self) -> str:
+        return self.body or ""
 
 
 class EmailAnalysis(Base):
@@ -254,4 +193,3 @@ class UserSetting(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="settings")
->>>>>>> origin/sprint-4-backend-api-mobile-foundations

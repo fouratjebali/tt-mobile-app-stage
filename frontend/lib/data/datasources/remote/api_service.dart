@@ -1,25 +1,3 @@
-<<<<<<< HEAD
-/// Responsible for making actual HTTP requests to the backend API.
-abstract class ApiService {
-  Future<dynamic> get(String path, {Map<String, String>? headers});
-
-  Future<dynamic> post(
-      String path, {
-        Object? body,
-        Map<String, String>? headers,
-      });
-}
-
-/// Thrown when the backend returns a non-2xx response.
-class ApiException implements Exception {
-  ApiException({required this.statusCode, required this.message});
-
-  final int statusCode;
-  final String message;
-
-  @override
-  String toString() => 'ApiException($statusCode): $message';
-=======
 import 'package:dio/dio.dart';
 import 'package:tt_mail_assistant/data/datasources/local/auth_secure_storage.dart';
 
@@ -56,54 +34,63 @@ class ApiService {
 
   static const requestTimeout = Duration(seconds: 12);
 
-  Future<Map<String, dynamic>> get(
+  Future<dynamic> get(
     String path, {
     bool authenticated = true,
     Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
   }) async {
     final response = await _send(
       () => _dio.get<Object?>(
         _normalizePath(path),
         queryParameters: queryParameters,
-        options: _options(authenticated: authenticated),
+        options: _options(authenticated: authenticated, headers: headers),
       ),
     );
 
-    return _decodeMap(response.data);
+    return _decode(response.data);
   }
 
-  Future<Map<String, dynamic>> post(
+  Future<dynamic> post(
     String path, {
-    Map<String, dynamic>? body,
+    Object? body,
     bool authenticated = true,
+    Map<String, String>? headers,
   }) async {
     final response = await _send(
       () => _dio.post<Object?>(
         _normalizePath(path),
         data: body ?? const <String, dynamic>{},
-        options: _options(authenticated: authenticated),
+        options: _options(authenticated: authenticated, headers: headers),
       ),
     );
 
-    return _decodeMap(response.data);
+    return _decode(response.data);
   }
 
-  Future<Map<String, dynamic>> delete(
+  Future<dynamic> delete(
     String path, {
     bool authenticated = true,
+    Map<String, String>? headers,
   }) async {
     final response = await _send(
       () => _dio.delete<Object?>(
         _normalizePath(path),
-        options: _options(authenticated: authenticated),
+        options: _options(authenticated: authenticated, headers: headers),
       ),
     );
 
-    return _decodeMap(response.data);
+    return _decode(response.data);
   }
 
-  Options _options({required bool authenticated}) {
-    return Options(extra: {'authenticated': authenticated});
+  Options _options({
+    required bool authenticated,
+    Map<String, String>? headers,
+  }) {
+    return Options(
+      extra: {'authenticated': authenticated},
+      headers: headers,
+    );
   }
 
   String _normalizePath(String path) {
@@ -116,16 +103,22 @@ class ApiService {
     try {
       return await request();
     } on DioException catch (error) {
-      throw ApiException(_messageForDioError(error));
+      throw ApiException(
+        message: _messageForDioError(error),
+        statusCode: error.response?.statusCode ?? 0,
+      );
     }
   }
 
-  Map<String, dynamic> _decodeMap(Object? data) {
-    if (data == null || data == '') return <String, dynamic>{};
+  dynamic _decode(Object? data) {
+    if (data == null || data == '') return null;
     if (data is Map<String, dynamic>) return data;
     if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is List) return data;
 
-    throw const ApiException('Backend returned an unexpected response.');
+    throw const ApiException(
+      message: 'Backend returned an unexpected response.',
+    );
   }
 
   String _messageForDioError(DioException error) {
@@ -178,8 +171,11 @@ class _AuthInterceptor extends Interceptor {
 }
 
 class ApiException implements Exception {
-  const ApiException(this.message);
+  const ApiException({required this.message, this.statusCode = 0});
 
   final String message;
->>>>>>> origin/sprint-4-backend-api-mobile-foundations
+  final int statusCode;
+
+  @override
+  String toString() => 'ApiException($statusCode): $message';
 }

@@ -15,6 +15,8 @@ class FakeApiService implements ApiService {
   @override
   Future<dynamic> get(
       String path, {
+        bool authenticated = true,
+        Map<String, dynamic>? queryParameters,
         Map<String, String>? headers,
       }) async {
     if (throwError) {
@@ -29,6 +31,16 @@ class FakeApiService implements ApiService {
   Future<dynamic> post(
       String path, {
         Object? body,
+        bool authenticated = true,
+        Map<String, String>? headers,
+      }) async {
+    return {};
+  }
+
+  @override
+  Future<dynamic> delete(
+      String path, {
+        bool authenticated = true,
         Map<String, String>? headers,
       }) async {
     return {};
