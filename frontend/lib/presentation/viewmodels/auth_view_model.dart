@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:tt_mail_assistant/data/datasources/remote/backend_auth_data_source.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/domain/entities/app_user.dart';
 import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
 
@@ -56,7 +56,7 @@ class AuthViewModel extends ChangeNotifier {
       status = AuthStatus.error;
       notifyListeners();
       return null;
-    } on BackendAuthException catch (error) {
+    } on ApiException catch (error) {
       errorMessage = error.message;
       status = AuthStatus.error;
       notifyListeners();

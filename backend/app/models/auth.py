@@ -27,6 +27,15 @@ class User(Base):
     sessions: Mapped[list["AuthSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    emails: Mapped[list["Email"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    stats: Mapped[list["Stat"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    settings: Mapped["UserSetting | None"] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class AuthSession(Base):
