@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from app.api.dependencies import get_current_user
+from app.db.session import get_db
+from app.models.auth import User
 from app.schemas.email import (
-    EmailAnalysisPayload,
     EmailDetailResponse,
     EmailListResponse,
     EmailPreview,
     SendEmailRequest,
     SendEmailResponse,
 )
+from app.services.email_pipeline_service import EmailPipelineService
 from app.services.agent_bridge import AgentBridge, get_agent_bridge
 from app.utils.json_tools import list_from_payload
 
@@ -60,17 +66,12 @@ async def review_emails(
 )
 async def email_detail(
     email_id: str,
-    bridge: AgentBridge = Depends(get_agent_bridge),
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> EmailDetailResponse:
-    result = await bridge.get_email_detail(email_id)
-    payload = result.payload
-    email_payload = payload.get("email")
-    email = _to_email_preview(email_payload if isinstance(email_payload, dict) else payload)
-    analysis = EmailAnalysisPayload.model_validate(payload)
-    return EmailDetailResponse(
-        email=email,
-        analysis=analysis,
-        raw_result=result.raw_result,
+    return await EmailPipelineService(db).analyze_and_verify(
+        user=user,
+        email_id=email_id,
     )
 
 
@@ -86,13 +87,13 @@ async def email_detail(
 async def send_reply(
     email_id: str,
     request: SendEmailRequest,
-    bridge: AgentBridge = Depends(get_agent_bridge),
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> SendEmailResponse:
-    result = await bridge.send_email_reply(email_id=email_id, body=request.body)
-    return SendEmailResponse(
-        status=str(result.payload.get("status", "ok")),
-        message_id=result.payload.get("message_id"),
-        raw_result=result.raw_result,
+    return await EmailPipelineService(db).verify_then_send_reply(
+        user=user,
+        email_id=email_id,
+        body=request.body,
     )
 
 

@@ -24,6 +24,13 @@ class JuryRemoteDataSource {
       verdict: payload['verdict'] as String,
       confidenceScore: (payload['confidenceScore'] as num).toDouble(),
       comment: payload['comment'] as String,
+      reasons: _stringList(payload['reasons']),
+      riskFlags: _stringList(payload['risk_flags']),
     );
+  }
+
+  List<String> _stringList(Object? value) {
+    if (value is! List) return const [];
+    return value.whereType<String>().toList(growable: false);
   }
 }
