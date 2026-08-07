@@ -1,37 +1,16 @@
-import httpx
-from fastapi import HTTPException, status
-
-from app.core.config import settings
 from app.schemas.sentiment import SentimentAnalyzeRequest, SentimentAnalyzeResponse
+from app.services.agent_bridge import AgentBridge
 
 
 class SentimentService:
-    def __init__(self) -> None:
-        self._base_url = settings.SENTIMENT_AGENT_URL.rstrip("/")
-        self._timeout = settings.HTTP_TIMEOUT_SECONDS
+    def __init__(self, bridge: AgentBridge | None = None) -> None:
+        self._bridge = bridge or AgentBridge()
 
     async def analyze(
         self, request: SentimentAnalyzeRequest
     ) -> SentimentAnalyzeResponse:
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.post(
-                    f"{self._base_url}/sentiment/analyze",
-                    json=request.model_dump(),
-                )
-                response.raise_for_status()
-        except httpx.HTTPStatusError as error:
-            raise HTTPException(
-                status_code=error.response.status_code,
-                detail=error.response.text,
-            ) from error
-        except httpx.HTTPError as error:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Sentiment agent is unavailable.",
-            ) from error
-
-        return SentimentAnalyzeResponse.model_validate(response.json())
+        payload = await self._bridge.analyze_sentiment(request.text)
+        return SentimentAnalyzeResponse.model_validate(payload)
 
 
 def get_sentiment_service() -> SentimentService:

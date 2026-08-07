@@ -12,7 +12,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db() -> None:
+<<<<<<< HEAD
     from app import models as _models  # noqa: F401
+=======
+    import app.models  # noqa: F401
+>>>>>>> origin/sprint-4-backend-api-mobile-foundations
 
     Base.metadata.create_all(bind=engine)
 

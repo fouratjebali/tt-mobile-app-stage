@@ -1,5 +1,6 @@
 from logging.config import fileConfig
 
+<<<<<<< HEAD
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
@@ -46,6 +47,28 @@ def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
+=======
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+from app.core.config import settings
+from app.db.base import Base
+import app.models  # noqa: F401
+
+
+config = context.config
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    context.configure(
+        url=settings.DATABASE_URL,
+>>>>>>> origin/sprint-4-backend-api-mobile-foundations
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -56,12 +79,15 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+<<<<<<< HEAD
     """Run migrations in 'online' mode.
 
     In this scenario we need to create an Engine
     and associate a connection with the context.
 
     """
+=======
+>>>>>>> origin/sprint-4-backend-api-mobile-foundations
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -69,9 +95,13 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+<<<<<<< HEAD
         context.configure(
             connection=connection, target_metadata=target_metadata
         )
+=======
+        context.configure(connection=connection, target_metadata=target_metadata)
+>>>>>>> origin/sprint-4-backend-api-mobile-foundations
 
         with context.begin_transaction():
             context.run_migrations()
