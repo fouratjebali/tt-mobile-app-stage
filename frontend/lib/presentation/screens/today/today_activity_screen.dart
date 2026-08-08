@@ -20,6 +20,7 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
   List<Email> allEmails = [];
   DateTime selectedDate = DateTime.now();
   bool isLoading = true;
+  String? errorMessage;
 
   @override
   void initState() {
@@ -47,12 +48,14 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
         setState(() {
           allEmails = emails;
           isLoading = false;
+          errorMessage = null;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           isLoading = false;
+          errorMessage = 'Unable to load activity. Pull down to retry.';
         });
       }
     }
@@ -65,9 +68,7 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
       case 0: // All
         return allEmails;
       case 1: // Auto-sent
-        return allEmails
-            .where((e) => e.status == Status.DONE)
-            .toList();
+        return allEmails.where((e) => e.status == Status.DONE).toList();
       case 2: // Review
         return allEmails
             .where((e) => e.status == Status.PENDING_USER_REVIEW)
@@ -106,7 +107,6 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
       setState(() {
         selectedDate = picked;
       });
-      // TODO: Load emails for selected date
     }
   }
 
@@ -115,16 +115,13 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
     final filteredEmails = _getFilteredEmails();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Today's Activity"),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text("Today's Activity"), elevation: 0),
       body: Column(
         children: [
-          // DATE SELECTOR
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: GestureDetector(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
               onTap: () => _selectDate(context),
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -135,7 +132,7 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
                   border: Border.all(
                     color: AppPalette.lavender.withValues(alpha: 0.3),
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -172,7 +169,6 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
             ),
           ),
 
-          // FILTER TABS
           TabBar(
             controller: _tabController,
             indicatorColor: AppPalette.lavender,
@@ -183,56 +179,57 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
               fontWeight: FontWeight.w700,
             ),
             tabs: [
-              Tab(
-                text: 'All (${allEmails.length})',
-              ),
-              Tab(
-                text: 'Auto-sent',
-              ),
-              Tab(
-                text: 'Review',
-              ),
-              Tab(
-                text: 'Ignored',
-              ),
+              Tab(text: 'All (${allEmails.length})'),
+              Tab(text: 'Auto (${_countStatus(Status.DONE)})'),
+              Tab(text: 'Review (${_countStatus(Status.PENDING_USER_REVIEW)})'),
+              Tab(text: 'Low (${_countLowPriority()})'),
             ],
           ),
 
-          // EMAIL LIST
           Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filteredEmails.isEmpty
-                    ? _EmptyState(
-                        tabIndex: _tabController.index,
-                      )
+            child:
+                isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : filteredEmails.isEmpty
+                    ? _EmptyState(tabIndex: _tabController.index)
                     : RefreshIndicator(
-                        onRefresh: _loadEmails,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          itemCount: filteredEmails.length,
-                          itemBuilder: (context, index) {
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => EmailDetailScreen(
-                                      email: filteredEmails[index],
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: _EmailActivityCard(
-                                email: filteredEmails[index],
-                              ),
-                            );
-                          },
+                      onRefresh: _loadEmails,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
                         ),
+                        itemCount:
+                            filteredEmails.length +
+                            (errorMessage == null ? 0 : 1),
+                        itemBuilder: (context, index) {
+                          if (errorMessage != null && index == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _Notice(message: errorMessage!),
+                            );
+                          }
+                          final emailIndex =
+                              errorMessage == null ? index : index - 1;
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => EmailDetailScreen(
+                                        email: filteredEmails[emailIndex],
+                                      ),
+                                ),
+                              );
+                            },
+                            child: _EmailActivityCard(
+                              email: filteredEmails[emailIndex],
+                            ),
+                          );
+                        },
                       ),
+                    ),
           ),
         ],
       ),
@@ -249,6 +246,16 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
     return '${date.day} ${_monthName(date.month)} ${date.year}';
   }
 
+  int _countStatus(Status status) {
+    return allEmails.where((email) => email.status == status).length;
+  }
+
+  int _countLowPriority() {
+    return allEmails
+        .where((email) => email.analysis?.priority == Priority.LOW)
+        .length;
+  }
+
   String _monthName(int month) {
     const months = [
       'Jan',
@@ -262,7 +269,7 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
       'Sep',
       'Oct',
       'Nov',
-      'Dec'
+      'Dec',
     ];
     return months[month - 1];
   }
@@ -346,13 +353,12 @@ class _EmailActivityCard extends StatelessWidget {
     return Card(
       elevation: 1,
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: Subject + Category Badge
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -373,29 +379,26 @@ class _EmailActivityCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         email.from.email,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _formatTime(email.date),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[500],
-                        ),
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: _getCategoryColor(email.analysis?.category)
-                        .withValues(alpha: 0.1),
+                    color: _getCategoryColor(
+                      email.analysis?.category,
+                    ).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -403,8 +406,7 @@ class _EmailActivityCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color:
-                          _getCategoryColor(email.analysis?.category),
+                      color: _getCategoryColor(email.analysis?.category),
                     ),
                   ),
                 ),
@@ -412,14 +414,15 @@ class _EmailActivityCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Priority + Status Badges
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: _getPriorityColor(priority).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
@@ -434,8 +437,10 @@ class _EmailActivityCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppPalette.lavender.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
@@ -457,18 +462,49 @@ class _EmailActivityCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 email.attachments.isNotEmpty
-                    ? '${email.attachments.length} email${email.attachments.length > 1 ? 's' : ''} with attachments'
+                    ? '${email.attachments.length} attachment${email.attachments.length > 1 ? 's' : ''}'
                     : email.analysis != null
-                        ? 'AI confidence: ${(email.analysis!.confidence * 100).toStringAsFixed(0)}%'
-                        : '',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+                    ? 'AI confidence: ${(email.analysis!.confidence * 100).toStringAsFixed(0)}%'
+                    : '',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _Notice extends StatelessWidget {
+  const _Notice({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_outlined, color: Colors.orange, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.orange,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -499,11 +535,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.inbox,
-            size: 64,
-            color: Colors.grey[300],
-          ),
+          Icon(Icons.inbox, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
             _getEmptyMessage(),
@@ -517,10 +549,7 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Check back later',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
           ),
         ],
       ),

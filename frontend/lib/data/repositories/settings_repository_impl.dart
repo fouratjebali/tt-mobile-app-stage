@@ -65,4 +65,14 @@ class SettingsRepositoryImpl implements SettingsRepository {
   Future<void> setUrgencyThreshold(double value) async {
     await prefs.setDouble('urgencyThreshold', value);
   }
+
+  @override
+  Future<String> getReplyLanguage() async {
+    return prefs.getString('replyLanguage') ?? 'English';
+  }
+
+  @override
+  Future<void> setReplyLanguage(String value) async {
+    await prefs.setString('replyLanguage', value);
+  }
 }

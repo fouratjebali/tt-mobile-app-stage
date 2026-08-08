@@ -28,6 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool dailySummary = true;
   double confidenceThreshold = 80.0;
   double urgencyThreshold = 7.0;
+  String replyLanguage = 'English';
 
   bool isLoading = true;
 
@@ -48,6 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final dailySumm = await _settingsRepository.getDailySummary();
       final confThresh = await _settingsRepository.getConfidenceThreshold();
       final urgThresh = await _settingsRepository.getUrgencyThreshold();
+      final language = await _settingsRepository.getReplyLanguage();
       final currentUser = await _authRepository.getCurrentUser();
 
       if (mounted) {
@@ -58,12 +60,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           dailySummary = dailySumm;
           confidenceThreshold = confThresh;
           urgencyThreshold = urgThresh;
+          replyLanguage = _normalizedLanguage(language);
 
           // Set user info
           if (currentUser != null) {
             userName = currentUser.displayName ?? 'User';
             userEmail = currentUser.email;
-            userPhotoUrl = currentUser.photoUrl;
+            userPhotoUrl = _cleanPhotoUrl(currentUser.photoUrl);
           }
 
           isLoading = false;
@@ -121,7 +124,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await _settingsRepository.setUrgencyThreshold(value);
   }
 
+  Future<void> _updateReplyLanguage(String value) async {
+    final language = _normalizedLanguage(value);
+    setState(() {
+      replyLanguage = language;
+    });
+    await _settingsRepository.setReplyLanguage(language);
+  }
+
+  String _normalizedLanguage(String value) {
+    return value.toLowerCase() == 'french' ? 'French' : 'English';
+  }
+
+  String? _cleanPhotoUrl(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  Future<void> _showReplyLanguagePicker() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Reply language',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 12),
+                _LanguageOption(
+                  label: 'English',
+                  selected: replyLanguage == 'English',
+                  onTap: () => Navigator.pop(context, 'English'),
+                ),
+                const SizedBox(height: 8),
+                _LanguageOption(
+                  label: 'French',
+                  selected: replyLanguage == 'French',
+                  onTap: () => Navigator.pop(context, 'French'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null) {
+      await _updateReplyLanguage(selected);
+    }
+  }
+
   Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Sign out?'),
+          content: const Text(
+            'You will need to connect your Gmail account again.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Sign Out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
     await _authRepository.signOut();
     if (mounted) {
       Navigator.pushReplacement(
@@ -171,24 +255,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             isSwitch: true,
           ),
           const SizedBox(height: 12),
-          _ThresholdCard(
+          _SliderSettingCard(
             title: 'Urgency Threshold',
             subtitle: 'Score: ${urgencyThreshold.toStringAsFixed(1)}',
             value: urgencyThreshold,
-            onChanged: (val) => _updateUrgencyThreshold(val as double),
-            isSwitch: false,
             min: 1,
             max: 10,
+            divisions: 9,
+            onChanged: _updateUrgencyThreshold,
           ),
           const SizedBox(height: 12),
-          _ThresholdCard(
+          _SliderSettingCard(
             title: 'Jury Confidence Min',
             subtitle: 'Score: ${confidenceThreshold.toStringAsFixed(0)}%',
             value: confidenceThreshold,
-            onChanged: (val) => _updateConfidenceThreshold(val as double),
-            isSwitch: false,
             min: 0,
             max: 100,
+            divisions: 10,
+            onChanged: _updateConfidenceThreshold,
           ),
           const SizedBox(height: 32),
 
@@ -213,8 +297,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onChanged: _updateDarkMode,
           ),
           const SizedBox(height: 12),
-          GestureDetector(
-            onTap: () {},
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: _showReplyLanguagePicker,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               child: Row(
@@ -232,15 +317,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'French',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        replyLanguage,
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
-                  Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[400],
+                  ),
                 ],
               ),
             ),
@@ -310,9 +396,16 @@ class _AccountCard extends StatelessWidget {
               backgroundColor: AppPalette.lavender.withValues(alpha: 0.2),
               backgroundImage:
                   userPhotoUrl != null ? NetworkImage(userPhotoUrl!) : null,
-              child: userPhotoUrl == null
-                  ? const Icon(Icons.person, size: 32)
-                  : null,
+              child:
+                  userPhotoUrl == null
+                      ? Text(
+                        _initials(userName, userEmail),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      )
+                      : null,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -329,10 +422,7 @@ class _AccountCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     userEmail,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
@@ -362,6 +452,14 @@ class _AccountCard extends StatelessWidget {
       ),
     );
   }
+
+  String _initials(String name, String email) {
+    final source = name.trim().isNotEmpty ? name.trim() : email.trim();
+    if (source.isEmpty) return '?';
+    final parts = source.split(RegExp(r'\s+'));
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
 }
 
 class _ThresholdCard extends StatelessWidget {
@@ -371,8 +469,6 @@ class _ThresholdCard extends StatelessWidget {
     required this.value,
     required this.onChanged,
     required this.isSwitch,
-    this.min = 0,
-    this.max = 100,
   });
 
   final String title;
@@ -380,8 +476,6 @@ class _ThresholdCard extends StatelessWidget {
   final dynamic value;
   final Function(dynamic) onChanged;
   final bool isSwitch;
-  final double min;
-  final double max;
 
   @override
   Widget build(BuildContext context) {
@@ -407,10 +501,7 @@ class _ThresholdCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -423,21 +514,74 @@ class _ThresholdCard extends StatelessWidget {
                   await onChanged(newValue);
                 },
                 activeColor: AppPalette.lavender,
-              )
-            else
-              SizedBox(
-                width: 100,
-                child: Slider(
-                  value: value as double,
-                  onChanged: (newValue) async {
-                    await onChanged(newValue);
-                  },
-                  min: min,
-                  max: max,
-                  divisions: max > 10 ? 10 : null,
-                  activeColor: AppPalette.lavender,
-                ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SliderSettingCard extends StatelessWidget {
+  const _SliderSettingCard({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  subtitle.replaceFirst('Score: ', ''),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppPalette.teal,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Slider(
+              value: value.clamp(min, max),
+              onChanged: onChanged,
+              min: min,
+              max: max,
+              divisions: divisions,
+              activeColor: AppPalette.lavender,
+            ),
           ],
         ),
       ),
@@ -468,10 +612,7 @@ class _PreferenceToggle extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
             Switch(
               value: value,
@@ -480,6 +621,53 @@ class _PreferenceToggle extends StatelessWidget {
               },
               activeColor: AppPalette.lavender,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LanguageOption extends StatelessWidget {
+  const _LanguageOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color:
+                selected
+                    ? AppPalette.teal
+                    : Colors.black.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (selected)
+              const Icon(Icons.check_circle, color: AppPalette.teal, size: 20),
           ],
         ),
       ),

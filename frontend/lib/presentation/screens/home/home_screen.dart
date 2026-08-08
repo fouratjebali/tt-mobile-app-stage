@@ -6,7 +6,6 @@ import 'package:tt_mail_assistant/domain/repositories/auth_repository.dart';
 import 'package:tt_mail_assistant/domain/repositories/settings_repository.dart';
 import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
 import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
-import 'package:tt_mail_assistant/presentation/screens/prompt/prompt_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,16 +15,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late EmailUseCase _emailUseCase;
-  late SettingsRepository _settingsRepository;
-  late AuthRepository _authRepository;
+  late final EmailUseCase _emailUseCase;
+  late final SettingsRepository _settingsRepository;
+  late final AuthRepository _authRepository;
 
-  String? userName;
+  String userName = 'User';
+  String? userEmail;
+  String? userPhotoUrl;
   bool agentActive = true;
-  List<Email> recentEmails = [];
   bool isLoading = true;
+  String? errorMessage;
+  List<Email> recentEmails = [];
 
-  // KPI data
   int processedToday = 0;
   int autoSent = 0;
   int needReview = 0;
@@ -44,175 +45,235 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final user = await _authRepository.getCurrentUser();
       final emails = await _emailUseCase.getEmails();
+      final autoProcessing = await _settingsRepository.getAutoProcessing();
 
       if (!mounted) return;
 
-      // Calculate KPIs
-      int processed = 0;
-      int autoSent = 0;
-      int review = 0;
-
-      for (final email in emails) {
-        if (email.status == Status.DONE) processed++;
-        if ((email.analysis?.confidence ?? 0.0) > 0.8) autoSent++;
-        if (email.status == Status.PENDING_USER_REVIEW) review++;
-      }
-
-      final totalEmails = emails.length > 0 ? emails.length : 1;
-      final accuracy = (processed / totalEmails) * 100;
+      final processed = emails.where((e) => e.status == Status.DONE).length;
+      final review =
+          emails.where((e) => e.status == Status.PENDING_USER_REVIEW).length;
+      final confident =
+          emails.where((e) => (e.analysis?.confidence ?? 0) >= 0.8).length;
+      final accuracy = emails.isEmpty ? 0.0 : (processed / emails.length) * 100;
 
       setState(() {
-        if (user != null) {
-          userName = (user.displayName ?? 'User').split(' ').first;
-        } else {
-          userName = 'User';
-        }
+        userName =
+            (user?.displayName?.trim().isNotEmpty ?? false)
+                ? user!.displayName!.trim().split(' ').first
+                : 'User';
+        userEmail = user?.email;
+        userPhotoUrl = _cleanPhotoUrl(user?.photoUrl);
+        agentActive = autoProcessing;
         processedToday = processed;
-        this.autoSent = autoSent;
+        autoSent = confident;
         needReview = review;
         accuracyRate = accuracy;
-        recentEmails = emails.take(3).toList();
+        recentEmails = emails.take(3).toList(growable: false);
         isLoading = false;
+        errorMessage = null;
       });
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        errorMessage = 'Activity could not be refreshed. Pull down to retry.';
+      });
     }
   }
 
   Future<void> _toggleAgent(bool value) async {
-    setState(() {
-      agentActive = value;
-    });
+    setState(() => agentActive = value);
     await _settingsRepository.setAutoProcessing(value);
+  }
+
+  String? _cleanPhotoUrl(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadDashboardData,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // GREETING HEADER
-                  _GreetingHeader(userName: userName ?? 'User'),
-                  const SizedBox(height: 24),
-
-                  // KPI CARDS
-                  _KPIGrid(
-                    processedToday: processedToday,
-                    autoSent: autoSent,
-                    needReview: needReview,
-                    accuracyRate: accuracyRate,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // AGENT STATUS TOGGLE
-                  _AgentStatusCard(
-                    isActive: agentActive,
-                    onChanged: _toggleAgent,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // ACTION REQUIRED BANNER (conditional)
-                  if (needReview > 0)
-                    _ActionRequiredBanner(
-                      count: needReview,
-                      onTap: () {
-                        // Navigate to review screen
-                      },
-                    ),
-                  if (needReview > 0) const SizedBox(height: 24),
-
-                  // RECENT ACTIVITY SECTION
-                  const _SectionTitle(title: 'Recent Activity'),
-                  const SizedBox(height: 12),
-                  if (recentEmails.isEmpty)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Text('No recent activity'),
+      body: SafeArea(
+        child:
+            isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                  onRefresh: _loadDashboardData,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                    children: [
+                      _GreetingHeader(
+                        userName: userName,
+                        userEmail: userEmail,
+                        userPhotoUrl: userPhotoUrl,
                       ),
-                    )
-                  else
-                    ...recentEmails
-                        .map((email) => GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => EmailDetailScreen(
-                                      email: email,
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: _ActivityCard(email: email),
-                            ))
-                        .toList(),
-                  const SizedBox(height: 24),
-
-                  // SHORTCUTS
-                  const _SectionTitle(title: 'Quick Actions'),
-                  const SizedBox(height: 12),
-                  _ShortcutsRow(),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
+                      const SizedBox(height: 20),
+                      _KPIGrid(
+                        processedToday: processedToday,
+                        autoSent: autoSent,
+                        needReview: needReview,
+                        accuracyRate: accuracyRate,
+                      ),
+                      const SizedBox(height: 16),
+                      _AgentStatusCard(
+                        isActive: agentActive,
+                        onChanged: _toggleAgent,
+                      ),
+                      if (errorMessage != null) ...[
+                        const SizedBox(height: 16),
+                        _InlineNotice(
+                          icon: Icons.cloud_off_outlined,
+                          message: errorMessage!,
+                          color: Colors.orange,
+                        ),
+                      ],
+                      if (needReview > 0) ...[
+                        const SizedBox(height: 16),
+                        _ActionRequiredBanner(count: needReview),
+                      ],
+                      const SizedBox(height: 24),
+                      const _SectionTitle(title: 'Recent Activity'),
+                      const SizedBox(height: 12),
+                      if (recentEmails.isEmpty)
+                        const _EmptyPanel(
+                          icon: Icons.inbox_outlined,
+                          title: 'No recent activity',
+                          subtitle: 'Processed emails will appear here.',
+                        )
+                      else
+                        ...recentEmails.map(
+                          (email) => _ActivityCard(
+                            email: email,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder:
+                                      (_) => EmailDetailScreen(email: email),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+                      const _SectionTitle(title: 'Quick Actions'),
+                      const SizedBox(height: 12),
+                      _ShortcutsRow(),
+                    ],
+                  ),
+                ),
+      ),
     );
   }
 }
 
 class _GreetingHeader extends StatelessWidget {
-  const _GreetingHeader({required this.userName});
+  const _GreetingHeader({
+    required this.userName,
+    required this.userEmail,
+    required this.userPhotoUrl,
+  });
+
   final String userName;
+  final String? userEmail;
+  final String? userPhotoUrl;
 
   @override
   Widget build(BuildContext context) {
-    final hour = DateTime.now().hour;
-    final greeting = hour < 12
-        ? 'Good morning'
-        : hour < 18
+    final now = DateTime.now();
+    final greeting =
+        now.hour < 12
+            ? 'Good morning'
+            : now.hour < 18
             ? 'Good afternoon'
             : 'Good evening';
 
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Text(
-              '$greeting, $userName',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$greeting, $userName',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            const Text('👋', style: TextStyle(fontSize: 24)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Saturday, 02 August',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
+              const SizedBox(height: 6),
+              Text(
+                _formatDate(now),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
+        ),
+        const SizedBox(width: 12),
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: AppPalette.lavender.withValues(alpha: 0.22),
+          backgroundImage:
+              userPhotoUrl == null ? null : NetworkImage(userPhotoUrl!),
+          child:
+              userPhotoUrl == null
+                  ? Text(
+                    _initials(userName, userEmail),
+                    style: const TextStyle(
+                      color: AppPalette.pine,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  )
+                  : null,
         ),
       ],
     );
+  }
+
+  String _initials(String name, String? email) {
+    final source = name.trim().isNotEmpty ? name.trim() : (email ?? '').trim();
+    if (source.isEmpty) return '?';
+    final parts = source.split(RegExp(r'\s+'));
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  String _formatDate(DateTime date) {
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${weekdays[date.weekday - 1]}, ${date.day} ${months[date.month - 1]}';
   }
 }
 
@@ -237,29 +298,30 @@ class _KPIGrid extends StatelessWidget {
       mainAxisSpacing: 12,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      childAspectRatio: 1.28,
       children: [
         _KPICard(
-          title: 'Processed today',
+          title: 'Processed',
           value: processedToday.toString(),
           color: Colors.green,
-          icon: Icons.check_circle,
+          icon: Icons.check_circle_outline,
         ),
         _KPICard(
-          title: 'Auto-sent',
+          title: 'Auto-ready',
           value: autoSent.toString(),
-          color: Colors.green,
-          icon: Icons.send,
+          color: AppPalette.teal,
+          icon: Icons.auto_awesome,
         ),
         _KPICard(
           title: 'Need review',
           value: needReview.toString(),
           color: Colors.red,
-          icon: Icons.warning,
+          icon: Icons.priority_high,
         ),
         _KPICard(
-          title: 'Accuracy',
+          title: 'Completion',
           value: '${accuracyRate.toStringAsFixed(0)}%',
-          color: Colors.green,
+          color: Colors.indigo,
           icon: Icons.trending_up,
         ),
       ],
@@ -283,24 +345,25 @@ class _KPICard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey[600],
                     ),
                   ),
                 ),
@@ -323,50 +386,52 @@ class _KPICard extends StatelessWidget {
 }
 
 class _AgentStatusCard extends StatelessWidget {
-  const _AgentStatusCard({
-    required this.isActive,
-    required this.onChanged,
-  });
+  const _AgentStatusCard({required this.isActive, required this.onChanged});
 
   final bool isActive;
-  final Function(bool) onChanged;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final color = isActive ? Colors.green : Colors.orange;
+
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Agent Status',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+            Icon(
+              isActive
+                  ? Icons.check_circle_outline
+                  : Icons.pause_circle_outline,
+              color: color,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Agent Status',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  isActive ? 'Active' : 'Paused',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isActive ? Colors.green : Colors.orange,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 4),
+                  Text(
+                    isActive ? 'Active' : 'Paused',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             Switch(
               value: isActive,
-              onChanged: (value) async {
-                await onChanged(value);
-              },
+              onChanged: onChanged,
               activeColor: AppPalette.lavender,
             ),
           ],
@@ -377,52 +442,34 @@ class _AgentStatusCard extends StatelessWidget {
 }
 
 class _ActionRequiredBanner extends StatelessWidget {
-  const _ActionRequiredBanner({
-    required this.count,
-    required this.onTap,
-  });
+  const _ActionRequiredBanner({required this.count});
 
   final int count;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.red.shade200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.warning_amber, color: Colors.red.shade600, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  '$count email${count > 1 ? 's' : ''} need${count > 1 ? '' : 's'} your attention',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.red.shade700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Take action to keep your inbox organized',
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber, color: Colors.red.shade600, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$count email${count > 1 ? 's' : ''} need${count > 1 ? '' : 's'} your attention',
               style: TextStyle(
-                fontSize: 13,
-                color: Colors.red.shade600,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.red.shade700,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -430,192 +477,106 @@ class _ActionRequiredBanner extends StatelessWidget {
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title});
+
   final String title;
 
   @override
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.5,
-      ),
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
     );
   }
 }
 
 class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({required this.email});
+  const _ActivityCard({required this.email, required this.onTap});
+
   final Email email;
-
-  String _getCategoryLabel(EmailCategory? category) {
-    if (category == null) return 'INFO';
-    switch (category) {
-      case EmailCategory.RECLAMATION:
-        return 'RECLAMATION';
-      case EmailCategory.COMMERCIAL:
-        return 'COMMERCIAL';
-      case EmailCategory.SUPPORT:
-        return 'SUPPORT';
-      case EmailCategory.INFORMATION:
-        return 'INFO';
-    }
-  }
-
-  Color _getCategoryColor(EmailCategory? category) {
-    if (category == null) return Colors.blue;
-    switch (category) {
-      case EmailCategory.RECLAMATION:
-        return Colors.red;
-      case EmailCategory.COMMERCIAL:
-        return Colors.green;
-      case EmailCategory.SUPPORT:
-        return Colors.orange;
-      case EmailCategory.INFORMATION:
-        return Colors.blue;
-    }
-  }
-
-  String _getPriorityLabel(Priority priority) {
-    switch (priority) {
-      case Priority.URGENT:
-        return 'URGENT';
-      case Priority.NORMAL:
-        return 'NORMAL';
-      case Priority.LOW:
-        return 'LOW';
-    }
-  }
-
-  Color _getPriorityColor(Priority priority) {
-    switch (priority) {
-      case Priority.URGENT:
-        return Colors.red;
-      case Priority.NORMAL:
-        return Colors.orange;
-      case Priority.LOW:
-        return Colors.green;
-    }
-  }
-
-  String _getStatusLabel(Status status) {
-    switch (status) {
-      case Status.DONE:
-        return 'Auto-sent';
-      case Status.PENDING_USER_REVIEW:
-        return 'Review';
-      case Status.PENDING_JURY:
-        return 'Jury';
-      case Status.PENDING_ANALYSIS:
-        return 'Analysis';
-    }
-  }
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final priority = email.analysis?.priority ?? Priority.NORMAL;
+    final category = email.analysis?.category ?? EmailCategory.INFORMATION;
 
     return Card(
       elevation: 1,
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        email.subject,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          height: 1.3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          email.subject.isEmpty
+                              ? '(No subject)'
+                              : email.subject,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            height: 1.3,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        email.from.name,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                        const SizedBox(height: 6),
+                        Text(
+                          _senderLabel(email.from),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _getCategoryColor(email.analysis?.category)
-                        .withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _getCategoryLabel(email.analysis?.category),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color:
-                          _getCategoryColor(email.analysis?.category),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _getPriorityColor(priority).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
+                  const SizedBox(width: 8),
+                  _Badge(
+                    label: _categoryLabel(category),
+                    color: _categoryColor(category),
                   ),
-                  child: Text(
-                    _getPriorityLabel(priority),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _getPriorityColor(priority),
-                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _Badge(
+                    label: _priorityLabel(priority),
+                    color: _priorityColor(priority),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppPalette.lavender.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
+                  _Badge(
+                    label: _statusLabel(email.status),
+                    color: AppPalette.teal,
                   ),
-                  child: Text(
-                    _getStatusLabel(email.status),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppPalette.lavender,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  String _senderLabel(Sender sender) {
+    if (sender.name.trim().isNotEmpty) return sender.name;
+    if (sender.email.trim().isNotEmpty) return sender.email;
+    return 'Unknown sender';
   }
 }
 
@@ -626,11 +587,9 @@ class _ShortcutsRow extends StatelessWidget {
       children: [
         Expanded(
           child: _ShortcutButton(
-            icon: Icons.dashboard,
+            icon: Icons.dashboard_outlined,
             label: 'Dashboard',
-            onTap: () {
-              // Navigate to dashboard
-            },
+            onTap: () => _showPending(context),
           ),
         ),
         const SizedBox(width: 12),
@@ -638,12 +597,16 @@ class _ShortcutsRow extends StatelessWidget {
           child: _ShortcutButton(
             icon: Icons.mail_outline,
             label: 'Bulk Email',
-            onTap: () {
-              // Navigate to bulk email
-            },
+            onTap: () => _showPending(context),
           ),
         ),
       ],
+    );
+  }
+
+  void _showPending(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('This workspace is being prepared.')),
     );
   }
 }
@@ -661,32 +624,203 @@ class _ShortcutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: AppPalette.lavender.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
+          color: AppPalette.lavender.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: AppPalette.lavender.withValues(alpha: 0.2),
+            color: AppPalette.lavender.withValues(alpha: 0.24),
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: AppPalette.lavender, size: 28),
+            Icon(icon, color: AppPalette.teal, size: 26),
             const SizedBox(height: 8),
             Text(
               label,
               style: const TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppPalette.lavender,
+                fontWeight: FontWeight.w700,
+                color: AppPalette.pine,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+class _InlineNotice extends StatelessWidget {
+  const _InlineNotice({
+    required this.icon,
+    required this.message,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String message;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyPanel extends StatelessWidget {
+  const _EmptyPanel({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 38, color: Colors.grey[500]),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 132),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+String _categoryLabel(EmailCategory category) {
+  switch (category) {
+    case EmailCategory.RECLAMATION:
+      return 'RECLAMATION';
+    case EmailCategory.COMMERCIAL:
+      return 'COMMERCIAL';
+    case EmailCategory.SUPPORT:
+      return 'SUPPORT';
+    case EmailCategory.INFORMATION:
+      return 'INFO';
+  }
+}
+
+Color _categoryColor(EmailCategory category) {
+  switch (category) {
+    case EmailCategory.RECLAMATION:
+      return Colors.red;
+    case EmailCategory.COMMERCIAL:
+      return Colors.green;
+    case EmailCategory.SUPPORT:
+      return Colors.orange;
+    case EmailCategory.INFORMATION:
+      return Colors.blue;
+  }
+}
+
+String _priorityLabel(Priority priority) {
+  switch (priority) {
+    case Priority.URGENT:
+      return 'URGENT';
+    case Priority.NORMAL:
+      return 'NORMAL';
+    case Priority.LOW:
+      return 'LOW';
+  }
+}
+
+Color _priorityColor(Priority priority) {
+  switch (priority) {
+    case Priority.URGENT:
+      return Colors.red;
+    case Priority.NORMAL:
+      return Colors.orange;
+    case Priority.LOW:
+      return Colors.green;
+  }
+}
+
+String _statusLabel(Status status) {
+  switch (status) {
+    case Status.DONE:
+      return 'DONE';
+    case Status.PENDING_USER_REVIEW:
+      return 'REVIEW';
+    case Status.PENDING_JURY:
+      return 'JURY';
+    case Status.PENDING_ANALYSIS:
+      return 'ANALYSIS';
   }
 }

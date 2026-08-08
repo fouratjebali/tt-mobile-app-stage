@@ -3,10 +3,7 @@ import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 
 class EmailDetailScreen extends StatelessWidget {
-  const EmailDetailScreen({
-    super.key,
-    required this.email,
-  });
+  const EmailDetailScreen({super.key, required this.email});
 
   final Email email;
 
@@ -99,7 +96,7 @@ class EmailDetailScreen extends StatelessWidget {
       'Sep',
       'Oct',
       'Nov',
-      'Dec'
+      'Dec',
     ];
     return months[month - 1];
   }
@@ -112,10 +109,7 @@ class EmailDetailScreen extends StatelessWidget {
     final jury = email.jury;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Email Detail'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Email Detail'), elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -137,7 +131,10 @@ class EmailDetailScreen extends StatelessWidget {
             // EMAIL BODY SECTION
             _ContentSection(
               title: 'Email Content',
-              content: email.body.plain,
+              content:
+                  email.body.plain.trim().isEmpty
+                      ? 'No plain-text body available.'
+                      : email.body.plain,
             ),
             const SizedBox(height: 24),
 
@@ -154,8 +151,8 @@ class EmailDetailScreen extends StatelessWidget {
                 categoryColor: _getCategoryColor(analysis.category),
                 priority: _getPriorityLabel(priority),
                 priorityColor: _getPriorityColor(priority),
-                urgencyScore: '5 / 10',
-                confidence: '${(analysis.confidence * 100).toStringAsFixed(0)}%',
+                confidence:
+                    '${(analysis.confidence * 100).toStringAsFixed(0)}%',
                 summary: analysis.summary,
               ),
               const SizedBox(height: 24),
@@ -166,17 +163,14 @@ class EmailDetailScreen extends StatelessWidget {
               _VerdictSection(
                 verdict: _getVerdictLabel(jury.verdict),
                 verdictColor: _getVerdictColor(jury.verdict),
-                confidence: jury.reasoning ?? '88%',
                 reasoning: jury.reasoning,
               ),
               const SizedBox(height: 24),
             ],
 
-            // REPLY SENT AUTOMATICALLY SECTION
-            if (analysis != null) ...[
-              _ReplySentSection(
-                suggestedReply: analysis.suggestedReply,
-              ),
+            if (analysis != null &&
+                analysis.suggestedReply.trim().isNotEmpty) ...[
+              _SuggestedReplySection(suggestedReply: analysis.suggestedReply),
               const SizedBox(height: 24),
             ],
           ],
@@ -218,7 +212,7 @@ class _EmailHeader extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                subject,
+                subject.trim().isEmpty ? '(No subject)' : subject,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -228,16 +222,19 @@ class _EmailHeader extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: categoryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    category?.name ?? 'INFO',
+                    _categoryLabel(category),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -247,8 +244,10 @@ class _EmailHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: priorityColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
@@ -275,7 +274,7 @@ class _EmailHeader extends StatelessWidget {
               radius: 16,
               backgroundColor: AppPalette.lavender.withValues(alpha: 0.2),
               child: Text(
-                senderName[0].toUpperCase(),
+                _initial(senderName, senderEmail),
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   color: AppPalette.lavender,
@@ -288,18 +287,17 @@ class _EmailHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    senderName,
+                    senderName.trim().isEmpty ? 'Unknown sender' : senderName,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   Text(
-                    senderEmail,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    senderEmail.trim().isEmpty
+                        ? 'No sender address'
+                        : senderEmail,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -309,23 +307,33 @@ class _EmailHeader extends StatelessWidget {
         const SizedBox(height: 8),
 
         // Date
-        Text(
-          date,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[500],
-          ),
-        ),
+        Text(date, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
       ],
     );
+  }
+
+  String _initial(String name, String email) {
+    final source = name.trim().isNotEmpty ? name.trim() : email.trim();
+    return source.isEmpty ? '?' : source[0].toUpperCase();
+  }
+
+  String _categoryLabel(EmailCategory? category) {
+    if (category == null) return 'INFO';
+    switch (category) {
+      case EmailCategory.RECLAMATION:
+        return 'RECLAMATION';
+      case EmailCategory.COMMERCIAL:
+        return 'COMMERCIAL';
+      case EmailCategory.SUPPORT:
+        return 'SUPPORT';
+      case EmailCategory.INFORMATION:
+        return 'INFO';
+    }
   }
 }
 
 class _ContentSection extends StatelessWidget {
-  const _ContentSection({
-    required this.title,
-    required this.content,
-  });
+  const _ContentSection({required this.title, required this.content});
 
   final String title;
   final String content;
@@ -348,7 +356,7 @@ class _ContentSection extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.grey[300]!),
           ),
           child: Text(
@@ -402,11 +410,7 @@ class _AttachmentsSection extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.attach_file,
-                    color: Colors.grey[600],
-                    size: 20,
-                  ),
+                  Icon(Icons.attach_file, color: Colors.grey[600], size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -448,7 +452,6 @@ class _AnalysisSection extends StatelessWidget {
     required this.categoryColor,
     required this.priority,
     required this.priorityColor,
-    required this.urgencyScore,
     required this.confidence,
     required this.summary,
   });
@@ -457,7 +460,6 @@ class _AnalysisSection extends StatelessWidget {
   final Color categoryColor;
   final String priority;
   final Color priorityColor;
-  final String urgencyScore;
   final String confidence;
   final String summary;
 
@@ -467,7 +469,7 @@ class _AnalysisSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'AGENT IA 1 -- ANALYSIS',
+          'AGENT ANALYSIS',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w800,
@@ -480,7 +482,7 @@ class _AnalysisSection extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.blue[200]!),
           ),
           child: Column(
@@ -499,12 +501,6 @@ class _AnalysisSection extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _AnalysisRow(
-                label: 'Urgency score',
-                value: urgencyScore,
-                color: Colors.orange,
-              ),
-              const SizedBox(height: 12),
-              _AnalysisRow(
                 label: 'Confidence',
                 value: confidence,
                 color: Colors.green,
@@ -520,7 +516,7 @@ class _AnalysisSection extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                summary,
+                summary.trim().isEmpty ? 'No summary available.' : summary,
                 style: TextStyle(
                   fontSize: 13,
                   height: 1.6,
@@ -583,13 +579,11 @@ class _VerdictSection extends StatelessWidget {
   const _VerdictSection({
     required this.verdict,
     required this.verdictColor,
-    required this.confidence,
     required this.reasoning,
   });
 
   final String verdict;
   final Color verdictColor;
-  final String confidence;
   final String? reasoning;
 
   @override
@@ -598,7 +592,7 @@ class _VerdictSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'JURY AGENT 2 -- VERDICT',
+          'JURY VERDICT',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w800,
@@ -611,7 +605,7 @@ class _VerdictSection extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: verdictColor.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: verdictColor.withValues(alpha: 0.2)),
           ),
           child: Column(
@@ -629,8 +623,10 @@ class _VerdictSection extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: verdictColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
@@ -642,28 +638,6 @@ class _VerdictSection extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: verdictColor,
                       ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Confidence',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    confidence,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey,
                     ),
                   ),
                 ],
@@ -696,8 +670,8 @@ class _VerdictSection extends StatelessWidget {
   }
 }
 
-class _ReplySentSection extends StatelessWidget {
-  const _ReplySentSection({required this.suggestedReply});
+class _SuggestedReplySection extends StatelessWidget {
+  const _SuggestedReplySection({required this.suggestedReply});
 
   final String suggestedReply;
 
@@ -707,7 +681,7 @@ class _ReplySentSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'REPLY SENT AUTOMATICALLY',
+          'SUGGESTED REPLY',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w800,
@@ -720,7 +694,7 @@ class _ReplySentSection extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.green[50],
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.green[200]!),
           ),
           child: Column(
@@ -728,14 +702,10 @@ class _ReplySentSection extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.check_circle,
-                    color: Colors.green[600],
-                    size: 18,
-                  ),
+                  Icon(Icons.auto_awesome, color: Colors.green[600], size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'Reply sent successfully',
+                    'Draft prepared by the agent',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,

@@ -22,4 +22,8 @@ abstract class SettingsRepository {
   Future<double> getUrgencyThreshold();
 
   Future<void> setUrgencyThreshold(double value);
+
+  Future<String> getReplyLanguage();
+
+  Future<void> setReplyLanguage(String value);
 }
