@@ -82,12 +82,29 @@ def test_send_single_email_tool_success():
             "to":      "recipient@test.com",
             "subject": "Test Subject",
             "body":    "Test Body",
+            "confirm_send": True,
         })
         result = json.loads(result_str)
 
         assert result["status"] == "sent"
         assert result["to"] == "recipient@test.com"
         assert result["message_id"] == "msg_abc123"
+
+
+def test_send_single_email_requires_confirmation():
+    """send_single_email ne doit pas envoyer sans confirmation explicite."""
+    with patch("agent.tools.gmail_send") as mock_send:
+        from agent.tools import send_single_email
+        result_str = send_single_email.invoke({
+            "to":      "recipient@test.com",
+            "subject": "Test Subject",
+            "body":    "Test Body",
+        })
+        result = json.loads(result_str)
+
+        assert result["status"] == "confirmation_required"
+        assert result["preview"]["to"] == "recipient@test.com"
+        mock_send.assert_not_called()
 
 
 def test_send_single_email_tool_error():
@@ -98,6 +115,7 @@ def test_send_single_email_tool_error():
             "to":      "bad@test.com",
             "subject": "Test",
             "body":    "Body",
+            "confirm_send": True,
         })
         result = json.loads(result_str)
 
@@ -120,12 +138,30 @@ def test_send_bulk_email_tool():
             {"to": "bob@test.com",   "subject": "B", "body": "Hello Bob"},
             {"to": "bad@test.com",   "subject": "C", "body": "Hello Bad"},
         ])
-        result_str = send_bulk_email.invoke({"recipients_json": recipients})
+        result_str = send_bulk_email.invoke({
+            "recipients_json": recipients,
+            "confirm_send": True,
+        })
         result = json.loads(result_str)
 
         assert result["total"]  == 3
         assert result["sent"]   == 2
         assert result["errors"] == 1
+
+
+def test_send_bulk_email_requires_confirmation():
+    """send_bulk_email ne doit pas envoyer sans confirmation explicite."""
+    with patch("agent.tools.send_bulk_emails") as mock_send:
+        from agent.tools import send_bulk_email
+        recipients = json.dumps([
+            {"to": "alice@test.com", "subject": "A", "body": "Hello Alice"},
+        ])
+        result_str = send_bulk_email.invoke({"recipients_json": recipients})
+        result = json.loads(result_str)
+
+        assert result["status"] == "confirmation_required"
+        assert result["preview"]["total"] == 1
+        mock_send.assert_not_called()
 
 
 def test_all_tools_are_registered():

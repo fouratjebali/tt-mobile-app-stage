@@ -16,7 +16,8 @@ Developed as part of an apprenticeship internship at
 - **Priority Detection** - URGENT / NORMAL / LOW with urgency score (1-10)
 - **Email Summarization** - 2-sentence summary + required action
 - **Reply Generation** - professional reply in the email's language
-- **Bulk Personalized Email** - sends different content to N recipients
+- **Safe Email Sending** - drafts first, then sends only after explicit confirmation
+- **Bulk Personalized Email** - generates different content for N recipients, with dry-run enabled by default
 - **Conversational Memory** - remembers context across messages
 - **Evaluation System** - measures classification accuracy with metrics
 

@@ -41,6 +41,15 @@ _GMAIL_ID_HINTS = (
 )
 
 
+def _confirmation_required_payload(action: str, preview: dict) -> str:
+    return json.dumps({
+        "status": "confirmation_required",
+        "action": action,
+        "message": "Email content is ready. Ask the user to confirm before sending.",
+        "preview": preview,
+    }, ensure_ascii=False)
+
+
 def _validate_email_id(email_id: str) -> str | None:
     cleaned_id = email_id.strip()
     if not cleaned_id:
@@ -278,19 +287,35 @@ def suggest_reply(
 
 # OUTIL 6 : Envoyer un email
 @tool
-def send_single_email(to: str, subject: str, body: str) -> str:
+def send_single_email(
+    to: str,
+    subject: str,
+    body: str,
+    confirm_send: bool = False,
+) -> str:
     """
     Sends a single email via Gmail.
-    Use this after suggest_reply to actually send the response.
+    Requires explicit user confirmation before Gmail delivery.
 
     Args:
-        to     : recipient email address (e.g. 'contact@example.com')
-        subject: email subject line
-        body   : email body text
+        to          : recipient email address (e.g. 'contact@example.com')
+        subject     : email subject line
+        body        : email body text
+        confirm_send: must be True only after the user confirms the final content
 
     Returns:
         JSON string with send status and message ID
     """
+    if not confirm_send:
+        return _confirmation_required_payload(
+            action="send_single_email",
+            preview={
+                "to": to,
+                "subject": subject,
+                "body": body,
+            },
+        )
+
     try:
         result = gmail_send(to=to, subject=subject, body=body)
         return json.dumps({
@@ -309,10 +334,10 @@ def send_single_email(to: str, subject: str, body: str) -> str:
 
 # OUTIL 7 : Envoyer des emails en masse (bulk)
 @tool
-def send_bulk_email(recipients_json: str) -> str:
+def send_bulk_email(recipients_json: str, confirm_send: bool = False) -> str:
     """
     Sends personalized emails to multiple recipients at once.
-    Use this when the user wants to send different emails to several people.
+    Requires explicit user confirmation before Gmail delivery.
 
     Args:
         recipients_json: JSON string with list of recipients. Each must have:
@@ -324,6 +349,7 @@ def send_bulk_email(recipients_json: str) -> str:
                            {"to":"alice@mail.com","subject":"Meeting","body":"Hi Alice..."},
                            {"to":"bob@mail.com","subject":"Report","body":"Hi Bob..."}
                          ]'
+        confirm_send   : must be True only after the user confirms the final content
 
     Returns:
         JSON string with send status for each recipient
@@ -332,6 +358,15 @@ def send_bulk_email(recipients_json: str) -> str:
         recipients = json.loads(recipients_json)
     except json.JSONDecodeError:
         return json.dumps({"status": "error", "error": "Invalid JSON for recipients"})
+
+    if not confirm_send:
+        return _confirmation_required_payload(
+            action="send_bulk_email",
+            preview={
+                "total": len(recipients),
+                "recipients": recipients,
+            },
+        )
 
     results = send_bulk_emails(recipients)
 
@@ -401,7 +436,8 @@ def generate_and_send_bulk_emails(
     recipients_json: str,
     topic: str,
     instructions: str = "",
-    dry_run: bool = False,
+    dry_run: bool = True,
+    confirm_send: bool = False,
 ) -> str:
     """
     Generates and sends PERSONALIZED emails to multiple recipients.
@@ -426,6 +462,7 @@ def generate_and_send_bulk_emails(
         topic        : the general topic/purpose of all emails
         instructions : additional writing instructions (tone, content to include)
         dry_run      : if True, generates but does NOT send (for preview)
+        confirm_send : must be True only after the user confirms the final content
 
     Returns:
         JSON string with generation and send results per recipient
@@ -448,14 +485,19 @@ def generate_and_send_bulk_emails(
     ]
 
     generator = BulkEmailGenerator()
+    should_send = confirm_send and not dry_run
     results   = generator.generate_and_send(
         recipients=recipients,
         topic=topic,
         instructions=instructions,
-        send=not dry_run,
+        send=should_send,
     )
 
-    return generator.results_to_json(results)
+    payload = json.loads(generator.results_to_json(results))
+    if not should_send:
+        payload["status"] = "confirmation_required"
+        payload["message"] = "Personalized emails were generated only. Ask the user to confirm before sending."
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 # Liste de tous les outils (importee par l'agent)
