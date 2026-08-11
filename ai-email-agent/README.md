@@ -189,6 +189,24 @@ python main.py
 
 The CLI starts an interactive agent session.
 
+### Manual test runner
+
+Use this script when you want to control tests from the terminal:
+
+```bash
+python manual_test.py
+```
+
+It lets you test Gmail auth, read latest unread emails, analyze unread emails,
+chat with the agent using custom prompts, and call individual tools. Send tools
+run in preview mode unless `confirm_send=True` is explicitly used in code.
+
+For a faster smoke test:
+
+```bash
+python manual_test.py --quick
+```
+
 ## 9) Tester sur une nouvelle machine
 
 Install dependencies in a virtual environment first, then run:
