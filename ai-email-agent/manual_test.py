@@ -46,6 +46,9 @@ def safe_run(title: str, action: Callable[[], None]) -> None:
     except KeyboardInterrupt:
         print("\nCancelled.")
     except Exception as exc:
+        if exc.__class__.__name__ in {"AuthenticationError"}:
+            print(f"SETUP ERROR: {exc}")
+            return
         print(f"ERROR: {exc}")
         traceback.print_exc()
 

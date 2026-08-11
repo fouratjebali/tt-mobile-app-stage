@@ -11,6 +11,10 @@ SCOPES = [
 ]
 
 
+CREDENTIALS_FILE = "credentials.json"
+TOKEN_FILE = "token.json"
+
+
 def get_gmail_service():
     """
     Retourne un service Gmail authentifie via OAuth 2.0.
@@ -30,8 +34,8 @@ def get_gmail_service():
     creds = None
 
     # Si un token existe deja, le charger
-    if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    if os.path.exists(TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
 
     # Si pas de token valide, en creer un
     if not creds or not creds.valid:
@@ -39,10 +43,16 @@ def get_gmail_service():
             # Token expire mais rafraichissable
             creds.refresh(Request())
         else:
+            if not os.path.exists(CREDENTIALS_FILE):
+                raise AuthenticationError(
+                    f"Missing {CREDENTIALS_FILE}. Download the OAuth Desktop app JSON from Google Cloud "
+                    f"and place it in the ai-email-agent folder as {CREDENTIALS_FILE}."
+                )
+
             # Premiere fois : ouvrir le navigateur
             try:
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    "credentials.json", SCOPES
+                    CREDENTIALS_FILE, SCOPES
                 )
                 creds = flow.run_local_server(port=0)
             except KeyboardInterrupt as exc:
@@ -55,7 +65,7 @@ def get_gmail_service():
                 ) from exc
 
         # Sauvegarder pour les prochains appels
-        with open("token.json", "w") as token:
+        with open(TOKEN_FILE, "w") as token:
             token.write(creds.to_json())
 
     return build("gmail", "v1", credentials=creds)

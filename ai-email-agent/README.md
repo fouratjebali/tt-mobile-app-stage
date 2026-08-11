@@ -119,16 +119,23 @@ ollama pull llama3.1
 
 ## 6) Configurer Gmail OAuth
 
-Le projet utilise OAuth via le fichier `credentials.json` a la racine.
+Le projet utilise OAuth via le fichier `credentials.json` dans le dossier
+`ai-email-agent`.
 
 1. Aller sur Google Cloud Console
 2. Creer (ou utiliser) un projet
 3. Activer Gmail API
 4. Creer des identifiants OAuth 2.0 de type "Desktop app"
-5. Telecharger le JSON OAuth et le placer a la racine sous le nom:
+5. Telecharger le JSON OAuth et le placer dans `ai-email-agent` sous le nom:
 
 ```text
 credentials.json
+```
+
+Chemin attendu quand vous lancez les scripts:
+
+```text
+ai-email-agent/credentials.json
 ```
 
 ### Important
