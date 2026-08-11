@@ -30,6 +30,11 @@ _chains = EmailChains()
 
 
 _GMAIL_ID_HINTS = (
+    "read_emails",
+    "classify_email",
+    "prioritize_email",
+    "summarize_email",
+    "suggest_reply",
     "first email id",
     "second email id",
     "third email id",
@@ -39,6 +44,55 @@ _GMAIL_ID_HINTS = (
     "paste",
     "placeholder",
 )
+
+
+def _analyze_email(email) -> dict:
+    classification = _chains.classify(
+        subject=email.subject,
+        sender=email.sender,
+        body=email.body,
+    )
+    priority = _chains.prioritize(
+        subject=email.subject,
+        sender=email.sender,
+        body=email.body,
+        category=classification.category,
+    )
+    summary = _chains.summarize(
+        subject=email.subject,
+        sender=email.sender,
+        body=email.body,
+    )
+    reply = _chains.suggest_reply(
+        subject=email.subject,
+        sender=email.sender,
+        body=email.body,
+        category=classification.category,
+        priority=priority.priority,
+        summary=summary.summary,
+    )
+
+    return {
+        "id": email.id,
+        "subject": email.subject,
+        "sender": email.sender,
+        "date": email.date,
+        "is_read": email.is_read,
+        "category": classification.category,
+        "classification_confidence": classification.confidence,
+        "classification_reason": classification.reason,
+        "priority": priority.priority,
+        "urgency_score": priority.urgency_score,
+        "priority_reason": priority.reason,
+        "summary": summary.summary,
+        "action_required": summary.action_required,
+        "language": summary.language,
+        "reply_subject": reply.reply_subject,
+        "suggested_reply": reply.reply,
+        "reply_tone": reply.tone,
+        "is_urgent": priority.priority == "URGENT" or priority.urgency_score >= 8,
+        "needs_reply": classification.category != "INFORMATION",
+    }
 
 
 def _confirmation_required_payload(action: str, preview: dict) -> str:
@@ -106,7 +160,35 @@ def read_emails(query: str = "is:unread", max_results: int = 10) -> str:
     }, ensure_ascii=False)
 
 
-# OUTIL 2 : Classifier un email
+# OUTIL 2 : Lire et analyser les derniers emails
+@tool
+def analyze_latest_emails(query: str = "", max_results: int = 1) -> str:
+    """
+    Reads the latest emails and returns full analysis in one step.
+    Use this for prompts like "read the last email and classify it" or
+    "analyze my latest unread emails".
+
+    Args:
+        query      : Gmail search query. Use '' for latest emails, 'is:unread' for unread emails.
+        max_results: number of emails to read and analyze (default 1)
+
+    Returns:
+        JSON string with classification, priority, summary, and suggested reply per email
+    """
+    emails = fetch_emails(max_results=max_results, query=query)
+
+    if not emails:
+        return json.dumps({"status": "empty", "count": 0, "emails": []})
+
+    analyses = [_analyze_email(email) for email in emails]
+    return json.dumps({
+        "status": "ok",
+        "count": len(analyses),
+        "emails": analyses,
+    }, ensure_ascii=False)
+
+
+# OUTIL 3 : Classifier un email
 @tool
 def classify_email(email_id: str) -> str:
     """
@@ -381,7 +463,7 @@ def send_bulk_email(recipients_json: str, confirm_send: bool = False) -> str:
     }, ensure_ascii=False)
 
 
-# OUTIL 8 : Obtenir uniquement les emails urgents
+# OUTIL 9 : Obtenir uniquement les emails urgents
 @tool
 def get_urgent_emails(max_results: int = 20) -> str:
     """
@@ -402,26 +484,9 @@ def get_urgent_emails(max_results: int = 20) -> str:
 
     urgent = []
     for email in emails:
-        classification = _chains.classify(
-            subject=email.subject,
-            sender=email.sender,
-            body=email.body,
-        )
-        priority = _chains.prioritize(
-            subject=email.subject,
-            sender=email.sender,
-            body=email.body,
-            category=classification.category,
-        )
-        if priority.priority == "URGENT":
-            urgent.append({
-                "id":           email.id,
-                "subject":      email.subject,
-                "sender":       email.sender,
-                "category":     classification.category,
-                "urgency_score": priority.urgency_score,
-                "reason":       priority.reason,
-            })
+        analysis = _analyze_email(email)
+        if analysis["priority"] == "URGENT":
+            urgent.append(analysis)
 
     return json.dumps({
         "status":        "ok",
@@ -430,7 +495,7 @@ def get_urgent_emails(max_results: int = 20) -> str:
     }, ensure_ascii=False)
 
 
-# OUTIL 9 : Bulk email intelligent avec personnalisation
+# OUTIL 10 : Bulk email intelligent avec personnalisation
 @tool
 def generate_and_send_bulk_emails(
     recipients_json: str,
@@ -503,6 +568,7 @@ def generate_and_send_bulk_emails(
 # Liste de tous les outils (importee par l'agent)
 ALL_TOOLS = [
     read_emails,
+    analyze_latest_emails,
     classify_email,
     prioritize_email,
     summarize_email,

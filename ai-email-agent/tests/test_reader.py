@@ -72,6 +72,59 @@ def test_classify_email_tool_returns_json():
             assert result["email_id"] == "id1"
 
 
+def test_classify_email_rejects_tool_name_as_email_id():
+    """classify_email ne doit pas accepter read_emails comme ID Gmail."""
+    from agent.tools import classify_email
+
+    result_str = classify_email.invoke({"email_id": "read_emails"})
+    result = json.loads(result_str)
+
+    assert "Invalid placeholder email ID" in result["error"]
+    assert result["email_id"] == "read_emails"
+
+
+def test_analyze_latest_emails_returns_full_analysis():
+    """analyze_latest_emails doit lire puis analyser sans ID manuel."""
+    fake_email = make_fake_email("id1", "Urgent problem", "angry@client.com",
+                                  "I have a serious complaint about your service.")
+
+    classification = MagicMock()
+    classification.category = "RECLAMATION"
+    classification.confidence = 0.92
+    classification.reason = "Customer complaint"
+
+    priority = MagicMock()
+    priority.priority = "URGENT"
+    priority.urgency_score = 9
+    priority.reason = "Urgent complaint"
+
+    summary = MagicMock()
+    summary.summary = "Customer reports a service problem."
+    summary.action_required = "Reply quickly"
+    summary.language = "en"
+
+    reply = MagicMock()
+    reply.reply_subject = "Re: Urgent problem"
+    reply.reply = "We are checking this now."
+    reply.tone = "professional"
+
+    with patch("agent.tools.fetch_emails", return_value=[fake_email]):
+        with patch("agent.tools._chains.classify", return_value=classification):
+            with patch("agent.tools._chains.prioritize", return_value=priority):
+                with patch("agent.tools._chains.summarize", return_value=summary):
+                    with patch("agent.tools._chains.suggest_reply", return_value=reply):
+                        from agent.tools import analyze_latest_emails
+                        result_str = analyze_latest_emails.invoke({"query": "", "max_results": 1})
+                        result = json.loads(result_str)
+
+    assert result["status"] == "ok"
+    assert result["count"] == 1
+    assert result["emails"][0]["id"] == "id1"
+    assert result["emails"][0]["category"] == "RECLAMATION"
+    assert result["emails"][0]["priority"] == "URGENT"
+    assert result["emails"][0]["is_urgent"] is True
+
+
 def test_send_single_email_tool_success():
     """send_single_email doit retourner status sent."""
     mock_send_result = {"id": "msg_abc123"}
@@ -171,6 +224,7 @@ def test_all_tools_are_registered():
     tool_names = [t.name for t in ALL_TOOLS]
     expected = [
         "read_emails",
+        "analyze_latest_emails",
         "classify_email",
         "prioritize_email",
         "summarize_email",

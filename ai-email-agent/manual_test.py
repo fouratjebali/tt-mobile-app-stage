@@ -168,6 +168,7 @@ def invoke_tool(tool, payload: dict) -> dict:
 
 def test_tools() -> None:
     from agent.tools import (
+        analyze_latest_emails,
         classify_email,
         get_urgent_emails,
         prioritize_email,
@@ -182,13 +183,14 @@ def test_tools() -> None:
 Tool Tests
 
 1. read_emails
-2. classify_email
-3. prioritize_email
-4. summarize_email
-5. suggest_reply
-6. get_urgent_emails
-7. send_single_email preview only
-8. send_bulk_email preview only
+2. analyze_latest_emails
+3. classify_email
+4. prioritize_email
+5. summarize_email
+6. suggest_reply
+7. get_urgent_emails
+8. send_single_email preview only
+9. send_bulk_email preview only
 0. Back
 """
 
@@ -202,14 +204,18 @@ Tool Tests
             query = ask_text("Gmail query", "is:unread")
             max_results = ask_int("Max results", 5)
             print_json(invoke_tool(read_emails, {"query": query, "max_results": max_results}))
-        elif choice in {"2", "3", "4", "5"}:
+        elif choice == "2":
+            query = ask_text("Gmail query: blank for latest, is:unread for unread", "")
+            max_results = ask_int("Max results", 1)
+            print_json(invoke_tool(analyze_latest_emails, {"query": query, "max_results": max_results}))
+        elif choice in {"3", "4", "5", "6"}:
             email_id = ask_text("Email ID from read_emails output")
-            if choice == "2":
+            if choice == "3":
                 print_json(invoke_tool(classify_email, {"email_id": email_id}))
-            elif choice == "3":
+            elif choice == "4":
                 category = ask_text("Category", "UNKNOWN")
                 print_json(invoke_tool(prioritize_email, {"email_id": email_id, "category": category}))
-            elif choice == "4":
+            elif choice == "5":
                 print_json(invoke_tool(summarize_email, {"email_id": email_id}))
             else:
                 category = ask_text("Category", "SUPPORT")
@@ -218,17 +224,17 @@ Tool Tests
                     suggest_reply,
                     {"email_id": email_id, "category": category, "priority": priority},
                 ))
-        elif choice == "6":
+        elif choice == "7":
             max_results = ask_int("Max unread emails to scan", 10)
             print_json(invoke_tool(get_urgent_emails, {"max_results": max_results}))
-        elif choice == "7":
+        elif choice == "8":
             payload = {
                 "to": ask_text("To", "recipient@example.com"),
                 "subject": ask_text("Subject", "Manual test"),
                 "body": ask_text("Body", "This is a safe preview test."),
             }
             print_json(invoke_tool(send_single_email, payload))
-        elif choice == "8":
+        elif choice == "9":
             recipients = [{
                 "to": ask_text("To", "recipient@example.com"),
                 "subject": ask_text("Subject", "Manual bulk test"),
