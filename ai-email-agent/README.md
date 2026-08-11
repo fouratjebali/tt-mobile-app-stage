@@ -154,28 +154,37 @@ Note: eviter d'ajouter des variables non attendues dans `.env`, sinon le chargem
 
 ## 8) Lancer le projet
 
+### API
+
+```bash
+uvicorn api:app --reload --port 8001
+```
+
+Useful URLs:
+
+- `http://127.0.0.1:8001/` - service index and route list
+- `http://127.0.0.1:8001/docs` - Swagger UI
+- `http://127.0.0.1:8001/health` - basic health response
+- `http://127.0.0.1:8001/ready` - dependency configuration summary
+- `http://127.0.0.1:8001/emails` - latest unread email previews
+
+### CLI
+
 ```bash
 python main.py
 ```
 
-Le script execute 3 checks:
-1. Connexion Gmail + lecture de quelques emails
-2. Connexion LLM via Ollama
-3. Analyse d'un email via prompt
+The CLI starts an interactive agent session.
 
 ## 9) Tester sur une nouvelle machine
 
-Commande standard:
+Install dependencies in a virtual environment first, then run:
 
 ```bash
-pytest -q
+python -m pytest -q
 ```
 
-Etat actuel:
-- Les fichiers `tests/test_agent.py` et `tests/test_reader.py` sont vides.
-- `pytest` peut donc retourner "no tests ran" pour le moment.
-
-Pour valider le setup aujourd'hui, utiliser `python main.py` comme smoke test principal.
+If dependencies are not installed, `pytest` or `fastapi` imports will fail.
 
 ## 10) Probleme frequents
 

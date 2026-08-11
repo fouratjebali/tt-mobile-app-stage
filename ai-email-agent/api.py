@@ -27,6 +27,25 @@ class ChatResponse(BaseModel):
     response: str
 
 
+class RootResponse(BaseModel):
+    service: str
+    status: str
+    api_version: str
+    docs_url: str
+    health_url: str
+    ready_url: str
+    endpoints: list[str]
+
+
+class ReadinessResponse(BaseModel):
+    status: Literal["ready"]
+    service: str
+    api_version: str
+    ollama_base_url: str
+    ollama_model: str
+    gmail_mode: str
+
+
 class EmailPreview(BaseModel):
     id: str
     subject: str
@@ -152,8 +171,28 @@ def _to_analysis_response(result: EmailAnalysisResult) -> EmailAnalysisResponse:
             body=result.reply.reply,
             tone=result.reply.tone,
         ),
-        is_urgent=result.is_urgent(),
+    is_urgent=result.is_urgent(),
         needs_reply=result.needs_reply(),
+    )
+
+
+@app.get("/", response_model=RootResponse)
+def root() -> RootResponse:
+    return RootResponse(
+        service="agent1",
+        status="ok",
+        api_version=API_VERSION,
+        docs_url="/docs",
+        health_url="/health",
+        ready_url="/ready",
+        endpoints=[
+            "GET /health",
+            "GET /ready",
+            "GET /emails",
+            "POST /emails/analyze",
+            "POST /emails/{email_id}/analyze",
+            "POST /chat",
+        ],
     )
 
 
@@ -166,6 +205,18 @@ def health() -> dict[str, str]:
         "ollama_base_url": settings.OLLAMA_BASE_URL,
         "ollama_model": settings.OLLAMA_MODEL,
     }
+
+
+@app.get("/ready", response_model=ReadinessResponse)
+def ready() -> ReadinessResponse:
+    return ReadinessResponse(
+        status="ready",
+        service="agent1",
+        api_version=API_VERSION,
+        ollama_base_url=settings.OLLAMA_BASE_URL,
+        ollama_model=settings.OLLAMA_MODEL,
+        gmail_mode="oauth_or_offline_fallback",
+    )
 
 
 @app.post("/chat", response_model=ChatResponse)

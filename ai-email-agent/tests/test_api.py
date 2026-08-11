@@ -53,6 +53,32 @@ def test_health_includes_api_version():
     assert response.json()["api_version"]
 
 
+def test_root_lists_available_routes():
+    from api import app
+
+    client = TestClient(app)
+    response = client.get("/")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["service"] == "agent1"
+    assert data["docs_url"] == "/docs"
+    assert "POST /chat" in data["endpoints"]
+
+
+def test_ready_returns_dependency_config():
+    from api import app
+
+    client = TestClient(app)
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ready"
+    assert data["ollama_model"]
+    assert data["gmail_mode"] == "oauth_or_offline_fallback"
+
+
 def test_list_emails_returns_preview(monkeypatch):
     import api
 
