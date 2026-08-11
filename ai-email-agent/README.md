@@ -168,6 +168,19 @@ Useful URLs:
 - `http://127.0.0.1:8001/ready` - dependency configuration summary
 - `http://127.0.0.1:8001/emails` - latest unread email previews
 
+Every API response includes `X-Request-ID`. Clients can also send their own
+`X-Request-ID` header to correlate mobile/backend logs. API errors use this
+shape:
+
+```json
+{
+  "status": "error",
+  "error": "internal_server_error",
+  "detail": "LLM unavailable",
+  "request_id": "client-or-generated-request-id"
+}
+```
+
 ### CLI
 
 ```bash

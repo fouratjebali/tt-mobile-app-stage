@@ -1,7 +1,10 @@
 from functools import lru_cache
+from time import perf_counter
 from typing import Literal
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from agent.agent import EmailAgent
@@ -25,6 +28,13 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+
+
+class ErrorResponse(BaseModel):
+    status: Literal["error"]
+    error: str
+    detail: str
+    request_id: str
 
 
 class RootResponse(BaseModel):
@@ -112,6 +122,10 @@ class EmailAnalysisResponse(BaseModel):
     needs_reply: bool
 
 
+def _request_id(request: Request) -> str:
+    return getattr(request.state, "request_id", "unknown")
+
+
 @lru_cache(maxsize=1)
 def get_agent() -> EmailAgent:
     return EmailAgent()
@@ -171,8 +185,46 @@ def _to_analysis_response(result: EmailAnalysisResult) -> EmailAnalysisResponse:
             body=result.reply.reply,
             tone=result.reply.tone,
         ),
-    is_urgent=result.is_urgent(),
+        is_urgent=result.is_urgent(),
         needs_reply=result.needs_reply(),
+    )
+
+
+@app.middleware("http")
+async def add_request_context(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    request.state.request_id = request_id
+    start = perf_counter()
+
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Process-Time-Ms"] = f"{(perf_counter() - start) * 1000:.2f}"
+    return response
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ErrorResponse(
+            status="error",
+            error="http_error",
+            detail=str(exc.detail),
+            request_id=_request_id(request),
+        ).model_dump(),
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=500,
+        content=ErrorResponse(
+            status="error",
+            error="internal_server_error",
+            detail=str(exc),
+            request_id=_request_id(request),
+        ).model_dump(),
     )
 
 

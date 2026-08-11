@@ -47,10 +47,12 @@ def test_health_includes_api_version():
     from api import app
 
     client = TestClient(app)
-    response = client.get("/health")
+    response = client.get("/health", headers={"X-Request-ID": "test-request-1"})
 
     assert response.status_code == 200
     assert response.json()["api_version"]
+    assert response.headers["X-Request-ID"] == "test-request-1"
+    assert response.headers["X-Process-Time-Ms"]
 
 
 def test_root_lists_available_routes():
@@ -134,6 +136,43 @@ def test_analyze_missing_gmail_email_returns_404(monkeypatch):
     monkeypatch.setattr(api, "fetch_single_email", lambda email_id: None)
 
     client = TestClient(api.app)
-    response = client.post("/emails/missing-id/analyze")
+    response = client.post(
+        "/emails/missing-id/analyze",
+        headers={"X-Request-ID": "missing-email-test"},
+    )
 
     assert response.status_code == 404
+    data = response.json()
+    assert data["status"] == "error"
+    assert data["error"] == "http_error"
+    assert data["request_id"] == "missing-email-test"
+
+
+def test_unhandled_errors_return_traceable_json(monkeypatch):
+    import api
+
+    class BrokenPipeline:
+        def analyze(self, email: Email):
+            raise RuntimeError("LLM unavailable")
+
+    monkeypatch.setattr(api, "get_pipeline", lambda: BrokenPipeline())
+
+    client = TestClient(api.app, raise_server_exceptions=False)
+    response = client.post(
+        "/emails/analyze",
+        headers={"X-Request-ID": "broken-pipeline-test"},
+        json={
+            "email": {
+                "subject": "Need help",
+                "sender": "client@example.com",
+                "body": "Please help me.",
+            }
+        },
+    )
+
+    assert response.status_code == 500
+    data = response.json()
+    assert data["status"] == "error"
+    assert data["error"] == "internal_server_error"
+    assert data["detail"] == "LLM unavailable"
+    assert data["request_id"] == "broken-pipeline-test"
