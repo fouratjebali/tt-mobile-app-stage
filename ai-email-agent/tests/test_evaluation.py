@@ -6,7 +6,7 @@ from agent.logger import AgentLogger, AnalysisLog
 
 
 def test_logger_creates_log():
-    """Logger doit créer un AnalysisLog correctement."""
+    """Logger doit creer un AnalysisLog correctement."""
     logger = AgentLogger()
     log = logger.log_analysis(
         email_subject="Test subject",
@@ -53,7 +53,7 @@ def test_logger_session_stats():
 
 
 def test_logger_export_creates_file():
-    """export_for_evaluation doit créer un fichier JSON valide."""
+    """export_for_evaluation doit creer un fichier JSON valide."""
     logger = AgentLogger()
     logger.log_analysis(
         email_subject="Export test", email_sender="x@y.com",
@@ -81,7 +81,7 @@ def test_logger_export_creates_file():
 
 
 def test_metrics_calculation():
-    """Test du calcul des métriques avec données connues."""
+    """Test du calcul des metriques avec donnees connues."""
     annotated = [
         {"predicted_category": "SUPPORT",     "true_category": "SUPPORT",
          "predicted_priority": "NORMAL",      "true_priority": "NORMAL"},

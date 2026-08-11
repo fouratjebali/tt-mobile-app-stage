@@ -10,18 +10,18 @@ from config.settings import settings
 
 
 # ----------------------------------------------------------
-# État du graphe
+# Atat du graphe
 # ----------------------------------------------------------
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
 
 
 # ----------------------------------------------------------
-# Agent principal avec mémoire
+# Agent principal avec memoire
 # ----------------------------------------------------------
 class EmailAgent:
     """
-    Agent ReAct pour la gestion des emails avec mémoire conversationnelle.
+    Agent ReAct pour la gestion des emails avec memoire conversationnelle.
     """
 
     def __init__(self):
@@ -37,10 +37,10 @@ class EmailAgent:
         self.graph  = self._build_graph()
 
     def _agent_node(self, state: AgentState) -> AgentState:
-        """Nœud LLM : raisonne et décide de l'action suivante."""
+        """Node LLM : raisonne et decide de l'action suivante."""
         messages = state["messages"]
 
-        # Injecter le system prompt s'il n'est pas encore là
+        # Injecter le system prompt s'il n'est pas encore la
         if not any(isinstance(m, SystemMessage) for m in messages):
             messages = [SystemMessage(content=SYSTEM_PROMPT_WITH_MEMORY)] + messages
 
@@ -70,23 +70,23 @@ class EmailAgent:
 
     def chat(self, user_message: str) -> str:
         """
-        Envoie un message à l'agent en conservant la mémoire.
-        C'est la méthode principale pour la conversation continue.
+        Envoie un message a l'agent en conservant la memoire.
+        C'est la methode principale pour la conversation continue.
 
         Args:
             user_message : instruction de l'utilisateur
 
         Returns:
-            Réponse finale de l'agent
+            Reponse finale de l'agent
         """
-        # Résumer si l'historique est trop long
+        # Resumer si l'historique est trop long
         if self.memory.should_summarize():
             self.memory.summarize()
 
-        # Ajouter le message utilisateur à la mémoire
+        # Ajouter le message utilisateur a la memoire
         self.memory.add_human(user_message)
 
-        # Construire l'état initial avec TOUT l'historique
+        # Construire l'etat initial avec TOUT l'historique
         initial_state = {"messages": self.memory.get_full_history()}
         initial_message_count = len(initial_state["messages"])
 
@@ -96,21 +96,21 @@ class EmailAgent:
             config={"recursion_limit": 30},
         )
 
-        # Extraire la réponse finale
+        # Extraire la reponse finale
         last_message = final_state["messages"][-1]
         response     = last_message.content
 
-        # Sauvegarder tous les nouveaux messages de ce tour dans la mémoire
+        # Sauvegarder tous les nouveaux messages de ce tour dans la memoire
         for message in final_state["messages"][initial_message_count:]:
             self.memory.add_message(message)
 
-        # Si le dernier message n'était pas une réponse texte, conserver au moins
-        # une trace lisible du résultat final.
+        # Si le dernier message n'etait pas une reponse texte, conserver au moins
+        # une trace lisible du resultat final.
         return response
 
     def stream_chat(self, user_message: str):
         """
-        Version streaming de chat() — affiche chaque étape en temps réel.
+        Version streaming de chat() - affiche chaque etape en temps reel.
 
         Yields:
             Tuples (node_name, message)
@@ -145,10 +145,10 @@ class EmailAgent:
             final_response = getattr(turn_messages[-1], "content", "")
 
     def reset_memory(self) -> None:
-        """Réinitialise la mémoire (nouvelle conversation)."""
+        """Reinitialise la memoire (nouvelle conversation)."""
         self.memory.clear()
 
-    # Alias pour compatibilité Day 3
+    # Alias pour compatibilite Day 3
     def run(self, instruction: str) -> str:
         return self.chat(instruction)
 

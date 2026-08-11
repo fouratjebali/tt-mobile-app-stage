@@ -5,7 +5,7 @@ langchain-community==0.2.16
 langgraph==0.2.14
 langchain-core==0.2.38
 
-# Numpy — wheel précompilé pour Python 3.11 (évite la compilation)
+# Numpy - wheel precompile pour Python 3.11 (evite la compilation)
 numpy==1.26.4
 
 # Gmail API

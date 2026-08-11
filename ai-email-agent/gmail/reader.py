@@ -13,7 +13,7 @@ except ImportError:
 
 @dataclass
 class Email:
-    """Représente un email récupéré depuis Gmail."""
+    """Represente un email recupere depuis Gmail."""
     id: str
     subject: str
     sender: str
@@ -22,7 +22,7 @@ class Email:
     is_read: bool
 
     def short_body(self, max_chars: int = 300) -> str:
-        """Retourne les premiers caractères du corps."""
+        """Retourne les premiers caracteres du corps."""
         return self.body[:max_chars] + "..." if len(self.body) > max_chars else self.body
 
 
@@ -35,7 +35,7 @@ def _get_header(headers: list, name: str) -> str:
 
 
 def _decode_body(payload: dict) -> str:
-    """Décode le corps base64 d'un email en texte lisible."""
+    """Decode le corps base64 d'un email en texte lisible."""
     body = ""
 
     if "parts" in payload:
@@ -54,7 +54,7 @@ def _decode_body(payload: dict) -> str:
 
 
 def _offline_mailbox() -> list[Email]:
-    """Mailbox factice déterministe pour les environnements sans Gmail/Google."""
+    """Mailbox factice deterministe pour les environnements sans Gmail/Google."""
     return [
         Email("offline-001", "Urgent: service outage on account", "vip-client@example.com",
               "Our dashboard is down and our team needs help immediately.", "Mon, 01 Jul 2026 08:10:00 +0000", False),
@@ -117,10 +117,10 @@ def _offline_filter(emails: list[Email], query: str) -> list[Email]:
 
 def fetch_emails(max_results: int = 10, query: str = "is:unread") -> list[Email]:
     """
-    Récupère des emails depuis Gmail.
+    Recupere des emails depuis Gmail.
 
     Args:
-        max_results : nombre max d'emails à récupérer
+        max_results : nombre max d'emails a recuperer
         query       : filtre Gmail (ex: 'is:unread', 'from:boss@gmail.com')
 
     Returns:
@@ -166,7 +166,7 @@ def fetch_emails(max_results: int = 10, query: str = "is:unread") -> list[Email]
 
 
 def fetch_single_email(email_id: str) -> Optional[Email]:
-    """Récupère un seul email par son ID Gmail."""
+    """Recupere un seul email par son ID Gmail."""
     try:
         service = get_gmail_service()
     except Exception:

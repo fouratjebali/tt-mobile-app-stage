@@ -11,7 +11,7 @@ from config.settings import settings
 # Dataclasses
 @dataclass
 class Recipient:
-    """Un destinataire avec son contexte personnalisé."""
+    """Un destinataire avec son contexte personnalise."""
     name:    str
     email:   str
     role:    str
@@ -20,7 +20,7 @@ class Recipient:
 
 @dataclass
 class GeneratedEmail:
-    """Un email généré pour un destinataire."""
+    """Un email genere pour un destinataire."""
     recipient:            Recipient
     subject:              str
     body:                 str
@@ -36,21 +36,21 @@ class GeneratedEmail:
 
 class BulkEmailGenerator:
     """
-    Génère et envoie des emails personnalisés à plusieurs destinataires.
+    Genere et envoie des emails personnalises a plusieurs destinataires.
 
     Usage:
         generator = BulkEmailGenerator()
         recipients = [
             Recipient("Alice", "alice@co.com", "Chef de projet",
-                      "Elle gère le projet X et a demandé un point hebdo"),
-            Recipient("Bob", "bob@co.com", "Développeur",
+                      "Elle gere le projet X et a demande un point hebdo"),
+            Recipient("Bob", "bob@co.com", "Developpeur",
                       "Il travaille sur le backend, en retard sur la deadline"),
         ]
         results = generator.generate_and_send(
             recipients=recipients,
-            topic="Réunion de suivi Q3 — mercredi 10h",
-            instructions="Mentionner l'importance de la présence",
-            send=True,   # False = dry run, génère sans envoyer
+            topic="Reunion de suivi Q3 - mercredi 10h",
+            instructions="Mentionner l'importance de la presence",
+            send=True,   # False = dry run, genere sans envoyer
         )
     """
 
@@ -58,7 +58,7 @@ class BulkEmailGenerator:
         self.llm = OllamaLLM(
             base_url=settings.OLLAMA_BASE_URL,
             model=settings.OLLAMA_MODEL,
-            temperature=0.4,   # un peu plus créatif pour la personnalisation
+            temperature=0.4,   # un peu plus creatif pour la personnalisation
         )
         self._chain = PromptTemplate.from_template(BULK_PERSONALIZED_PROMPT) | self.llm
 
@@ -69,15 +69,15 @@ class BulkEmailGenerator:
         instructions: str = "",
     ) -> GeneratedEmail:
         """
-        Génère un email personnalisé pour UN destinataire.
+        Genere un email personnalise pour UN destinataire.
 
         Args:
             recipient    : le destinataire avec son contexte
-            topic        : sujet général de l'email
-            instructions : instructions supplémentaires
+            topic        : sujet general de l'email
+            instructions : instructions supplementaires
 
         Returns:
-            GeneratedEmail avec subject et body générés
+            GeneratedEmail avec subject et body generes
         """
         raw = self._chain.invoke({
             "name":         recipient.name,
@@ -108,13 +108,13 @@ class BulkEmailGenerator:
         instructions: str = "",
     ) -> list[GeneratedEmail]:
         """
-        Génère des emails personnalisés pour TOUS les destinataires.
+        Genere des emails personnalises pour TOUS les destinataires.
         Affiche la progression.
 
         Args:
             recipients   : liste de destinataires
-            topic        : sujet général
-            instructions : instructions supplémentaires
+            topic        : sujet general
+            instructions : instructions supplementaires
 
         Returns:
             Liste de GeneratedEmail (un par destinataire)
@@ -133,13 +133,13 @@ class BulkEmailGenerator:
 
     def send_all(self, generated_emails: list[GeneratedEmail]) -> list[GeneratedEmail]:
         """
-        Envoie tous les emails générés via Gmail API.
+        Envoie tous les emails generes via Gmail API.
 
         Args:
-            generated_emails : liste de GeneratedEmail à envoyer
+            generated_emails : liste de GeneratedEmail a envoyer
 
         Returns:
-            Même liste avec status mis à jour (sent/error)
+            Meme liste avec status mis a jour (sent/error)
         """
         print(f"\n  Sending {len(generated_emails)} emails...")
 
@@ -152,12 +152,12 @@ class BulkEmailGenerator:
                 )
                 ge.status     = "sent"
                 ge.message_id = result.get("id", "")
-                print(f"  ✓ Sent to {ge.recipient.email}")
+                print(f"  OK Sent to {ge.recipient.email}")
 
             except Exception as e:
                 ge.status = "error"
                 ge.error  = str(e)
-                print(f"  ✗ Error for {ge.recipient.email}: {e}")
+                print(f"  ERROR Error for {ge.recipient.email}: {e}")
 
         return generated_emails
 
@@ -169,18 +169,18 @@ class BulkEmailGenerator:
         send: bool = True,
     ) -> list[GeneratedEmail]:
         """
-        Pipeline complet : génère puis envoie (ou dry-run).
+        Pipeline complet : genere puis envoie (ou dry-run).
 
         Args:
             recipients   : liste de Recipient
-            topic        : sujet général
+            topic        : sujet general
             instructions : instructions optionnelles
             send         : True = envoie vraiment, False = dry run
 
         Returns:
-            Liste de GeneratedEmail avec résultats
+            Liste de GeneratedEmail avec resultats
         """
-        # 1. Générer tous les emails
+        # 1. Generer tous les emails
         generated = self.generate_all(recipients, topic, instructions)
 
         # 2. Envoyer (ou non)
@@ -189,12 +189,12 @@ class BulkEmailGenerator:
         else:
             for ge in generated:
                 ge.status = "dry_run"
-            print("\n  DRY RUN — emails generated but NOT sent.")
+            print("\n  DRY RUN - emails generated but NOT sent.")
 
         return generated
 
     def results_to_json(self, results: list[GeneratedEmail]) -> str:
-        """Convertit les résultats en JSON pour l'agent."""
+        """Convertit les resultats en JSON pour l'agent."""
         data = []
         for ge in results:
             data.append({

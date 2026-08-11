@@ -14,7 +14,7 @@ def send_email(to: str, subject: str, body: str) -> dict:
         body    : corps en texte brut
 
     Returns:
-        Dictionnaire avec l'id du message envoyé
+        Dictionnaire avec l'id du message envoye
     """
     service = get_gmail_service()
 
@@ -34,14 +34,14 @@ def send_email(to: str, subject: str, body: str) -> dict:
 
 def send_bulk_emails(recipients: list[dict]) -> list[dict]:
     """
-    Envoie des emails personnalisés à plusieurs destinataires.
+    Envoie des emails personnalises a plusieurs destinataires.
 
     Args:
-        recipients : liste de dicts avec clés 'to', 'subject', 'body'
+        recipients : liste de dicts avec cles 'to', 'subject', 'body'
                      Exemple :
                      [
                        {"to": "alice@gmail.com",
-                        "subject": "Réunion",
+                        "subject": "Reunion",
                         "body": "Bonjour Alice, ..."},
                        {"to": "bob@gmail.com",
                         "subject": "Rapport",
@@ -49,7 +49,7 @@ def send_bulk_emails(recipients: list[dict]) -> list[dict]:
                      ]
 
     Returns:
-        Liste des résultats (un par email envoyé)
+        Liste des resultats (un par email envoye)
     """
     results = []
     for r in recipients:

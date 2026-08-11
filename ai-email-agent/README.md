@@ -5,20 +5,20 @@ Intelligent workflow assistant for automated email management using
 LangChain, LangGraph, and a local LLM (Ollama + Llama 3.1).
 
 Developed as part of an apprenticeship internship at
-**Tunisie Télécom — Direction Régionale de Sfax**.
+**Tunisie Telecom - Direction Regionale de Sfax**.
 
 ---
 
 ## Features
 
-- **Gmail Integration** — connects to Gmail via OAuth 2.0
-- **Automatic Classification** — RECLAMATION / INFORMATION / SUPPORT / COMMERCIAL
-- **Priority Detection** — URGENT / NORMAL / LOW with urgency score (1-10)
-- **Email Summarization** — 2-sentence summary + required action
-- **Reply Generation** — professional reply in the email's language
-- **Bulk Personalized Email** — sends different content to N recipients
-- **Conversational Memory** — remembers context across messages
-- **Evaluation System** — measures classification accuracy with metrics
+- **Gmail Integration** - connects to Gmail via OAuth 2.0
+- **Automatic Classification** - RECLAMATION / INFORMATION / SUPPORT / COMMERCIAL
+- **Priority Detection** - URGENT / NORMAL / LOW with urgency score (1-10)
+- **Email Summarization** - 2-sentence summary + required action
+- **Reply Generation** - professional reply in the email's language
+- **Bulk Personalized Email** - sends different content to N recipients
+- **Conversational Memory** - remembers context across messages
+- **Evaluation System** - measures classification accuracy with metrics
 
 ---
 
@@ -26,7 +26,7 @@ Developed as part of an apprenticeship internship at
 
 | Layer          | Technology                        |
 |----------------|-----------------------------------|
-| LLM            | Ollama + Llama 3.1 (8B) — local   |
+| LLM            | Ollama + Llama 3.1 (8B) - local   |
 | Agent          | LangGraph (ReAct pattern)         |
 | Chains         | LangChain 0.2.16                  |
 | Gmail API      | Google API Python Client          |
@@ -38,31 +38,33 @@ Developed as part of an apprenticeship internship at
 ---
 
 ## Project Structure
+```text
 ai-email-agent/
-├── agent/
-│   ├── agent.py          # ReAct agent with LangGraph
-│   ├── bulk_generator.py # Personalized bulk email
-│   ├── chains.py         # 4 LangChain NLP chains
-│   ├── logger.py         # Analysis logging system
-│   ├── memory.py         # Conversational memory
-│   ├── parser.py         # Robust JSON parser
-│   ├── pipeline.py       # Full analysis pipeline
-│   ├── prompts.py        # All LLM prompts
-│   └── tools.py          # 9 agent tools
-├── auth/
-│   └── gmail_auth.py     # Gmail OAuth 2.0
-├── config/
-│   └── settings.py       # Configuration
-├── data/
-│   ├── evaluate.py       # Evaluation script
-│   └── training/         # Evaluation datasets
-├── gmail/
-│   ├── reader.py         # Read emails
-│   └── sender.py         # Send emails
-├── tests/                # Pytest test suite
-├── demo.py               # Full demo script
-├── main.py               # Interactive CLI
-└── requirements.txt
+|-- agent/
+|   |-- agent.py          # ReAct agent with LangGraph
+|   |-- bulk_generator.py # Personalized bulk email
+|   |-- chains.py         # 4 LangChain NLP chains
+|   |-- logger.py         # Analysis logging system
+|   |-- memory.py         # Conversational memory
+|   |-- parser.py         # Robust JSON parser
+|   |-- pipeline.py       # Full analysis pipeline
+|   |-- prompts.py        # All LLM prompts
+|   `-- tools.py          # 9 agent tools
+|-- auth/
+|   `-- gmail_auth.py     # Gmail OAuth 2.0
+|-- config/
+|   `-- settings.py       # Configuration
+|-- data/
+|   |-- evaluate.py       # Evaluation script
+|   `-- training/         # Evaluation datasets
+|-- gmail/
+|   |-- reader.py         # Read emails
+|   `-- sender.py         # Send emails
+|-- tests/                # Pytest test suite
+|-- demo.py               # Full demo script
+|-- main.py               # Interactive CLI
+`-- requirements.txt
+```
 
 ## Installation
 ## 1) Pre-requis

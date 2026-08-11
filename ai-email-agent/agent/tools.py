@@ -25,7 +25,7 @@ except ImportError:
     def tool(func):
         return _SimpleTool(func)
 
-# Instance partagée des chains (évite de recharger le LLM à chaque appel)
+# Instance partagee des chains (evite de recharger le LLM a chaque appel)
 _chains = EmailChains()
 
 
@@ -65,10 +65,10 @@ def read_emails(query: str = "is:unread", max_results: int = 10) -> str:
 
     Args:
         query      : Gmail search query. Examples:
-                     'is:unread'           → unread emails
-                     'is:unread urgent'    → unread emails with 'urgent'
-                     'from:boss@gmail.com' → emails from a specific sender
-                     ''                   → latest emails (read + unread)
+                     'is:unread'           -> unread emails
+                     'is:unread urgent'    -> unread emails with 'urgent'
+                     'from:boss@gmail.com' -> emails from a specific sender
+                     ''                   -> latest emails (read + unread)
         max_results: maximum number of emails to retrieve (default 10)
 
     Returns:
@@ -181,7 +181,7 @@ def prioritize_email(email_id: str, category: str = "UNKNOWN") -> str:
     }, ensure_ascii=False)
 
 
-# OUTIL 4 : Résumer un email
+# OUTIL 4 : Resumer un email
 @tool
 def summarize_email(email_id: str) -> str:
     """
@@ -220,7 +220,7 @@ def summarize_email(email_id: str) -> str:
     }, ensure_ascii=False)
 
 
-# OUTIL 5 : Suggérer une réponse
+# OUTIL 5 : Suggerer une reponse
 @tool
 def suggest_reply(
     email_id: str,
@@ -418,9 +418,9 @@ def generate_and_send_bulk_emails(
                           '[
                             {"name":"Alice","email":"alice@co.com",
                              "role":"Chef de projet",
-                             "context":"Elle gère le projet X, demande un point"},
+                             "context":"Elle gere le projet X, demande un point"},
                             {"name":"Bob","email":"bob@co.com",
-                             "role":"Développeur",
+                             "role":"Developpeur",
                              "context":"En retard sur la deadline du module Y"}
                           ]'
         topic        : the general topic/purpose of all emails
@@ -458,7 +458,7 @@ def generate_and_send_bulk_emails(
     return generator.results_to_json(results)
 
 
-# Liste de tous les outils (importée par l'agent)
+# Liste de tous les outils (importee par l'agent)
 ALL_TOOLS = [
     read_emails,
     classify_email,

@@ -40,18 +40,18 @@ IMPORTANT RULES:
 
 class ConversationMemory:
     """
-    Gère l'historique de la conversation avec l'agent.
+    Gere l'historique de la conversation avec l'agent.
 
     L'historique est une liste de BaseMessage :
-      HumanMessage  → ce que l'utilisateur a dit
-      AIMessage     → ce que l'agent a répondu
-      SystemMessage → le prompt système (ajouté en premier)
+      HumanMessage  -> ce que l'utilisateur a dit
+      AIMessage     -> ce que l'agent a repondu
+      SystemMessage -> le prompt systeme (ajoute en premier)
 
-    Quand l'historique devient trop long, on le résume automatiquement.
+    Quand l'historique devient trop long, on le resume automatiquement.
     """
 
-    MAX_MESSAGES = 30       # au-delà, on résume pour économiser les tokens
-    SUMMARY_KEEP  = 6       # messages récents à garder après résumé
+    MAX_MESSAGES = 30       # au-dela, on resume pour economiser les tokens
+    SUMMARY_KEEP  = 6       # messages recents a garder apres resume
 
     def __init__(self):
         self.messages: list[BaseMessage] = []
@@ -69,48 +69,48 @@ class ConversationMemory:
         self.turn_count += 1
 
     def add_ai(self, text: str) -> None:
-        """Ajoute une réponse de l'agent."""
+        """Ajoute une reponse de l'agent."""
         self.messages.append(AIMessage(content=text))
 
     def add_message(self, message: BaseMessage) -> None:
-        """Ajoute n'importe quel message LangChain à l'historique."""
+        """Ajoute n'importe quel message LangChain a l'historique."""
         self.messages.append(message)
 
     def add_system(self, text: str) -> None:
-        """Ajoute un message système."""
+        """Ajoute un message systeme."""
         self.messages.append(SystemMessage(content=text))
 
     def get_full_history(self) -> list[BaseMessage]:
         """
-        Retourne l'historique complet prêt pour le LLM.
+        Retourne l'historique complet pret pour le LLM.
         Le SystemMessage est toujours en premier.
         """
         system = SystemMessage(content=SYSTEM_PROMPT_WITH_MEMORY)
         return [system] + self.messages
 
     def should_summarize(self) -> bool:
-        """Vérifie si l'historique est trop long."""
+        """Verifie si l'historique est trop long."""
         return len(self.messages) > self.MAX_MESSAGES
 
     def summarize(self) -> None:
         """
-        Résume les anciens messages pour réduire la taille de l'historique.
-        Garde les SUMMARY_KEEP messages les plus récents intacts.
+        Resume les anciens messages pour reduire la taille de l'historique.
+        Garde les SUMMARY_KEEP messages les plus recents intacts.
         """
         if len(self.messages) <= self.SUMMARY_KEEP:
             return
 
-        # Séparer ancien et récent
+        # Separer ancien et recent
         old_messages   = self.messages[:-self.SUMMARY_KEEP]
         recent_messages = self.messages[-self.SUMMARY_KEEP:]
 
-        # Construire le texte de l'historique à résumer
+        # Construire le texte de l'historique a resumer
         history_text = ""
         for msg in old_messages:
             role = "User" if isinstance(msg, HumanMessage) else "Agent"
             history_text += f"{role}: {msg.content[:300]}\n"
 
-        # Appeler le LLM pour résumer
+        # Appeler le LLM pour resumer
         chain = PromptTemplate.from_template(CONVERSATION_SUMMARY_PROMPT) | self._llm
         raw   = chain.invoke({"history": history_text})
         data  = parser.safe_parse(raw, default={
@@ -120,7 +120,7 @@ class ConversationMemory:
             "pending_actions": [],
         })
 
-        # Créer un message système de résumé
+        # Creer un message systeme de resume
         summary_text = (
             f"[Conversation summary so far]\n"
             f"{data.get('summary', '')}\n"
@@ -129,18 +129,18 @@ class ConversationMemory:
             f"Pending: {', '.join(data.get('pending_actions', []))}"
         )
 
-        # Remplacer les vieux messages par le résumé + garder les récents
+        # Remplacer les vieux messages par le resume + garder les recents
         self.messages = [SystemMessage(content=summary_text)] + recent_messages
         print(f"  [Memory] Summarized {len(old_messages)} old messages.")
 
     def clear(self) -> None:
-        """Réinitialise complètement la mémoire."""
+        """Reinitialise completement la memoire."""
         self.messages     = []
         self.turn_count   = 0
         self.session_start = datetime.now()
 
     def display_stats(self) -> dict:
-        """Retourne des statistiques sur la mémoire."""
+        """Retourne des statistiques sur la memoire."""
         human_msgs = sum(1 for m in self.messages if isinstance(m, HumanMessage))
         ai_msgs    = sum(1 for m in self.messages if isinstance(m, AIMessage))
         duration   = (datetime.now() - self.session_start).seconds // 60

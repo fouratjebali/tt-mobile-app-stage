@@ -59,16 +59,16 @@ console = Console()
 
 
 # ----------------------------------------------------------
-# Étape A : Collecter et analyser les emails
+# Atape A : Collecter et analyser les emails
 # ----------------------------------------------------------
 
 def collect_and_analyze(n_emails: int = 20) -> str:
     """
-    Récupère N emails, les analyse avec l'agent,
-    et sauvegarde les résultats dans un fichier JSON.
+    Recupere N emails, les analyse avec l'agent,
+    et sauvegarde les resultats dans un fichier JSON.
 
     Returns:
-        Chemin du fichier JSON créé
+        Chemin du fichier JSON cree
     """
     console.print(Panel(
         f"[bold]Step 1 : Collecting and analyzing {n_emails} emails...[/bold]",
@@ -98,7 +98,7 @@ def collect_and_analyze(n_emails: int = 20) -> str:
             body=email.body,
         )
 
-        # Priorité
+        # Priorite
         pri = chains.prioritize(
             subject=email.subject,
             sender=email.sender,
@@ -106,7 +106,7 @@ def collect_and_analyze(n_emails: int = 20) -> str:
             category=clf.category,
         )
 
-        # Résumé
+        # Resume
         summ = chains.summarize(
             subject=email.subject,
             sender=email.sender,
@@ -136,7 +136,7 @@ def collect_and_analyze(n_emails: int = 20) -> str:
             suggested_reply=reply.reply,
         )
 
-    # Exporter pour évaluation manuelle
+    # Exporter pour evaluation manuelle
     output_file = logger.export_for_evaluation()
 
     console.print(f"\n[green]File saved : {output_file}[/green]")
@@ -148,14 +148,14 @@ def collect_and_analyze(n_emails: int = 20) -> str:
         "[yellow]Then run : python data/evaluate.py --compute[/yellow]\n"
     )
 
-    # Afficher un aperçu
+    # Afficher un apercu
     _show_preview_table(logger.session_logs)
 
     return output_file
 
 
 def _show_preview_table(logs) -> None:
-    """Affiche un tableau des prédictions."""
+    """Affiche un tableau des predictions."""
     table = Table(
         title="Agent Predictions Preview",
         box=box.ROUNDED, show_lines=True
@@ -189,13 +189,13 @@ def _show_preview_table(logs) -> None:
 
 
 # ----------------------------------------------------------
-# Étape B : Calculer les métriques après annotation manuelle
+# Atape B : Calculer les metriques apres annotation manuelle
 # ----------------------------------------------------------
 
 def compute_metrics(eval_file: str) -> None:
     """
-    Calcule les métriques de performance à partir
-    du fichier JSON annoté manuellement.
+    Calcule les metriques de performance a partir
+    du fichier JSON annote manuellement.
 
     Args:
         eval_file : chemin du fichier JSON avec true_category rempli
@@ -208,7 +208,7 @@ def compute_metrics(eval_file: str) -> None:
     with open(eval_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # Filtrer les entrées annotées
+    # Filtrer les entrees annotees
     annotated = [
         d for d in data
         if d.get("true_category") and d.get("true_priority")
@@ -224,21 +224,21 @@ def compute_metrics(eval_file: str) -> None:
 
     console.print(f"[green]{len(annotated)} annotated records found[/green]\n")
 
-    # ── Métriques catégorie ───────────────────────────────
+    # Category metrics
     cat_correct = sum(
         1 for d in annotated
         if d["predicted_category"] == d["true_category"]
     )
     cat_accuracy = cat_correct / len(annotated)
 
-    # ── Métriques priorité ────────────────────────────────
+    # Priority metrics
     pri_correct = sum(
         1 for d in annotated
         if d["predicted_priority"] == d["true_priority"]
     )
     pri_accuracy = pri_correct / len(annotated)
 
-    # ── Métriques par classe (catégorie) ──────────────────
+    # Per-class category metrics
     categories = ["RECLAMATION", "INFORMATION", "SUPPORT", "COMMERCIAL"]
     cat_metrics = {}
     for cat in categories:
@@ -264,25 +264,25 @@ def compute_metrics(eval_file: str) -> None:
             "tp": tp, "fp": fp, "fn": fn,
         }
 
-    # ── Affichage ─────────────────────────────────────────
+    # Display
     summary_table = Table(title="Overall Accuracy", box=box.SIMPLE)
     summary_table.add_column("Metric",   style="cyan")
     summary_table.add_column("Value",    style="bold")
     summary_table.add_column("Target",   style="dim")
     summary_table.add_column("Status",   style="bold")
 
-    cat_status = "[green]✓ PASS[/green]" if cat_accuracy >= 0.85 else "[red]✗ FAIL[/red]"
-    pri_status = "[green]✓ PASS[/green]" if pri_accuracy >= 0.80 else "[red]✗ FAIL[/red]"
+    cat_status = "[green]PASS[/green]" if cat_accuracy >= 0.85 else "[red]FAIL[/red]"
+    pri_status = "[green]PASS[/green]" if pri_accuracy >= 0.80 else "[red]FAIL[/red]"
 
     summary_table.add_row(
         "Category Accuracy",
         f"{cat_accuracy:.1%} ({cat_correct}/{len(annotated)})",
-        "≥ 85%", cat_status
+        ">= 85%", cat_status
     )
     summary_table.add_row(
         "Priority Accuracy",
         f"{pri_accuracy:.1%} ({pri_correct}/{len(annotated)})",
-        "≥ 80%", pri_status
+        ">= 80%", pri_status
     )
     console.print(summary_table)
 
@@ -309,7 +309,7 @@ def compute_metrics(eval_file: str) -> None:
         )
     console.print(detail_table)
 
-    # ── Afficher les erreurs ──────────────────────────────
+    # Display errors
     errors = [
         d for d in annotated
         if d["predicted_category"] != d["true_category"]
@@ -339,29 +339,29 @@ def compute_metrics(eval_file: str) -> None:
             "in agent/prompts.py[/yellow]"
         )
 
-    # ── Recommandations ───────────────────────────────────
+    # Recommendations
     console.print("\n[bold cyan]Recommendations :[/bold cyan]")
     if cat_accuracy < 0.85:
         console.print(
-            "  [red]→ Category accuracy below target.[/red]\n"
+            "  [red]-> Category accuracy below target.[/red]\n"
             "    Add more examples to CLASSIFICATION_PROMPT.\n"
             "    Check which category is most confused.\n"
         )
     if pri_accuracy < 0.80:
         console.print(
-            "  [red]→ Priority accuracy below target.[/red]\n"
+            "  [red]-> Priority accuracy below target.[/red]\n"
             "    Add urgency keywords to PRIORITY_PROMPT.\n"
             "    Check if URGENT emails are being missed.\n"
         )
     if cat_accuracy >= 0.85 and pri_accuracy >= 0.80:
         console.print(
-            "  [green]→ Both metrics pass targets. "
+            "  [green]-> Both metrics pass targets. "
             "Agent is performing well ![/green]"
         )
 
 
 # ----------------------------------------------------------
-# Étape C : Annoter le fichier JSON depuis le terminal
+# Atape C : Annoter le fichier JSON depuis le terminal
 # ----------------------------------------------------------
 
 def annotate_interactive(eval_file: str) -> None:
@@ -391,7 +391,7 @@ def annotate_interactive(eval_file: str) -> None:
                 border_style="cyan",
             ))
 
-            # Catégorie
+            # Categorie
             console.print("Categories : " + " | ".join(
                 f"[cyan]{i+1}[/cyan]={c}" for i, c in enumerate(CATEGORIES)
             ))
@@ -406,7 +406,7 @@ def annotate_interactive(eval_file: str) -> None:
             else:
                 true_cat = record["predicted_category"]
 
-            # Priorité
+            # Priorite
             console.print("Priorities : " + " | ".join(
                 f"[yellow]{i+1}[/yellow]={p}" for i, p in enumerate(PRIORITIES)
             ))
@@ -421,13 +421,13 @@ def annotate_interactive(eval_file: str) -> None:
             else:
                 true_pri = record["predicted_priority"]
 
-            # Mettre à jour
+            # Mettre a jour
             record["true_category"]    = true_cat
             record["true_priority"]    = true_pri
             record["correct_category"] = (true_cat == record["predicted_category"])
             record["correct_priority"] = (true_pri == record["predicted_priority"])
 
-            status = "[green]✓[/green]" if record["correct_category"] else "[red]✗[/red]"
+            status = "[green]OK[/green]" if record["correct_category"] else "[red]ERROR[/red]"
             console.print(f"{status} Saved\n")
 
     except KeyboardInterrupt:
@@ -462,5 +462,5 @@ if __name__ == "__main__":
     elif args.compute:
         compute_metrics(args.compute)
     else:
-        # Par défaut : collecter 15 emails
+        # Par defaut : collecter 15 emails
         collect_and_analyze(15)

@@ -10,12 +10,12 @@ console = Console()
 
 HELP_TEXT = """
 [bold cyan]Available commands:[/bold cyan]
-  [yellow]quit[/yellow]       → exit
-  [yellow]reset[/yellow]      → clear conversation memory
-  [yellow]memory[/yellow]     → show memory statistics
-  [yellow]demo[/yellow]       → run automated demo
-  [yellow]bulk[/yellow]       → run bulk email demo
-  [yellow]help[/yellow]       → show this help
+  [yellow]quit[/yellow]       -> exit
+  [yellow]reset[/yellow]      -> clear conversation memory
+  [yellow]memory[/yellow]     -> show memory statistics
+  [yellow]demo[/yellow]       -> run automated demo
+  [yellow]bulk[/yellow]       -> run bulk email demo
+  [yellow]help[/yellow]       -> show this help
 
 [bold cyan]Example instructions:[/bold cyan]
   Read my unread emails and classify them
@@ -29,7 +29,7 @@ HELP_TEXT = """
 
 
 def print_step(node_name: str, message) -> None:
-    """Affiche une étape du raisonnement de l'agent."""
+    """Affiche une etape du raisonnement de l'agent."""
     content    = getattr(message, "content", "")
     tool_calls = getattr(message, "tool_calls", [])
 
@@ -37,7 +37,7 @@ def print_step(node_name: str, message) -> None:
         for tc in tool_calls:
             name = tc.get("name", "?")
             args = tc.get("args", {})
-            console.print(f"  [yellow]→[/yellow] [cyan]{name}[/cyan]", end="")
+            console.print(f"  [yellow]->[/yellow] [cyan]{name}[/cyan]", end="")
             # Afficher les args importants
             for k, v in args.items():
                 v_str = str(v)[:60].replace("\n", " ")
@@ -45,13 +45,13 @@ def print_step(node_name: str, message) -> None:
             console.print()
 
     elif node_name == "tools" and content:
-        # Résumé du résultat de l'outil
+        # Resume du resultat de l'outil
         preview = content[:120].replace("\n", " ")
-        console.print(f"  [blue]←[/blue] [dim]{preview}...[/dim]")
+        console.print(f"  [blue]<-[/blue] [dim]{preview}...[/dim]")
 
 
 def show_memory_stats(agent: EmailAgent) -> None:
-    """Affiche les statistiques de mémoire."""
+    """Affiche les statistiques de memoire."""
     stats = agent.memory.display_stats()
     table = Table(box=box.SIMPLE, show_header=False)
     table.add_column("Key",   style="cyan")
@@ -63,7 +63,7 @@ def show_memory_stats(agent: EmailAgent) -> None:
 
 
 def run_bulk_demo(agent: EmailAgent) -> None:
-    """Démo du bulk email avec personnalisation."""
+    """Demo du bulk email avec personnalisation."""
     console.print(Panel(
         "[bold]Bulk Email Demo[/bold]\n"
         "Sending personalized emails to 3 recipients with different contexts.",
@@ -156,7 +156,7 @@ def run_interactive(agent: EmailAgent) -> None:
             traceback.print_exc()
             continue
 
-        # Réponse finale
+        # Reponse finale
         if final_response:
             console.print()
             console.print(Panel(
@@ -166,7 +166,7 @@ def run_interactive(agent: EmailAgent) -> None:
                 box=box.ROUNDED,
             ))
 
-        # Afficher tour et nb de messages en mémoire
+        # Afficher tour et nb de messages en memoire
         stats = agent.memory.display_stats()
         console.print(
             f"[dim]Turn {stats['turns']} | "

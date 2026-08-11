@@ -11,12 +11,12 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 # ----------------------------------------------------------
 
 def test_recipient_dataclass():
-    """Recipient doit stocker les données correctement."""
+    """Recipient doit stocker les donnees correctement."""
     r = Recipient(
         name="Alice",
         email="alice@test.com",
         role="Manager",
-        context="Gère le projet X"
+        context="Gere le projet X"
     )
     assert r.name  == "Alice"
     assert r.email == "alice@test.com"
@@ -24,7 +24,7 @@ def test_recipient_dataclass():
 
 
 def test_generated_email_default_status():
-    """Un GeneratedEmail doit avoir status=pending par défaut."""
+    """Un GeneratedEmail doit avoir status=pending par defaut."""
     r  = Recipient("Bob", "bob@test.com", "Dev", "Backend")
     ge = GeneratedEmail(
         recipient=r,
@@ -38,9 +38,9 @@ def test_generated_email_default_status():
 
 
 def test_generate_one_calls_llm():
-    """generate_one doit appeler la chain et parser le résultat."""
+    """generate_one doit appeler la chain et parser le resultat."""
     mock_chain_result = json.dumps({
-        "subject": "Réunion Q3 - Alice",
+        "subject": "Reunion Q3 - Alice",
         "body":    "Bonjour Alice, en tant que chef de projet...",
         "personalization_note": "Mentioned project manager role"
     })
@@ -55,9 +55,9 @@ def test_generate_one_calls_llm():
         gen.llm = MagicMock()
 
         r      = Recipient("Alice", "alice@co.com", "Chef de projet", "Projet X")
-        result = gen.generate_one(r, "Réunion Q3 mercredi")
+        result = gen.generate_one(r, "Reunion Q3 mercredi")
 
-        assert result.subject == "Réunion Q3 - Alice"
+        assert result.subject == "Reunion Q3 - Alice"
         assert "Alice" in result.body
         assert result.status  == "pending"
 
@@ -91,7 +91,7 @@ def test_results_to_json():
 # ----------------------------------------------------------
 
 def test_memory_add_messages():
-    """La mémoire doit stocker les messages dans l'ordre."""
+    """La memoire doit stocker les messages dans l'ordre."""
     mem = ConversationMemory()
     mem.add_human("Hello agent")
     mem.add_ai("Hello user, how can I help?")
@@ -104,7 +104,7 @@ def test_memory_add_messages():
 
 
 def test_memory_turn_count():
-    """Le compteur de tours doit s'incrémenter à chaque message humain."""
+    """Le compteur de tours doit s'incrementer a chaque message humain."""
     mem = ConversationMemory()
     assert mem.turn_count == 0
     mem.add_human("Message 1")
@@ -125,7 +125,7 @@ def test_memory_get_full_history_starts_with_system():
 
 
 def test_memory_clear():
-    """clear() doit réinitialiser complètement la mémoire."""
+    """clear() doit reinitialiser completement la memoire."""
     mem = ConversationMemory()
     mem.add_human("msg1")
     mem.add_ai("resp1")
@@ -138,7 +138,7 @@ def test_memory_clear():
 
 
 def test_memory_should_summarize():
-    """should_summarize doit retourner True quand MAX_MESSAGES est dépassé."""
+    """should_summarize doit retourner True quand MAX_MESSAGES est depasse."""
     mem = ConversationMemory()
     mem.MAX_MESSAGES = 5
 
@@ -149,7 +149,7 @@ def test_memory_should_summarize():
 
 
 def test_memory_display_stats():
-    """display_stats doit retourner les bonnes métriques."""
+    """display_stats doit retourner les bonnes metriques."""
     mem = ConversationMemory()
     mem.add_human("Hello")
     mem.add_ai("Hi")

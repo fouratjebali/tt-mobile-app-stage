@@ -20,23 +20,23 @@ console = Console()
 
 SCENARIOS = {
     1: "Lecture et classification des emails",
-    2: "Détection des emails urgents",
-    3: "Génération de réponses automatiques",
-    4: "Envoi d'emails en masse personnalisés",
-    5: "Mémoire conversationnelle",
+    2: "Detection des emails urgents",
+    3: "Generation de reponses automatiques",
+    4: "Envoi d'emails en masse personnalises",
+    5: "Memoire conversationnelle",
 }
 
 
 def pause(seconds: float = 1.5) -> None:
-    """Pause entre les étapes pour la lisibilité."""
+    """Pause entre les etapes pour la lisibilite."""
     time.sleep(seconds)
 
 
 def print_scenario_header(num: int, title: str) -> None:
-    """Affiche l'en-tête d'un scénario."""
+    """Affiche l'en-tete d'un scenario."""
     console.print()
     console.print(Rule(
-        f"[bold cyan] Scénario {num} : {title} [/bold cyan]",
+        f"[bold cyan] Scenario {num} : {title} [/bold cyan]",
         style="cyan"
     ))
     console.print()
@@ -44,15 +44,15 @@ def print_scenario_header(num: int, title: str) -> None:
 
 
 def print_step(step: str, description: str) -> None:
-    """Affiche une étape numérotée."""
-    console.print(f"  [bold yellow]→[/bold yellow] [bold]{step}[/bold]"
+    """Affiche une etape numerotee."""
+    console.print(f"  [bold yellow]->[/bold yellow] [bold]{step}[/bold]"
                   f" [dim]{description}[/dim]")
 
 
 def run_agent_with_display(agent, instruction: str) -> str:
     """
-    Lance l'agent et affiche le raisonnement étape par étape.
-    Retourne la réponse finale.
+    Lance l'agent et affiche le raisonnement etape par etape.
+    Retourne la reponse finale.
     """
     console.print(
         f"\n  [bold cyan]Instruction :[/bold cyan] "
@@ -72,7 +72,7 @@ def run_agent_with_display(agent, instruction: str) -> str:
                 name = tc.get("name", "?")
                 args = tc.get("args", {})
                 console.print(
-                    f"  [yellow]⚙[/yellow]  Calling [cyan]{name}[/cyan]",
+                    f"  [yellow]*[/yellow]  Calling [cyan]{name}[/cyan]",
                     end=""
                 )
                 # Afficher l'arg le plus important
@@ -92,7 +92,7 @@ def run_agent_with_display(agent, instruction: str) -> str:
         elif node_name == "tools" and content:
             preview = content[:100].replace("\n", " ")
             console.print(
-                f"  [blue]✓[/blue]  [dim]Result: {preview}...[/dim]"
+                f"  [blue]OK[/blue]  [dim]Result: {preview}...[/dim]"
             )
 
         elif node_name == "agent" and content and not tool_calls:
@@ -113,14 +113,14 @@ def run_agent_with_display(agent, instruction: str) -> str:
 
 
 # ----------------------------------------------------------
-# SCÉNARIO 1 : Lecture et Classification
+# SCANARIO 1 : Lecture et Classification
 # ----------------------------------------------------------
 def scenario_1(agent) -> None:
     print_scenario_header(1, SCENARIOS[1])
     console.print(
         "  L'agent lit les 5 derniers emails et les classe automatiquement\n"
-        "  par catégorie (RECLAMATION / INFORMATION / SUPPORT / COMMERCIAL)\n"
-        "  et par niveau de priorité (URGENT / NORMAL / LOW).\n"
+        "  par categorie (RECLAMATION / INFORMATION / SUPPORT / COMMERCIAL)\n"
+        "  et par niveau de priorite (URGENT / NORMAL / LOW).\n"
     )
     pause()
 
@@ -133,14 +133,14 @@ def scenario_1(agent) -> None:
 
 
 # ----------------------------------------------------------
-# SCÉNARIO 2 : Détection des Urgents
+# SCANARIO 2 : Detection des Urgents
 # ----------------------------------------------------------
 def scenario_2(agent) -> None:
     print_scenario_header(2, SCENARIOS[2])
     console.print(
-        "  L'agent scanne la boîte de réception et identifie\n"
-        "  automatiquement les emails qui nécessitent une réponse\n"
-        "  immédiate (score d'urgence ≥ 7/10).\n"
+        "  L'agent scanne la boite de reception et identifie\n"
+        "  automatiquement les emails qui necessitent une reponse\n"
+        "  immediate (score d'urgence >= 7/10).\n"
     )
     pause()
 
@@ -154,14 +154,14 @@ def scenario_2(agent) -> None:
 
 
 # ----------------------------------------------------------
-# SCÉNARIO 3 : Génération de Réponses
+# SCANARIO 3 : Generation de Reponses
 # ----------------------------------------------------------
 def scenario_3(agent) -> None:
     print_scenario_header(3, SCENARIOS[3])
     console.print(
         "  L'agent lit les emails non lus, identifie ceux qui\n"
-        "  nécessitent une réponse,\n"
-        "  et génère une réponse professionnelle pour chacun.\n"
+        "  necessitent une reponse,\n"
+        "  et genere une reponse professionnelle pour chacun.\n"
     )
     pause()
 
@@ -195,14 +195,14 @@ def scenario_3(agent) -> None:
 
 
 # ----------------------------------------------------------
-# SCÉNARIO 4 : Bulk Email Personnalisé
+# SCANARIO 4 : Bulk Email Personnalise
 # ----------------------------------------------------------
 def scenario_4(agent) -> None:
     print_scenario_header(4, SCENARIOS[4])
     console.print(
-        "  L'agent génère des emails différents et personnalisés\n"
-        "  pour plusieurs destinataires en fonction de leur rôle.\n"
-        "  [dim](dry_run = pas d'envoi réel pour la démo)[/dim]\n"
+        "  L'agent genere des emails differents et personnalises\n"
+        "  pour plusieurs destinataires en fonction de leur role.\n"
+        "  [dim](dry_run = pas d'envoi reel pour la demo)[/dim]\n"
     )
     pause()
 
@@ -222,19 +222,19 @@ def scenario_4(agent) -> None:
 
 
 # ----------------------------------------------------------
-# SCÉNARIO 5 : Mémoire Conversationnelle
+# SCANARIO 5 : Memoire Conversationnelle
 # ----------------------------------------------------------
 def scenario_5(agent) -> None:
     print_scenario_header(5, SCENARIOS[5])
     console.print(
-        "  Démonstration de la mémoire : l'agent se souvient\n"
+        "  Demonstration de la memoire : l'agent se souvient\n"
         "  du contexte entre les messages sans que l'utilisateur\n"
-        "  ait besoin de répéter les informations.\n"
+        "  ait besoin de repeter les informations.\n"
     )
     pause()
 
     # Tour 1
-    console.print("  [bold]Turn 1[/bold] — Lecture initiale")
+    console.print("  [bold]Turn 1[/bold] - Lecture initiale")
     run_agent_with_display(
         agent,
         "Read my 3 most recent emails and tell me "
@@ -242,8 +242,8 @@ def scenario_5(agent) -> None:
     )
     pause(1.5)
 
-    # Tour 2 — se souvient des emails du tour 1
-    console.print("  [bold]Turn 2[/bold] — L'agent se souvient")
+    # Tour 2 - se souvient des emails du tour 1
+    console.print("  [bold]Turn 2[/bold] - L'agent se souvient")
     run_agent_with_display(
         agent,
         "Among the emails you just read, "

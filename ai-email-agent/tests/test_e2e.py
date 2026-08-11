@@ -24,7 +24,7 @@ def make_email(subject="Test", sender="test@example.com",
 
 
 def make_mock_chains():
-    """Crée des chains mockées avec des résultats réalistes."""
+    """Cree des chains mockees avec des resultats realistes."""
     mock = MagicMock()
     mock.classify.return_value = ClassificationResult(
         category="SUPPORT", confidence=0.91, reason="Asks for help"
@@ -69,7 +69,7 @@ def test_pipeline_analyze_returns_complete_result():
 
 
 def test_pipeline_is_urgent_false():
-    """Email NORMAL ne doit pas être urgent."""
+    """Email NORMAL ne doit pas etre urgent."""
     email = make_email()
 
     with patch.object(
@@ -85,7 +85,7 @@ def test_pipeline_is_urgent_false():
 
 
 def test_pipeline_is_urgent_true():
-    """Email URGENT doit être détecté comme urgent."""
+    """Email URGENT doit etre detecte comme urgent."""
     email = make_email(
         "URGENT: Server down",
         "cto@company.com",
@@ -106,7 +106,7 @@ def test_pipeline_is_urgent_true():
 
 
 def test_pipeline_information_needs_no_reply():
-    """Email INFORMATION ne nécessite pas de réponse."""
+    """Email INFORMATION ne necessite pas de reponse."""
     email = make_email("Newsletter", "news@co.com", "Monthly news.")
 
     mock_chains = make_mock_chains()
@@ -143,7 +143,7 @@ def test_pipeline_analyze_batch():
 
 
 def test_display_dict_has_all_keys():
-    """display_dict doit contenir toutes les clés attendues."""
+    """display_dict doit contenir toutes les cles attendues."""
     email = make_email()
 
     with patch.object(EmailPipeline, '__init__', lambda self: None):
@@ -166,7 +166,7 @@ def test_display_dict_has_all_keys():
 # ----------------------------------------------------------
 
 def test_parser_handles_nested_json():
-    """Le parser doit gérer du JSON imbriqué."""
+    """Le parser doit gerer du JSON imbrique."""
     from agent.parser import LLMOutputParser
     raw = '{"category": "SUPPORT", "data": {"key": "value"}}'
     result = LLMOutputParser.parse(raw)
@@ -174,11 +174,11 @@ def test_parser_handles_nested_json():
 
 
 def test_parser_handles_unicode():
-    """Le parser doit gérer les caractères Unicode."""
+    """Le parser doit gerer les caracteres Unicode."""
     from agent.parser import LLMOutputParser
-    raw = '{"summary": "Email en français avec accents éàü"}'
+    raw = '{"summary": "Email en francais avec accents eau"}'
     result = LLMOutputParser.parse(raw)
-    assert "français" in result["summary"]
+    assert "francais" in result["summary"]
 
 
 def test_parser_extracts_from_long_text():

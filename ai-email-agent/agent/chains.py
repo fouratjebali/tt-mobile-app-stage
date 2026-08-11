@@ -259,9 +259,9 @@ class EmailChains:
             reply_subject = f"Re: {subject}" if subject else "Re: Your message"
             reply = (
                 "Bonjour,\n\n"
-                "Merci pour votre message et pour avoir signalé ce problème. "
-                "Nous sommes désolés pour la gêne occasionnée et nous allons examiner la situation rapidement. "
-                "Pouvez-vous nous confirmer les détails nécessaires afin que nous puissions avancer ?\n\n"
+                "Merci pour votre message et pour avoir signale ce probleme. "
+                "Nous sommes desoles pour la gene occasionnee et nous allons examiner la situation rapidement. "
+                "Pouvez-vous nous confirmer les details necessaires afin que nous puissions avancer ?\n\n"
                 "Cordialement,"
             )
             tone = "professional"
@@ -269,8 +269,8 @@ class EmailChains:
             reply_subject = f"Re: {subject}" if subject else "Re: Your question"
             reply = (
                 "Bonjour,\n\n"
-                "Merci pour votre demande. Nous allons vérifier le point soulevé et revenir vers vous avec une réponse claire. "
-                "Si besoin, n'hésitez pas à nous envoyer des informations supplémentaires.\n\n"
+                "Merci pour votre demande. Nous allons verifier le point souleve et revenir vers vous avec une reponse claire. "
+                "Si besoin, n'hesitez pas a nous envoyer des informations supplementaires.\n\n"
                 "Cordialement,"
             )
             tone = "helpful"
@@ -278,7 +278,7 @@ class EmailChains:
             reply_subject = f"Re: {subject}" if subject else "Re: Your message"
             reply = (
                 "Bonjour,\n\n"
-                "Merci pour ces informations. Nous allons les examiner et vous confirmer la suite donnée dans les meilleurs délais.\n\n"
+                "Merci pour ces informations. Nous allons les examiner et vous confirmer la suite donnee dans les meilleurs delais.\n\n"
                 "Cordialement,"
             )
             tone = "professional"
@@ -287,7 +287,7 @@ class EmailChains:
             reply = (
                 "Bonjour,\n\n"
                 "Merci pour votre invitation et pour la prise de contact. "
-                "Je vais la consulter avec attention et revenir vers vous si nécessaire.\n\n"
+                "Je vais la consulter avec attention et revenir vers vous si necessaire.\n\n"
                 "Cordialement,"
             )
             tone = "courteous"
@@ -295,7 +295,7 @@ class EmailChains:
             reply_subject = f"Re: {subject}" if subject else "Re: Your message"
             reply = (
                 "Bonjour,\n\n"
-                "Merci pour votre message. Je prends note de cette information et reviendrai vers vous si une action est nécessaire.\n\n"
+                "Merci pour votre message. Je prends note de cette information et reviendrai vers vous si une action est necessaire.\n\n"
                 "Cordialement,"
             )
             tone = "neutral"

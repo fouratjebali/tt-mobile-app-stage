@@ -1,5 +1,5 @@
 # ----------------------------------------------------------
-# PROMPT 1 : CLASSIFICATION (version améliorée Day 5)
+# PROMPT 1 : CLASSIFICATION (version amelioree Day 5)
 # ----------------------------------------------------------
 CLASSIFICATION_PROMPT = """
 You are an expert email classifier for a professional telecommunications company.
@@ -17,11 +17,11 @@ Category definitions (read carefully) :
                  discount, pricing, contract, purchase, subscription renewal
 
 Decision rules :
-1. If the email has an angry or frustrated tone → RECLAMATION
-2. If it is automated / no-reply → INFORMATION
-3. If it asks a question expecting an answer → SUPPORT
-4. If it involves money, products or services → COMMERCIAL
-5. When in doubt between SUPPORT and RECLAMATION : if there is frustration → RECLAMATION
+1. If the email has an angry or frustrated tone -> RECLAMATION
+2. If it is automated / no-reply -> INFORMATION
+3. If it asks a question expecting an answer -> SUPPORT
+4. If it involves money, products or services -> COMMERCIAL
+5. When in doubt between SUPPORT and RECLAMATION : if there is frustration -> RECLAMATION
 
 Email :
 Subject : {subject}
@@ -38,7 +38,7 @@ Respond ONLY with valid JSON, no markdown, no extra text :
 """
 
 # ----------------------------------------------------------
-# PROMPT 2 : PRIORITÉ (version améliorée Day 5)
+# PROMPT 2 : PRIORITA (version amelioree Day 5)
 # ----------------------------------------------------------
 PRIORITY_PROMPT = """
 You are an expert at evaluating email urgency for a telecommunications professional.
@@ -83,7 +83,7 @@ Respond ONLY with valid JSON, no markdown, no extra text :
 """
 
 # ----------------------------------------------------------
-# PROMPT 6 : GÉNÉRATION BULK EMAIL PERSONNALISÉ
+# PROMPT 6 : GANARATION BULK EMAIL PERSONNALISA
 # ----------------------------------------------------------
 BULK_PERSONALIZED_PROMPT = """
 You are an expert professional email writer.
@@ -118,7 +118,7 @@ JSON response:
 """
 
 # ----------------------------------------------------------
-# PROMPT 7 : RÉSUMÉ DE CONVERSATION
+# PROMPT 7 : RASUMA DE CONVERSATION
 # ----------------------------------------------------------
 CONVERSATION_SUMMARY_PROMPT = """
 You are summarizing a conversation between a user and an AI email assistant.

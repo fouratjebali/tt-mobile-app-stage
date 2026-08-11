@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 from gmail.reader import Email
 
 
-# Fixtures — données de test
+# Fixtures - donnees de test
 def make_fake_email(
     email_id="abc123",
     subject="Test Email",
@@ -52,7 +52,7 @@ def test_read_emails_tool_empty():
 
 
 def test_classify_email_tool_returns_json():
-    """classify_email doit retourner catégorie et confiance."""
+    """classify_email doit retourner categorie et confiance."""
     fake_email = make_fake_email("id1", "Urgent problem", "angry@client.com",
                                   "I have a serious complaint about your service.")
 
@@ -91,7 +91,7 @@ def test_send_single_email_tool_success():
 
 
 def test_send_single_email_tool_error():
-    """send_single_email doit retourner status error si Gmail échoue."""
+    """send_single_email doit retourner status error si Gmail echoue."""
     with patch("agent.tools.gmail_send", side_effect=Exception("Gmail API error")):
         from agent.tools import send_single_email
         result_str = send_single_email.invoke({
@@ -106,7 +106,7 @@ def test_send_single_email_tool_error():
 
 
 def test_send_bulk_email_tool():
-    """send_bulk_email doit envoyer à chaque destinataire."""
+    """send_bulk_email doit envoyer a chaque destinataire."""
     mock_results = [
         {"to": "alice@test.com", "status": "sent",  "id": "id1"},
         {"to": "bob@test.com",   "status": "sent",  "id": "id2"},
@@ -129,7 +129,7 @@ def test_send_bulk_email_tool():
 
 
 def test_all_tools_are_registered():
-    """Vérifier que tous les outils sont bien dans ALL_TOOLS."""
+    """Verifier que tous les outils sont bien dans ALL_TOOLS."""
     from agent.tools import ALL_TOOLS
 
     tool_names = [t.name for t in ALL_TOOLS]

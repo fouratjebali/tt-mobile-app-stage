@@ -23,7 +23,7 @@ class AnalysisLog:
     urgency_score:      int
     summary:            str
     suggested_reply:    str
-    # Vérité terrain (à remplir manuellement pour l'évaluation)
+    # Verite terrain (a remplir manuellement pour l'evaluation)
     true_category:      Optional[str] = None
     true_priority:      Optional[str] = None
     correct_category:   Optional[bool] = None
@@ -34,7 +34,7 @@ class AnalysisLog:
 class AgentLogger:
     """
     Enregistre les analyses de l'agent dans des fichiers JSON.
-    Utilisé pour construire le dataset d'évaluation et
+    Utilise pour construire le dataset d'evaluation et
     mesurer les performances.
     """
 
@@ -63,7 +63,7 @@ class AgentLogger:
         Enregistre une analyse dans le fichier de session.
 
         Returns:
-            L'objet AnalysisLog créé
+            L'objet AnalysisLog cree
         """
         log = AnalysisLog(
             timestamp=datetime.now().isoformat(),
@@ -91,12 +91,12 @@ class AgentLogger:
     def export_for_evaluation(self, output_file: str = None) -> str:
         """
         Exporte les logs de la session dans un fichier
-        prêt pour l'évaluation manuelle.
+        pret pour l'evaluation manuelle.
         Les champs true_category et true_priority sont vides
-        et doivent être remplis manuellement.
+        et doivent etre remplis manuellement.
 
         Returns:
-            Chemin du fichier exporté
+            Chemin du fichier exporte
         """
         if not output_file:
             output_file = os.path.join(
