@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
-import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
 import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/activity_view_model.dart';
+import 'package:tt_mail_assistant/core/state/load_state.dart';
 
 class TodayActivityScreen extends StatefulWidget {
   const TodayActivityScreen({super.key});
@@ -14,78 +15,47 @@ class TodayActivityScreen extends StatefulWidget {
 
 class _TodayActivityScreenState extends State<TodayActivityScreen>
     with TickerProviderStateMixin {
-  late EmailUseCase _emailUseCase;
-  late TabController _tabController;
+  late final ActivityViewModel _viewModel;
+  late final TabController _tabController;
 
-  List<Email> allEmails = [];
-  DateTime selectedDate = DateTime.now();
-  bool isLoading = true;
-  String? errorMessage;
+  static const _tabFilters = [
+    ActivityFilter.all,
+    ActivityFilter.autoSent,
+    ActivityFilter.review,
+    ActivityFilter.low,
+  ];
 
   @override
   void initState() {
     super.initState();
-    _emailUseCase = getIt<EmailUseCase>();
+    _viewModel = getIt<ActivityViewModel>();
+    _viewModel.addListener(_onChanged);
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_onTabChanged);
-    _loadEmails();
+    _viewModel.loadTodayEmails();
   }
 
   @override
   void dispose() {
+    _viewModel.removeListener(_onChanged);
     _tabController.dispose();
     super.dispose();
   }
 
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _onTabChanged() {
-    setState(() {});
-  }
-
-  Future<void> _loadEmails() async {
-    try {
-      final emails = await _emailUseCase.getTodayActivity();
-      if (mounted) {
-        setState(() {
-          allEmails = emails;
-          isLoading = false;
-          errorMessage = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-          errorMessage = 'Unable to load activity. Pull down to retry.';
-        });
-      }
-    }
-  }
-
-  List<Email> _getFilteredEmails() {
-    final tabIndex = _tabController.index;
-
-    switch (tabIndex) {
-      case 0: // All
-        return allEmails;
-      case 1: // Auto-sent
-        return allEmails.where((e) => e.status == Status.DONE).toList();
-      case 2: // Review
-        return allEmails
-            .where((e) => e.status == Status.PENDING_USER_REVIEW)
-            .toList();
-      case 3: // Ignored
-        return allEmails
-            .where((e) => e.analysis?.priority == Priority.LOW)
-            .toList();
-      default:
-        return allEmails;
+    if (!_tabController.indexIsChanging) {
+      _viewModel.applyFilter(_tabFilters[_tabController.index]);
     }
   }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: selectedDate,
+      initialDate: _viewModel.selectedDate,
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
       builder: (context, child) {
@@ -103,16 +73,16 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
       },
     );
 
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
+    if (picked != null && picked != _viewModel.selectedDate) {
+      await _viewModel.selectDate(picked);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredEmails = _getFilteredEmails();
+    final filteredEmails = _viewModel.filteredEmails;
+    final isLoading = _viewModel.state == LoadState.loading ||
+        _viewModel.state == LoadState.idle;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Today's Activity"), elevation: 0),
@@ -120,55 +90,66 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => _selectDate(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: AppPalette.lavender.withValues(alpha: 0.3),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => _selectDate(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: AppPalette.lavender.withValues(alpha: 0.3),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Date',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _formatDate(_viewModel.selectedDate),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Icon(
+                            Icons.calendar_today,
+                            color: AppPalette.lavender,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Date',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatDate(selectedDate),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Icon(
-                      Icons.calendar_today,
-                      color: AppPalette.lavender,
-                      size: 20,
-                    ),
-                  ],
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Previous day',
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: _viewModel.loadPreviousDay,
                 ),
-              ),
+              ],
             ),
           ),
-
           TabBar(
             controller: _tabController,
             indicatorColor: AppPalette.lavender,
@@ -179,57 +160,57 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
               fontWeight: FontWeight.w700,
             ),
             tabs: [
-              Tab(text: 'All (${allEmails.length})'),
+              Tab(text: 'All (${_viewModel.allEmails.length})'),
               Tab(text: 'Auto (${_countStatus(Status.DONE)})'),
               Tab(text: 'Review (${_countStatus(Status.PENDING_USER_REVIEW)})'),
               Tab(text: 'Low (${_countLowPriority()})'),
             ],
           ),
-
           Expanded(
-            child:
-                isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : filteredEmails.isEmpty
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredEmails.isEmpty
                     ? _EmptyState(tabIndex: _tabController.index)
                     : RefreshIndicator(
-                      onRefresh: _loadEmails,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        itemCount:
-                            filteredEmails.length +
-                            (errorMessage == null ? 0 : 1),
-                        itemBuilder: (context, index) {
-                          if (errorMessage != null && index == 0) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _Notice(message: errorMessage!),
-                            );
-                          }
-                          final emailIndex =
-                              errorMessage == null ? index : index - 1;
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => EmailDetailScreen(
-                                        email: filteredEmails[emailIndex],
-                                      ),
-                                ),
+                        onRefresh: _viewModel.loadTodayEmails,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          itemCount: filteredEmails.length +
+                              (_viewModel.state == LoadState.error ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (_viewModel.state == LoadState.error &&
+                                index == 0) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _Notice(
+                                    message: _viewModel.errorMessage ?? ''),
                               );
-                            },
-                            child: _EmailActivityCard(
-                              email: filteredEmails[emailIndex],
-                            ),
-                          );
-                        },
+                            }
+                            final emailIndex =
+                                _viewModel.state == LoadState.error
+                                    ? index - 1
+                                    : index;
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => EmailDetailScreen(
+                                      email: filteredEmails[emailIndex],
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: _EmailActivityCard(
+                                email: filteredEmails[emailIndex],
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
           ),
         ],
       ),
@@ -247,29 +228,19 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
   }
 
   int _countStatus(Status status) {
-    return allEmails.where((email) => email.status == status).length;
+    return _viewModel.allEmails.where((email) => email.status == status).length;
   }
 
   int _countLowPriority() {
-    return allEmails
+    return _viewModel.allEmails
         .where((email) => email.analysis?.priority == Priority.LOW)
         .length;
   }
 
   String _monthName(int month) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return months[month - 1];
   }
