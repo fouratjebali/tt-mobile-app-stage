@@ -2,10 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 
-class EmailDetailScreen extends StatelessWidget {
-  const EmailDetailScreen({super.key, required this.email});
+enum EmailDetailMode { readOnly, edit }
+
+class EmailDetailScreen extends StatefulWidget {
+  const EmailDetailScreen({
+    super.key,
+    required this.email,
+    this.mode = EmailDetailMode.readOnly,
+  });
 
   final Email email;
+  final EmailDetailMode mode;
+
+  @override
+  State<EmailDetailScreen> createState() => _EmailDetailScreenState();
+}
+
+class _EmailDetailScreenState extends State<EmailDetailScreen> {
+  late final TextEditingController _replyController;
+
+  @override
+  void initState() {
+    super.initState();
+    _replyController = TextEditingController(
+      text: widget.email.analysis?.suggestedReply.trim().isNotEmpty == true
+          ? widget.email.analysis!.suggestedReply
+          : widget.email.body.plain.trim().isNotEmpty
+          ? widget.email.body.plain
+          : 'Hi,\n\nThanks for your message. We are reviewing it and will come back to you shortly.\n\nBest regards,',
+    );
+  }
+
+  @override
+  void dispose() {
+    _replyController.dispose();
+    super.dispose();
+  }
 
   String _getCategoryLabel(EmailCategory? category) {
     if (category == null) return 'INFO';
@@ -101,13 +133,335 @@ class EmailDetailScreen extends StatelessWidget {
     return months[month - 1];
   }
 
+  Future<void> _confirmAndSend(String actionLabel) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm send'),
+        content: Text(
+          'Send this reply as $actionLabel?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Reply sent: $actionLabel'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.of(context).maybePop();
+    }
+  }
+
+  Future<void> _ignoreEmail() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ignore message'),
+        content: const Text('Do you want to ignore this email without sending a reply?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Ignore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      Navigator.of(context).maybePop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final priority = email.analysis?.priority ?? Priority.NORMAL;
-    final category = email.analysis?.category;
-    final analysis = email.analysis;
-    final jury = email.jury;
+    final priority = widget.email.analysis?.priority ?? Priority.NORMAL;
+    final category = widget.email.analysis?.category;
+    final analysis = widget.email.analysis;
+    final jury = widget.email.jury;
 
+    if (widget.mode == EmailDetailMode.edit) {
+      return _buildEditMode(context, priority, category, analysis, jury);
+    }
+
+    return _buildReadOnlyMode(context, priority, category, analysis, jury);
+  }
+
+  Widget _buildEditMode(
+    BuildContext context,
+    Priority priority,
+    EmailCategory? category,
+    Analysis? analysis,
+    Jury? jury,
+  ) {
+    final verdict = jury?.verdict ?? JuryVerdict.UNCERTAIN;
+    final confidence = analysis != null
+        ? '${(analysis.confidence * 100).toStringAsFixed(0)}%'
+        : 'N/A';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F2F1),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: const Text(
+          'Review & respond',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: _getPriorityColor(priority).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              _getPriorityLabel(priority),
+              style: TextStyle(
+                color: _getPriorityColor(priority),
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.email.subject.trim().isEmpty
+                    ? '(No subject)'
+                    : widget.email.subject,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.email.from.email,
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Text(
+                  widget.email.body.plain.trim().isEmpty
+                      ? 'No plain-text body available.'
+                      : widget.email.body.plain,
+                  style: const TextStyle(fontSize: 13, height: 1.6),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'AI-SUGGESTED REPLY — EDITABLE',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: TextField(
+                  controller: _replyController,
+                  minLines: 5,
+                  maxLines: 10,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Edit your response…',
+                  ),
+                  style: const TextStyle(fontSize: 14, height: 1.6),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'JURY VERDICT',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Verdict',
+                          style: TextStyle(fontSize: 13, color: Colors.grey),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getVerdictColor(verdict).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _getVerdictLabel(verdict),
+                            style: TextStyle(
+                              color: _getVerdictColor(verdict),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Confidence',
+                          style: TextStyle(fontSize: 13, color: Colors.grey),
+                        ),
+                        Text(
+                          confidence,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (jury?.reasoning != null && jury!.reasoning!.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Reason',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        jury.reasoning!,
+                        style: const TextStyle(fontSize: 13, height: 1.5),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => _confirmAndSend('as-is'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.black87,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Send as-is'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => _confirmAndSend('edited response'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppPalette.lavender,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Edit & send'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _ignoreEmail,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.black87,
+                        side: const BorderSide(color: Colors.grey),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Ignore'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyMode(
+    BuildContext context,
+    Priority priority,
+    EmailCategory? category,
+    Analysis? analysis,
+    Jury? jury,
+  ) {
     return Scaffold(
       appBar: AppBar(title: const Text('Email Detail'), elevation: 0),
       body: SingleChildScrollView(
@@ -115,50 +469,39 @@ class EmailDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // EMAIL HEADER SECTION
             _EmailHeader(
-              subject: email.subject,
-              senderName: email.from.name,
-              senderEmail: email.from.email,
-              date: _formatDate(email.date),
+              subject: widget.email.subject,
+              senderName: widget.email.from.name,
+              senderEmail: widget.email.from.email,
+              date: _formatDate(widget.email.date),
               category: category,
               priority: priority,
               categoryColor: _getCategoryColor(category),
               priorityColor: _getPriorityColor(priority),
             ),
             const SizedBox(height: 24),
-
-            // EMAIL BODY SECTION
             _ContentSection(
               title: 'Email Content',
-              content:
-                  email.body.plain.trim().isEmpty
-                      ? 'No plain-text body available.'
-                      : email.body.plain,
+              content: widget.email.body.plain.trim().isEmpty
+                  ? 'No plain-text body available.'
+                  : widget.email.body.plain,
             ),
             const SizedBox(height: 24),
-
-            // ATTACHMENTS SECTION
-            if (email.attachments.isNotEmpty) ...[
-              _AttachmentsSection(attachments: email.attachments),
+            if (widget.email.attachments.isNotEmpty) ...[
+              _AttachmentsSection(attachments: widget.email.attachments),
               const SizedBox(height: 24),
             ],
-
-            // AGENT IA 1 - ANALYSIS SECTION
             if (analysis != null) ...[
               _AnalysisSection(
                 category: _getCategoryLabel(analysis.category),
                 categoryColor: _getCategoryColor(analysis.category),
                 priority: _getPriorityLabel(priority),
                 priorityColor: _getPriorityColor(priority),
-                confidence:
-                    '${(analysis.confidence * 100).toStringAsFixed(0)}%',
+                confidence: '${(analysis.confidence * 100).toStringAsFixed(0)}%',
                 summary: analysis.summary,
               ),
               const SizedBox(height: 24),
             ],
-
-            // JURY AGENT 2 - VERDICT SECTION
             if (jury != null) ...[
               _VerdictSection(
                 verdict: _getVerdictLabel(jury.verdict),
@@ -167,9 +510,7 @@ class EmailDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
             ],
-
-            if (analysis != null &&
-                analysis.suggestedReply.trim().isNotEmpty) ...[
+            if (analysis != null && analysis.suggestedReply.trim().isNotEmpty) ...[
               _SuggestedReplySection(suggestedReply: analysis.suggestedReply),
               const SizedBox(height: 24),
             ],
@@ -440,7 +781,7 @@ class _AttachmentsSection extends StatelessWidget {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

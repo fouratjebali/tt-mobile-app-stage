@@ -67,8 +67,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                 onEditFirst: () => Navigator.push(
                                   context,
                                   MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        EmailDetailScreen(email: emails[index]),
+                                    builder: (_) => EmailDetailScreen(
+                                      email: emails[index],
+                                      mode: EmailDetailMode.edit,
+                                    ),
                                   ),
                                 ),
                               );
