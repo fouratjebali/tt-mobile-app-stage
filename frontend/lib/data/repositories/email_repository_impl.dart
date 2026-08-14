@@ -2,6 +2,7 @@ import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/domain/repositories/email_repository.dart';
 import 'package:tt_mail_assistant/data/datasources/local/email_local_datasource.dart';
+
 class EmailRepositoryImpl implements EmailRepository {
   EmailRepositoryImpl({
     required this.apiService,
@@ -24,11 +25,24 @@ class EmailRepositoryImpl implements EmailRepository {
   }
 
   @override
-  Future<void> sendReply({
+  Future<void> sendReply({required String emailId, required String body}) =>
+      validateAndSend(emailId: emailId, body: body);
+
+  @override
+  Future<void> validateAndSend({
     required String emailId,
     required String body,
   }) async {
     await apiService.post('/email/$emailId/send', body: {'body': body});
+  }
+
+  @override
+  Future<void> editAndSend({required String emailId, required String body}) =>
+      validateAndSend(emailId: emailId, body: body);
+
+  @override
+  Future<void> reject({required String emailId}) async {
+    await apiService.post('/email/$emailId/reject');
   }
 
   @override
@@ -60,6 +74,7 @@ class EmailRepositoryImpl implements EmailRepository {
       return await localDataSource.getReviewEmails();
     }
   }
+
   @override
   Future<Email?> getEmailById(String id) async {
     try {
@@ -279,6 +294,7 @@ class EmailRepositoryImpl implements EmailRepository {
     if (value is num) return value.toDouble();
     return double.tryParse(_string(value)) ?? 0;
   }
+
   @override
   Future<void> markAsRead(String id) async {
     await localDataSource.markAsRead(id);

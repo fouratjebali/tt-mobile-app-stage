@@ -3,7 +3,6 @@ import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
-import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 
 class ReviewScreen extends StatefulWidget {
@@ -21,7 +20,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
     super.initState();
     _viewModel = getIt<ReviewViewModel>();
     _viewModel.addListener(_onChanged);
-    _viewModel.loadReviewEmails();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _viewModel.loadReviewEmails();
+      }
+    });
   }
 
   @override
@@ -36,7 +39,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = _viewModel.state == LoadState.loading ||
+    final isLoading =
+        _viewModel.state == LoadState.loading ||
         _viewModel.state == LoadState.idle;
     final emails = _viewModel.sortedEmails;
 
@@ -49,34 +53,40 @@ class _ReviewScreenState extends State<ReviewScreen> {
             _ReviewHeader(pendingCount: _viewModel.pendingCount),
             if (_viewModel.state == LoadState.error)
               _ErrorBanner(message: _viewModel.errorMessage ?? 'Error'),
+            if (_viewModel.actionErrorMessage != null)
+              _ActionErrorBanner(
+                message: _viewModel.actionErrorMessage!,
+                onRetry: _viewModel.retryLastAction,
+              ),
             Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : emails.isEmpty
+              child:
+                  isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : emails.isEmpty
                       ? const _EmptyState()
                       : RefreshIndicator(
-                          onRefresh: _viewModel.refresh,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-                            itemCount: emails.length,
-                            itemBuilder: (context, index) {
-                              return _ReviewEmailCard(
-                                email: emails[index],
-                                onSendReply: () =>
-                                    _showReplyDialog(context, emails[index]),
-                                onEditFirst: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => EmailDetailScreen(
-                                      email: emails[index],
-                                      mode: EmailDetailMode.edit,
-                                    ),
+                        onRefresh: _viewModel.refresh,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                          itemCount: emails.length,
+                          itemBuilder: (context, index) {
+                            return _ReviewEmailCard(
+                              email: emails[index],
+                              isSubmitting: _viewModel.isSubmittingAction,
+                              onSendReply:
+                                  () => _viewModel.validateAndSend(
+                                    emails[index].id,
                                   ),
-                                ),
-                              );
-                            },
-                          ),
+                              onEditFirst:
+                                  () => _showEditAndSendDialog(
+                                    context,
+                                    emails[index],
+                                  ),
+                              onReject: () => _confirmReject(emails[index]),
+                            );
+                          },
                         ),
+                      ),
             ),
           ],
         ),
@@ -84,36 +94,63 @@ class _ReviewScreenState extends State<ReviewScreen> {
     );
   }
 
-  Future<void> _showReplyDialog(BuildContext context, Email email) async {
+  Future<void> _showEditAndSendDialog(BuildContext context, Email email) async {
     final controller = TextEditingController(
       text: email.analysis?.suggestedReply ?? '',
     );
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Send Reply'),
-        content: TextField(
-          controller: controller,
-          maxLines: 6,
-          decoration: const InputDecoration(
-            hintText: 'Write your reply…',
-            border: OutlineInputBorder(),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Edit & send'),
+            content: TextField(
+              controller: controller,
+              maxLines: 6,
+              decoration: const InputDecoration(
+                hintText: 'Write your reply…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Send'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Send'),
-          ),
-        ],
-      ),
     );
     if (confirmed == true && controller.text.trim().isNotEmpty) {
-      await _viewModel.sendReply(email.id, controller.text.trim());
+      await _viewModel.editAndSend(email.id, controller.text.trim());
+    }
+  }
+
+  Future<void> _confirmReject(Email email) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Reject email'),
+            content: const Text(
+              'Ignore this email and remove it from review queue?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Reject'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed == true) {
+      await _viewModel.reject(email.id);
     }
   }
 }
@@ -147,8 +184,10 @@ class _ReviewHeader extends StatelessWidget {
               const SizedBox(width: 10),
               if (pendingCount > 0)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red,
                     borderRadius: BorderRadius.circular(20),
@@ -185,11 +224,15 @@ class _ReviewEmailCard extends StatelessWidget {
     required this.email,
     required this.onSendReply,
     required this.onEditFirst,
+    required this.onReject,
+    required this.isSubmitting,
   });
 
   final Email email;
   final VoidCallback onSendReply;
   final VoidCallback onEditFirst;
+  final VoidCallback onReject;
+  final bool isSubmitting;
 
   Priority get _priority => email.analysis?.priority ?? Priority.NORMAL;
 
@@ -243,9 +286,7 @@ class _ReviewEmailCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        border: Border(
-          left: BorderSide(color: _priorityColor, width: 4),
-        ),
+        border: Border(left: BorderSide(color: _priorityColor, width: 4)),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
@@ -298,7 +339,7 @@ class _ReviewEmailCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: FilledButton(
-                    onPressed: onSendReply,
+                    onPressed: isSubmitting ? null : onSendReply,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppPalette.lavender,
                       foregroundColor: Colors.white,
@@ -317,7 +358,7 @@ class _ReviewEmailCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: onEditFirst,
+                    onPressed: isSubmitting ? null : onEditFirst,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppPalette.lavender,
                       side: BorderSide(
@@ -336,6 +377,22 @@ class _ReviewEmailCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: isSubmitting ? null : onReject,
+                icon: const Icon(Icons.close, size: 16),
+                label: const Text('Reject'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red[700],
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -441,6 +498,38 @@ class _ErrorBanner extends StatelessWidget {
               style: const TextStyle(fontSize: 13, color: Colors.orange),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionErrorBanner extends StatelessWidget {
+  const _ActionErrorBanner({required this.message, required this.onRetry});
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontSize: 13, color: Colors.red),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

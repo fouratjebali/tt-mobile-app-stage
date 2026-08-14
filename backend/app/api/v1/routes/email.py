@@ -97,6 +97,26 @@ async def send_reply(
     )
 
 
+@router.post(
+    "/{email_id}/reject",
+    response_model=SendEmailResponse,
+    summary="Reject an email reply",
+    description=(
+        "Marks an email as ignored so it is removed from the review queue "
+        "without sending a Gmail reply."
+    ),
+)
+async def reject_email(
+    email_id: str,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> SendEmailResponse:
+    return await EmailPipelineService(db).reject_email(
+        user=user,
+        email_id=email_id,
+    )
+
+
 def _to_email_list_response(
     payload: dict,
     raw_result: str,
