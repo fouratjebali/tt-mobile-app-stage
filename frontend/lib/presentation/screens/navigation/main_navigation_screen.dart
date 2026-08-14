@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/presentation/screens/home/home_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/profile/profile_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/prompt/prompt_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/review/review_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/today/today_activity_screen.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -13,15 +16,37 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
-  final List<Widget> _screens = const [
+  late final ReviewViewModel _reviewViewModel;
+
+  static const List<Widget> _screens = [
     HomeScreen(),
     TodayActivityScreen(),
-    Center(child: Text('Review')),
+    ReviewScreen(),
     ProfileScreen(),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _reviewViewModel = getIt<ReviewViewModel>();
+    _reviewViewModel.addListener(_onReviewChanged);
+    _reviewViewModel.loadReviewEmails();
+  }
+
+  @override
+  void dispose() {
+    _reviewViewModel.removeListener(_onReviewChanged);
+    super.dispose();
+  }
+
+  void _onReviewChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final reviewCount = _reviewViewModel.pendingCount;
+
     return Scaffold(
       body: _screens[_selectedIndex],
 
@@ -60,19 +85,31 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               clipBehavior: Clip.none,
               children: [
                 const Icon(Icons.mark_email_unread),
-
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
+                if (reviewCount > 0)
+                  Positioned(
+                    right: -6,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      child: Text(
+                        reviewCount > 99 ? '99+' : '$reviewCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
             label: 'Review',

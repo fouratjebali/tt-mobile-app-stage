@@ -1,6 +1,7 @@
 import 'package:tt_mail_assistant/domain/usecases/settings_usecase.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/activity_view_model.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -129,5 +130,9 @@ Future<void> init() async {
 
   getIt.registerFactory<ActivityViewModel>(
     () => ActivityViewModel(emailUseCase: getIt<EmailUseCase>()),
+  );
+
+  getIt.registerLazySingleton<ReviewViewModel>(
+    () => ReviewViewModel(emailUseCase: getIt<EmailUseCase>()),
   );
 }
