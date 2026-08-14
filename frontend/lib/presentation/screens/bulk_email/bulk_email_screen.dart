@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/services/bulk_email_api_service.dart';
+import 'bulk_email_controller.dart';
+
 class BulkEmailScreen extends StatefulWidget {
   const BulkEmailScreen({super.key});
 
@@ -8,12 +11,25 @@ class BulkEmailScreen extends StatefulWidget {
 }
 
 class _BulkEmailScreenState extends State<BulkEmailScreen> {
+  late final BulkEmailController _controller;
+
   final TextEditingController _campaignController =
   TextEditingController();
 
   final List<Map<String, String>> _recipients = [];
 
   bool _isGenerating = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = BulkEmailController(
+      apiService: BulkEmailApiService(
+        baseUrl: 'http://10.0.2.2:8000',
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -119,7 +135,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   String _getInitials(String name) {
     final parts = name.trim().split(RegExp(r'\s+'));
 
-    if (parts.isEmpty) {
+    if (parts.isEmpty || parts.first.isEmpty) {
       return '?';
     }
 
@@ -148,16 +164,12 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
     final campaign = _campaignController.text.trim();
 
     if (campaign.isEmpty) {
-      _showMessage(
-        'Please enter a campaign topic.',
-      );
+      _showMessage('Please enter a campaign topic.');
       return;
     }
 
     if (_recipients.isEmpty) {
-      _showMessage(
-        'Please add at least one recipient.',
-      );
+      _showMessage('Please add at least one recipient.');
       return;
     }
 
@@ -165,19 +177,37 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
       _isGenerating = true;
     });
 
-    await Future.delayed(
-      const Duration(seconds: 1),
-    );
+    try {
+      final recipients = _recipients
+          .map((recipient) => recipient['email']!)
+          .toList();
 
-    if (!mounted) return;
+      await _controller.generateEmails(
+        recipients: recipients,
+        topic: campaign,
+      );
 
-    setState(() {
-      _isGenerating = false;
-    });
+      if (!mounted) return;
 
-    _showMessage(
-      'Emails generated successfully.',
-    );
+      if (_controller.error != null) {
+        _showMessage(_controller.error!);
+        return;
+      }
+
+      _showMessage(
+        '${_controller.generatedEmails.length} emails generated successfully.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      _showMessage('Generation failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+        });
+      }
+    }
   }
 
   // ============================================================
@@ -361,7 +391,6 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(
@@ -505,7 +534,6 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                         child: Row(
                           children: [
                             const SizedBox(width: 12),
-
                             Container(
                               width: 34,
                               height: 34,
@@ -519,9 +547,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                                 color: Color(0xFF8B918A),
                               ),
                             ),
-
                             const SizedBox(width: 12),
-
                             const Text(
                               'Add recipient',
                               style: TextStyle(
