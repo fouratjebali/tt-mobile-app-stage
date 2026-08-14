@@ -8,292 +8,741 @@ class BulkEmailScreen extends StatefulWidget {
 }
 
 class _BulkEmailScreenState extends State<BulkEmailScreen> {
-  final List<Map<String, String>> recipients = [];
-
-  final TextEditingController subjectController =
+  final TextEditingController _campaignController =
   TextEditingController();
 
-  final TextEditingController nameController =
-  TextEditingController();
+  final List<Map<String, String>> _recipients = [];
 
-  final TextEditingController emailController =
-  TextEditingController();
+  bool _isGenerating = false;
 
-  final TextEditingController roleController =
-  TextEditingController();
+  @override
+  void dispose() {
+    _campaignController.dispose();
+    super.dispose();
+  }
 
-  final TextEditingController contextController =
-  TextEditingController();
+  // ============================================================
+  // ADD RECIPIENT
+  // ============================================================
 
-  void addRecipient() {
-    if (nameController.text.trim().isEmpty ||
-        emailController.text.trim().isEmpty) {
-      return;
+  void _showAddRecipientDialog() {
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final roleController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFF7F2E8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Add recipient',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF26332F),
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _dialogField(
+                controller: nameController,
+                hintText: 'Name',
+              ),
+              const SizedBox(height: 10),
+              _dialogField(
+                controller: emailController,
+                hintText: 'Email',
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 10),
+              _dialogField(
+                controller: roleController,
+                hintText: 'Role',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF6E756F),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                final email = emailController.text.trim();
+                final role = roleController.text.trim();
+
+                if (name.isEmpty || email.isEmpty) {
+                  return;
+                }
+
+                setState(() {
+                  _recipients.add({
+                    'initials': _getInitials(name),
+                    'name': name,
+                    'email': email,
+                    'role': role.isEmpty ? 'Recipient' : role,
+                  });
+                });
+
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF17473E),
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // GET INITIALS
+  // ============================================================
+
+  String _getInitials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+
+    if (parts.isEmpty) {
+      return '?';
     }
 
-    setState(() {
-      recipients.add({
-        "name": nameController.text.trim(),
-        "email": emailController.text.trim(),
-        "role": roleController.text.trim(),
-        "context": contextController.text.trim(),
-      });
+    if (parts.length == 1) {
+      return parts.first.substring(0, 1).toUpperCase();
+    }
 
-      nameController.clear();
-      emailController.clear();
-      roleController.clear();
-      contextController.clear();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  // ============================================================
+  // REMOVE RECIPIENT
+  // ============================================================
+
+  void _removeRecipient(int index) {
+    setState(() {
+      _recipients.removeAt(index);
     });
   }
 
-  void generateEmails() {
-    if (recipients.isEmpty || subjectController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Ajoutez au moins un destinataire et un sujet.",
-          ),
-        ),
+  // ============================================================
+  // GENERATE EMAILS
+  // ============================================================
+
+  Future<void> _generateEmails() async {
+    final campaign = _campaignController.text.trim();
+
+    if (campaign.isEmpty) {
+      _showMessage(
+        'Please enter a campaign topic.',
       );
       return;
     }
 
-    // TODO:
-    // Appeler ici l'API backend:
-    // POST /bulk/generate
+    if (_recipients.isEmpty) {
+      _showMessage(
+        'Please add at least one recipient.',
+      );
+      return;
+    }
 
+    setState(() {
+      _isGenerating = true;
+    });
+
+    await Future.delayed(
+      const Duration(seconds: 1),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isGenerating = false;
+    });
+
+    _showMessage(
+      'Emails generated successfully.',
+    );
+  }
+
+  // ============================================================
+  // PREVIEW & SEND
+  // ============================================================
+
+  void _previewAndSend() {
+    final campaign = _campaignController.text.trim();
+
+    if (campaign.isEmpty) {
+      _showMessage(
+        'Please enter a campaign topic.',
+      );
+      return;
+    }
+
+    if (_recipients.isEmpty) {
+      _showMessage(
+        'Please add at least one recipient.',
+      );
+      return;
+    }
+
+    _showPreviewDialog();
+  }
+
+  // ============================================================
+  // PREVIEW DIALOG
+  // ============================================================
+
+  void _showPreviewDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFF7F2E8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Preview & send',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF26332F),
+            ),
+          ),
+          content: SizedBox(
+            width: 350,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Campaign topic',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF6E756F),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _campaignController.text.trim(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF26332F),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Recipients',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF6E756F),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ..._recipients.map(
+                        (recipient) => Padding(
+                      padding: const EdgeInsets.only(bottom: 7),
+                      child: Text(
+                        '${recipient['name']} — ${recipient['email']}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF4F5752),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'Close',
+                style: TextStyle(
+                  color: Color(0xFF6E756F),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+
+                _showMessage(
+                  'Emails ready to send.',
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF17473E),
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
+              child: const Text('Send'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // MESSAGE
+  // ============================================================
+
+  void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Génération des emails en cours..."),
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  @override
-  void dispose() {
-    subjectController.dispose();
-    nameController.dispose();
-    emailController.dispose();
-    roleController.dispose();
-    contextController.dispose();
-    super.dispose();
+  // ============================================================
+  // DIALOG FIELD
+  // ============================================================
+
+  Widget _dialogField({
+    required TextEditingController controller,
+    required String hintText,
+    TextInputType? keyboardType,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        hintText: hintText,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+      ),
+    );
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
+    const backgroundColor = Color(0xFFF7F2E8);
+    const primaryColor = Color(0xFF17473E);
+    const textColor = Color(0xFF26332F);
+    const secondaryTextColor = Color(0xFF6E756F);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Bulk Email"),
+      backgroundColor: backgroundColor,
+
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 20,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ======================================================
+              // HEADER
+              // ======================================================
+
+              const Text(
+                'Bulk email',
+                style: TextStyle(
+                  fontSize: 25,
+                  fontWeight: FontWeight.w800,
+                  color: textColor,
+                ),
+              ),
+
+              const SizedBox(height: 4),
+
+              const Text(
+                'AI drafts for multiple recipients',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: secondaryTextColor,
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // ======================================================
+              // CAMPAIGN TOPIC
+              // ======================================================
+
+              const Text(
+                'CAMPAIGN TOPIC',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                  color: secondaryTextColor,
+                ),
+              ),
+
+              const SizedBox(height: 9),
+
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFFE4DED2),
+                  ),
+                ),
+                child: TextField(
+                  controller: _campaignController,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: textColor,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Enter campaign topic...',
+                    hintStyle: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF9A9D98),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 25),
+
+              // ======================================================
+              // RECIPIENTS TITLE
+              // ======================================================
+
+              const Text(
+                'RECIPIENTS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.1,
+                  color: secondaryTextColor,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // ======================================================
+              // RECIPIENTS
+              // ======================================================
+
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    ...List.generate(
+                      _recipients.length,
+                          (index) {
+                        final recipient = _recipients[index];
+
+                        return Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: 9,
+                          ),
+                          child: _recipientCard(
+                            initials: recipient['initials']!,
+                            name: recipient['name']!,
+                            email: recipient['email']!,
+                            role: recipient['role']!,
+                            index: index,
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ==================================================
+                    // ADD RECIPIENT
+                    // ==================================================
+
+                    GestureDetector(
+                      onTap: _showAddRecipientDialog,
+                      child: Container(
+                        height: 58,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9F5EC),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: const Color(0xFFE4DED2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 12),
+
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFEFE9DB),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                size: 20,
+                                color: Color(0xFF8B918A),
+                              ),
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            const Text(
+                              'Add recipient',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF9A9C96),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ==================================================
+                    // GENERATE EMAILS
+                    // ==================================================
+
+                    SizedBox(
+                      height: 48,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed:
+                        _isGenerating ? null : _generateEmails,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor:
+                          const Color(0xFF78938D),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                        ),
+                        child: _isGenerating
+                            ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                            : const Row(
+                          mainAxisAlignment:
+                          MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              size: 17,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Generate emails',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // ==================================================
+                    // PREVIEW & SEND
+                    // ==================================================
+
+                    SizedBox(
+                      height: 48,
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: _previewAndSend,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: const BorderSide(
+                            color: primaryColor,
+                            width: 1.2,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                        ),
+                        child: const Text(
+                          'Preview & send',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+  // ================================================================
+  // RECIPIENT CARD
+  // ================================================================
 
-            const Text(
-              "Campagne d'e-mails en masse",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+  Widget _recipientCard({
+    required String initials,
+    required String name,
+    required String email,
+    required String role,
+    required int index,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(
+        minHeight: 70,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFE4DED2),
+        ),
+      ),
+      child: Row(
+        children: [
+          // ==========================================================
+          // AVATAR
+          // ==========================================================
+
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: index.isEven
+                  ? const Color(0xFF234E46)
+                  : const Color(0xFFC08A35),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initials,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
               ),
             ),
+          ),
 
-            const SizedBox(height: 25),
+          const SizedBox(width: 12),
 
-            const Text(
-              "Sujet général",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          // ==========================================================
+          // NAME + ROLE + EMAIL
+          // ==========================================================
 
-            const SizedBox(height: 8),
-
-            TextField(
-              controller: subjectController,
-              decoration: const InputDecoration(
-                hintText: "Ex: Proposition de collaboration",
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Destinataires",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF26332F),
                   ),
                 ),
 
-                ElevatedButton.icon(
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) {
-                        return AlertDialog(
-                          title: const Text(
-                            "Ajouter un destinataire",
-                          ),
+                const SizedBox(height: 2),
 
-                          content: SingleChildScrollView(
-                            child: Column(
-                              children: [
+                Text(
+                  role,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF858A84),
+                  ),
+                ),
 
-                                TextField(
-                                  controller: nameController,
-                                  decoration: const InputDecoration(
-                                    labelText: "Nom",
-                                  ),
-                                ),
+                const SizedBox(height: 2),
 
-                                TextField(
-                                  controller: emailController,
-                                  decoration: const InputDecoration(
-                                    labelText: "Email",
-                                  ),
-                                ),
-
-                                TextField(
-                                  controller: roleController,
-                                  decoration: const InputDecoration(
-                                    labelText: "Rôle",
-                                  ),
-                                ),
-
-                                TextField(
-                                  controller: contextController,
-                                  decoration: const InputDecoration(
-                                    labelText: "Contexte",
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: const Text("Annuler"),
-                            ),
-
-                            ElevatedButton(
-                              onPressed: () {
-                                addRecipient();
-                                Navigator.pop(context);
-                              },
-                              child: const Text("Ajouter"),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-
-                  icon: const Icon(Icons.add),
-                  label: const Text("Ajouter"),
+                Text(
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: Color(0xFF9A9D98),
+                  ),
                 ),
               ],
             ),
+          ),
 
-            const SizedBox(height: 15),
+          // ==========================================================
+          // DELETE
+          // ==========================================================
 
-            if (recipients.isEmpty)
-              const Text(
-                "Aucun destinataire ajouté.",
-                style: TextStyle(
-                  color: Colors.grey,
-                ),
-              ),
-
-            ...recipients.asMap().entries.map(
-                  (entry) {
-                final index = entry.key;
-                final recipient = entry.value;
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.person),
-                    ),
-
-                    title: Text(
-                      recipient["name"] ?? "",
-                    ),
-
-                    subtitle: Text(
-                      "${recipient["email"]}\n"
-                          "${recipient["role"]}\n"
-                          "${recipient["context"]}",
-                    ),
-
-                    isThreeLine: true,
-
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () {
-                        setState(() {
-                          recipients.removeAt(index);
-                        });
-                      },
-                    ),
-                  ),
-                );
-              },
+          IconButton(
+            onPressed: () => _removeRecipient(index),
+            icon: const Icon(
+              Icons.close,
+              size: 17,
+              color: Color(0xFF8B918A),
             ),
-
-            const SizedBox(height: 30),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: generateEmails,
-
-                icon: const Icon(Icons.auto_awesome),
-
-                label: const Padding(
-                  padding: EdgeInsets.all(14),
-                  child: Text(
-                    "Générer les emails",
-                    style: TextStyle(
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            const Text(
-              "Prévisualisation",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            const Text(
-              "Les emails générés par l'Agent IA apparaîtront ici.",
-              style: TextStyle(
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
