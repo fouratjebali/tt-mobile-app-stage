@@ -145,6 +145,30 @@ class EmailPipelineService:
             raw_result=send_result.raw_result,
         )
 
+    async def reject_email(
+        self,
+        *,
+        user: User,
+        email_id: str,
+    ) -> SendEmailResponse:
+        email = self._repository.get_email_by_gmail_id(
+            user=user,
+            gmail_message_id=email_id,
+        )
+        if email is None:
+            email = self._repository.upsert_email(
+                user=user,
+                gmail_message_id=email_id,
+                payload={"id": email_id, "sender": "", "status": "needs_review"},
+            )
+
+        self._repository.update_statuses(
+            email=email,
+            response=None,
+            email_status="ignored",
+        )
+        return SendEmailResponse(status="ignored", raw_result=None)
+
 
 def _email_payload(payload: dict[str, Any]) -> dict[str, Any]:
     value = payload.get("email")

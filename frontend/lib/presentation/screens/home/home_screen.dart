@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
-import 'package:tt_mail_assistant/domain/repositories/auth_repository.dart';
-import 'package:tt_mail_assistant/domain/repositories/settings_repository.dart';
-import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
-import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/bulk_email/bulk_email_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,201 +15,100 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final EmailUseCase _emailUseCase;
-  late final SettingsRepository _settingsRepository;
-  late final AuthRepository _authRepository;
-
-  String userName = 'User';
-  String? userEmail;
-  String? userPhotoUrl;
-  bool agentActive = true;
-  bool isLoading = true;
-  String? errorMessage;
-  List<Email> recentEmails = [];
-
-  int processedToday = 0;
-  int autoSent = 0;
-  int needReview = 0;
-  double accuracyRate = 0;
+  late final HomeViewModel _viewModel;
 
   @override
   void initState() {
     super.initState();
-    _emailUseCase = getIt<EmailUseCase>();
-    _settingsRepository = getIt<SettingsRepository>();
-    _authRepository = getIt<AuthRepository>();
-    _loadDashboardData();
+    _viewModel = getIt<HomeViewModel>();
+    _viewModel.addListener(_onChanged);
+    _viewModel.loadSummary();
   }
 
-  Future<void> _loadDashboardData() async {
-    try {
-      final user = await _authRepository.getCurrentUser();
-      final emails = await _emailUseCase.getEmails();
-      final autoProcessing =
-      await _settingsRepository.getAutoProcessing();
-
-      if (!mounted) return;
-
-      final processed =
-          emails.where((e) => e.status == Status.DONE).length;
-
-      final review = emails
-          .where((e) => e.status == Status.PENDING_USER_REVIEW)
-          .length;
-
-      final confident = emails
-          .where((e) => (e.analysis?.confidence ?? 0) >= 0.8)
-          .length;
-
-      final accuracy =
-      emails.isEmpty ? 0.0 : (processed / emails.length) * 100;
-
-      setState(() {
-        userName =
-        (user?.displayName?.trim().isNotEmpty ?? false)
-            ? user!.displayName!.trim().split(' ').first
-            : 'User';
-
-        userEmail = user?.email;
-        userPhotoUrl = _cleanPhotoUrl(user?.photoUrl);
-        agentActive = autoProcessing;
-        processedToday = processed;
-        autoSent = confident;
-        needReview = review;
-        accuracyRate = accuracy;
-        recentEmails = emails.take(3).toList(growable: false);
-        isLoading = false;
-        errorMessage = null;
-      });
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        isLoading = false;
-        errorMessage =
-        'Activity could not be refreshed. Pull down to retry.';
-      });
-    }
+  @override
+  void dispose() {
+    _viewModel.removeListener(_onChanged);
+    super.dispose();
   }
 
-  Future<void> _toggleAgent(bool value) async {
-    setState(() => agentActive = value);
-    await _settingsRepository.setAutoProcessing(value);
-  }
-
-  String? _cleanPhotoUrl(String? value) {
-    final trimmed = value?.trim();
-    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  void _onChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor:
-      Theme.of(context).scaffoldBackgroundColor,
+    final isLoading = _viewModel.state == LoadState.loading ||
+        _viewModel.state == LoadState.idle;
 
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: isLoading
-            ? const Center(
-          child: CircularProgressIndicator(),
-        )
+            ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
-          onRefresh: _loadDashboardData,
-
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              12,
-              16,
-              28,
-            ),
-
-            children: [
-              _GreetingHeader(
-                userName: userName,
-                userEmail: userEmail,
-                userPhotoUrl: userPhotoUrl,
-              ),
-
-              const SizedBox(height: 20),
-
-              _KPIGrid(
-                processedToday: processedToday,
-                autoSent: autoSent,
-                needReview: needReview,
-                accuracyRate: accuracyRate,
-              ),
-
-              const SizedBox(height: 16),
-
-              _AgentStatusCard(
-                isActive: agentActive,
-                onChanged: _toggleAgent,
-              ),
-
-              if (errorMessage != null) ...[
-                const SizedBox(height: 16),
-
-                _InlineNotice(
-                  icon: Icons.cloud_off_outlined,
-                  message: errorMessage!,
-                  color: Colors.orange,
-                ),
-              ],
-
-              if (needReview > 0) ...[
-                const SizedBox(height: 16),
-
-                _ActionRequiredBanner(
-                  count: needReview,
-                ),
-              ],
-
-              const SizedBox(height: 24),
-
-              const _SectionTitle(
-                title: 'Recent Activity',
-              ),
-
-              const SizedBox(height: 12),
-
-              if (recentEmails.isEmpty)
-                const _EmptyPanel(
-                  icon: Icons.inbox_outlined,
-                  title: 'No recent activity',
-                  subtitle:
-                  'Processed emails will appear here.',
-                )
-              else
-                ...recentEmails.map(
-                      (email) => _ActivityCard(
-                    email: email,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              EmailDetailScreen(
-                                email: email,
+                onRefresh: _viewModel.refresh,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                  children: [
+                    _GreetingHeader(
+                      userName: _viewModel.userName,
+                      userEmail: _viewModel.userEmail,
+                      userPhotoUrl: _viewModel.userPhotoUrl,
+                    ),
+                    const SizedBox(height: 20),
+                    _KPIGrid(
+                      processedToday: _viewModel.processedToday,
+                      autoSent: _viewModel.autoSent,
+                      needReview: _viewModel.needReview,
+                      accuracyRate: _viewModel.accuracyRate,
+                    ),
+                    const SizedBox(height: 16),
+                    _AgentStatusCard(
+                      isActive: _viewModel.agentActive,
+                      onChanged: _viewModel.toggleAgent,
+                    ),
+                    if (_viewModel.state == LoadState.error) ...[
+                      const SizedBox(height: 16),
+                      _InlineNotice(
+                        icon: Icons.cloud_off_outlined,
+                        message: _viewModel.errorMessage ?? 'Error',
+                        color: Colors.orange,
+                      ),
+                    ],
+                    if (_viewModel.needReview > 0) ...[
+                      const SizedBox(height: 16),
+                      _ActionRequiredBanner(count: _viewModel.needReview),
+                    ],
+                    const SizedBox(height: 24),
+                    const _SectionTitle(title: 'Recent Activity'),
+                    const SizedBox(height: 12),
+                    if (_viewModel.recentEmails.isEmpty)
+                      const _EmptyPanel(
+                        icon: Icons.inbox_outlined,
+                        title: 'No recent activity',
+                        subtitle: 'Processed emails will appear here.',
+                      )
+                    else
+                      ..._viewModel.recentEmails.map(
+                        (email) => _ActivityCard(
+                          email: email,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => EmailDetailScreen(email: email),
                               ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    const SizedBox(height: 24),
+                    const _SectionTitle(title: 'Quick Actions'),
+                    const SizedBox(height: 12),
+                    _ShortcutsRow(),
+                  ],
                 ),
-
-              const SizedBox(height: 24),
-
-              const _SectionTitle(
-                title: 'Quick Actions',
               ),
-
-              const SizedBox(height: 12),
-
-              const _ShortcutsRow(),
-            ],
-          ),
-        ),
       ),
     );
   }
