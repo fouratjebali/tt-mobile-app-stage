@@ -118,8 +118,8 @@ Future<void> init() async {
     () => SentimentUseCase(getIt<SentimentRepository>()),
   );
   getIt.registerLazySingleton<SettingsUseCase>(
-  () => SettingsUseCase(getIt<SettingsRepository>()),
-);
+    () => SettingsUseCase(getIt<SettingsRepository>()),
+  );
   getIt.registerFactory<HomeViewModel>(
     () => HomeViewModel(
       emailUseCase: getIt<EmailUseCase>(),

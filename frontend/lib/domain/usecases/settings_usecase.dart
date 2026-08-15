@@ -18,15 +18,11 @@ class SettingsUseCase {
       _repository.setUrgencyThreshold(value);
 
   Future<double> getConfidenceThreshold() =>
-    _repository.getConfidenceThreshold();
+      _repository.getConfidenceThreshold();
+  Future<void> setConfidenceThreshold(double value) =>
+      _repository.setConfidenceThreshold(value);
 
-Future<void> setConfidenceThreshold(double value) =>
-    _repository.setConfidenceThreshold(value);
-
-    
-  // NOTE : getDarkMode/setDarkMode ne sont pas exposées ici — l'écran
-  // Profile utilise directement ThemeController pour le dark mode, car
-  // c'est lui qui contrôle réellement l'apparence de l'app et persiste
-  // déjà sur la même clé SharedPreferences ('darkMode'). Pas besoin de
-  // dupliquer l'appel.
+  Future<String> getReplyLanguage() => _repository.getReplyLanguage();
+  Future<void> setReplyLanguage(String value) =>
+      _repository.setReplyLanguage(value);
 }

@@ -10,9 +10,9 @@ class HomeViewModel extends ChangeNotifier {
     required EmailUseCase emailUseCase,
     required SettingsUseCase settingsUseCase,
     required AuthUseCase authUseCase,
-  })  : _emailUseCase = emailUseCase,
-        _settingsUseCase = settingsUseCase,
-        _authUseCase = authUseCase;
+  }) : _emailUseCase = emailUseCase,
+       _settingsUseCase = settingsUseCase,
+       _authUseCase = authUseCase;
 
   final EmailUseCase _emailUseCase;
   final SettingsUseCase _settingsUseCase;
@@ -45,12 +45,12 @@ class HomeViewModel extends ChangeNotifier {
           emails.where((e) => e.status == Status.PENDING_USER_REVIEW).length;
       final confident =
           emails.where((e) => (e.analysis?.confidence ?? 0) >= 0.8).length;
-      final accuracy =
-          emails.isEmpty ? 0.0 : (processed / emails.length) * 100;
+      final accuracy = emails.isEmpty ? 0.0 : (processed / emails.length) * 100;
 
-      userName = (user?.displayName?.trim().isNotEmpty ?? false)
-          ? user!.displayName!.trim().split(' ').first
-          : 'User';
+      userName =
+          (user?.displayName?.trim().isNotEmpty ?? false)
+              ? user!.displayName!.trim().split(' ').first
+              : 'User';
       userEmail = user?.email;
       userPhotoUrl = _cleanPhotoUrl(user?.photoUrl);
       agentActive = autoProcessing;

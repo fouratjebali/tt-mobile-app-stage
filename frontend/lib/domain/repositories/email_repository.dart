@@ -8,7 +8,6 @@ abstract class EmailRepository {
   Future<void> reject({required String emailId});
   Future<Email> getEmailDetails({required String emailId});
 
-  // --- AJOUT pour la carte "Domain layer -- Email module" ---
   Future<List<Email>> getTodayEmails();
   Future<List<Email>> getReviewRequiredEmails();
   Future<void> markAsRead(String id);

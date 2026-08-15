@@ -81,7 +81,8 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
   @override
   Widget build(BuildContext context) {
     final filteredEmails = _viewModel.filteredEmails;
-    final isLoading = _viewModel.state == LoadState.loading ||
+    final isLoading =
+        _viewModel.state == LoadState.loading ||
         _viewModel.state == LoadState.idle;
 
     return Scaffold(
@@ -167,50 +168,54 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
             ],
           ),
           Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filteredEmails.isEmpty
+            child:
+                isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : filteredEmails.isEmpty
                     ? _EmptyState(tabIndex: _tabController.index)
                     : RefreshIndicator(
-                        onRefresh: _viewModel.loadTodayEmails,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          itemCount: filteredEmails.length +
-                              (_viewModel.state == LoadState.error ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (_viewModel.state == LoadState.error &&
-                                index == 0) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _Notice(
-                                    message: _viewModel.errorMessage ?? ''),
-                              );
-                            }
-                            final emailIndex =
-                                _viewModel.state == LoadState.error
-                                    ? index - 1
-                                    : index;
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => EmailDetailScreen(
-                                      email: filteredEmails[emailIndex],
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: _EmailActivityCard(
-                                email: filteredEmails[emailIndex],
+                      onRefresh: _viewModel.loadTodayEmails,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        itemCount:
+                            filteredEmails.length +
+                            (_viewModel.state == LoadState.error ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (_viewModel.state == LoadState.error &&
+                              index == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _Notice(
+                                message: _viewModel.errorMessage ?? '',
                               ),
                             );
-                          },
-                        ),
+                          }
+                          final emailIndex =
+                              _viewModel.state == LoadState.error
+                                  ? index - 1
+                                  : index;
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => EmailDetailScreen(
+                                        email: filteredEmails[emailIndex],
+                                      ),
+                                ),
+                              );
+                            },
+                            child: _EmailActivityCard(
+                              email: filteredEmails[emailIndex],
+                            ),
+                          );
+                        },
                       ),
+                    ),
           ),
         ],
       ),
@@ -239,8 +244,18 @@ class _TodayActivityScreenState extends State<TodayActivityScreen>
 
   String _monthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return months[month - 1];
   }

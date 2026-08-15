@@ -7,7 +7,7 @@ enum ActivityFilter { all, autoSent, review, low }
 
 class ActivityViewModel extends ChangeNotifier {
   ActivityViewModel({required EmailUseCase emailUseCase})
-      : _emailUseCase = emailUseCase;
+    : _emailUseCase = emailUseCase;
 
   final EmailUseCase _emailUseCase;
 

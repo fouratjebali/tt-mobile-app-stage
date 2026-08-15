@@ -25,11 +25,12 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
   void initState() {
     super.initState();
     _replyController = TextEditingController(
-      text: widget.email.analysis?.suggestedReply.trim().isNotEmpty == true
-          ? widget.email.analysis!.suggestedReply
-          : widget.email.body.plain.trim().isNotEmpty
-          ? widget.email.body.plain
-          : 'Hi,\n\nThanks for your message. We are reviewing it and will come back to you shortly.\n\nBest regards,',
+      text:
+          widget.email.analysis?.suggestedReply.trim().isNotEmpty == true
+              ? widget.email.analysis!.suggestedReply
+              : widget.email.body.plain.trim().isNotEmpty
+              ? widget.email.body.plain
+              : 'Hi,\n\nThanks for your message. We are reviewing it and will come back to you shortly.\n\nBest regards,',
     );
   }
 
@@ -136,22 +137,21 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
   Future<void> _confirmAndSend(String actionLabel) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirm send'),
-        content: Text(
-          'Send this reply as $actionLabel?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Confirm send'),
+            content: Text('Send this reply as $actionLabel?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Send'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Send'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true) {
@@ -169,20 +169,23 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
   Future<void> _ignoreEmail() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Ignore message'),
-        content: const Text('Do you want to ignore this email without sending a reply?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Ignore message'),
+            content: const Text(
+              'Do you want to ignore this email without sending a reply?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Ignore'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Ignore'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true && mounted) {
@@ -212,9 +215,10 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
     Jury? jury,
   ) {
     final verdict = jury?.verdict ?? JuryVerdict.UNCERTAIN;
-    final confidence = analysis != null
-        ? '${(analysis.confidence * 100).toStringAsFixed(0)}%'
-        : 'N/A';
+    final confidence =
+        analysis != null
+            ? '${(analysis.confidence * 100).toStringAsFixed(0)}%'
+            : 'N/A';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F2F1),
@@ -227,10 +231,7 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
         ),
         title: const Text(
           'Review & respond',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
         ),
         actions: [
           Container(
@@ -353,7 +354,9 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: _getVerdictColor(verdict).withValues(alpha: 0.12),
+                            color: _getVerdictColor(
+                              verdict,
+                            ).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -384,7 +387,8 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
                         ),
                       ],
                     ),
-                    if (jury?.reasoning != null && jury!.reasoning!.isNotEmpty) ...[
+                    if (jury?.reasoning != null &&
+                        jury!.reasoning!.isNotEmpty) ...[
                       const SizedBox(height: 14),
                       const Text(
                         'Reason',
@@ -482,9 +486,10 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
             const SizedBox(height: 24),
             _ContentSection(
               title: 'Email Content',
-              content: widget.email.body.plain.trim().isEmpty
-                  ? 'No plain-text body available.'
-                  : widget.email.body.plain,
+              content:
+                  widget.email.body.plain.trim().isEmpty
+                      ? 'No plain-text body available.'
+                      : widget.email.body.plain,
             ),
             const SizedBox(height: 24),
             if (widget.email.attachments.isNotEmpty) ...[
@@ -497,7 +502,8 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
                 categoryColor: _getCategoryColor(analysis.category),
                 priority: _getPriorityLabel(priority),
                 priorityColor: _getPriorityColor(priority),
-                confidence: '${(analysis.confidence * 100).toStringAsFixed(0)}%',
+                confidence:
+                    '${(analysis.confidence * 100).toStringAsFixed(0)}%',
                 summary: analysis.summary,
               ),
               const SizedBox(height: 24),
@@ -510,7 +516,8 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
               ),
               const SizedBox(height: 24),
             ],
-            if (analysis != null && analysis.suggestedReply.trim().isNotEmpty) ...[
+            if (analysis != null &&
+                analysis.suggestedReply.trim().isNotEmpty) ...[
               _SuggestedReplySection(suggestedReply: analysis.suggestedReply),
               const SizedBox(height: 24),
             ],

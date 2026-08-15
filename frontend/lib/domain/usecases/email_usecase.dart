@@ -3,6 +3,7 @@ import 'package:tt_mail_assistant/domain/repositories/email_repository.dart';
 
 class EmailUseCase {
   const EmailUseCase(this._repository);
+
   final EmailRepository _repository;
 
   Future<List<Email>> getEmails() => _repository.getEmails();
@@ -19,7 +20,6 @@ class EmailUseCase {
   Future<void> reject({required String emailId}) =>
       _repository.reject(emailId: emailId);
 
-  // --- AJOUT : les 3 méthodes exactes demandées par la carte Trello ---
   Future<List<Email>> getTodayActivity() => _repository.getTodayEmails();
   Future<List<Email>> getReviewList() => _repository.getReviewRequiredEmails();
   Future<Email?> getEmailDetail(String emailId) =>
