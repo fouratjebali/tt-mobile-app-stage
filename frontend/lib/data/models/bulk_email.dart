@@ -12,21 +12,33 @@ class BulkEmail {
   });
 
   factory BulkEmail.fromJson(Map<String, dynamic> json) {
+    final recipientData = json['recipient'];
+    final recipientEmail =
+        recipientData is Map ? recipientData['email']?.toString() : null;
+
     return BulkEmail(
-      id: json['id']?.toString() ?? '',
-      recipient: json['recipient']?.toString() ?? '',
+      id:
+          json['id']?.toString() ??
+          json['email_id']?.toString() ??
+          json['message_id']?.toString() ??
+          '',
+      recipient:
+          recipientEmail ??
+          json['to']?.toString() ??
+          json['email']?.toString() ??
+          json['recipient']?.toString() ??
+          '',
       subject: json['subject']?.toString() ?? '',
-      body: json['body']?.toString() ?? '',
+      body:
+          json['body']?.toString() ??
+          json['reply_body']?.toString() ??
+          json['suggested_reply']?.toString() ??
+          '',
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'recipient': recipient,
-      'subject': subject,
-      'body': body,
-    };
+    return {'id': id, 'recipient': recipient, 'subject': subject, 'body': body};
   }
 
   BulkEmail copyWith({

@@ -6,9 +6,7 @@ import '../../../data/services/chat_api_service.dart';
 class ChatController extends ChangeNotifier {
   final ChatApiService apiService;
 
-  ChatController({
-    required this.apiService,
-  });
+  ChatController({required this.apiService});
 
   final List<ChatMessage> _messages = [];
 
@@ -32,21 +30,14 @@ class ChatController extends ChangeNotifier {
     _error = null;
 
     // 1. Ajouter le message utilisateur
-    _messages.add(
-      ChatMessage(
-        role: 'user',
-        content: cleanText,
-      ),
-    );
+    _messages.add(ChatMessage(role: 'user', content: cleanText));
 
     _isLoading = true;
     notifyListeners();
 
     try {
       // 2. Historique complet
-      final history = _messages
-          .map((message) => message.toJson())
-          .toList();
+      final history = _messages.map((message) => message.toJson()).toList();
 
       // 3. Appel backend
       final result = await apiService.sendMessage(
@@ -58,12 +49,7 @@ class ChatController extends ChangeNotifier {
       final answer = result['response']?.toString() ?? '';
 
       if (answer.isNotEmpty) {
-        _messages.add(
-          ChatMessage(
-            role: 'assistant',
-            content: answer,
-          ),
-        );
+        _messages.add(ChatMessage(role: 'assistant', content: answer));
       }
     } catch (e) {
       _error = 'Une erreur est survenue : $e';

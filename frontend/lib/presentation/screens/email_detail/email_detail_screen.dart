@@ -440,7 +440,7 @@ class _AttachmentsSection extends StatelessWidget {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

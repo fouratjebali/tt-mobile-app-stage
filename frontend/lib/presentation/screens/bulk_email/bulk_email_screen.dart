@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/config/api_config.dart';
 import '../../../data/services/bulk_email_api_service.dart';
 import 'bulk_email_controller.dart';
 
@@ -13,8 +14,7 @@ class BulkEmailScreen extends StatefulWidget {
 class _BulkEmailScreenState extends State<BulkEmailScreen> {
   late final BulkEmailController _controller;
 
-  final TextEditingController _campaignController =
-  TextEditingController();
+  final TextEditingController _campaignController = TextEditingController();
 
   final List<Map<String, String>> _recipients = [];
 
@@ -25,9 +25,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
     super.initState();
 
     _controller = BulkEmailController(
-      apiService: BulkEmailApiService(
-        baseUrl: 'http://10.0.2.2:8000',
-      ),
+      apiService: BulkEmailApiService(baseUrl: ApiConfig.baseUrl),
     );
   }
 
@@ -65,10 +63,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _dialogField(
-                controller: nameController,
-                hintText: 'Name',
-              ),
+              _dialogField(controller: nameController, hintText: 'Name'),
               const SizedBox(height: 10),
               _dialogField(
                 controller: emailController,
@@ -76,10 +71,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 10),
-              _dialogField(
-                controller: roleController,
-                hintText: 'Role',
-              ),
+              _dialogField(controller: roleController, hintText: 'Role'),
             ],
           ),
           actions: [
@@ -89,9 +81,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
               },
               child: const Text(
                 'Cancel',
-                style: TextStyle(
-                  color: Color(0xFF6E756F),
-                ),
+                style: TextStyle(color: Color(0xFF6E756F)),
               ),
             ),
             ElevatedButton(
@@ -178,12 +168,8 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
     });
 
     try {
-      final recipients = _recipients
-          .map((recipient) => recipient['email']!)
-          .toList();
-
       await _controller.generateEmails(
-        recipients: recipients,
+        recipients: _bulkRecipientsPayload(),
         topic: campaign,
       );
 
@@ -218,20 +204,58 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
     final campaign = _campaignController.text.trim();
 
     if (campaign.isEmpty) {
-      _showMessage(
-        'Please enter a campaign topic.',
-      );
+      _showMessage('Please enter a campaign topic.');
       return;
     }
 
     if (_recipients.isEmpty) {
-      _showMessage(
-        'Please add at least one recipient.',
-      );
+      _showMessage('Please add at least one recipient.');
+      return;
+    }
+
+    if (_controller.generatedEmails.isEmpty) {
+      _showMessage('Generate emails first, then preview and send.');
       return;
     }
 
     _showPreviewDialog();
+  }
+
+  Future<void> _sendGeneratedEmails() async {
+    final campaign = _campaignController.text.trim();
+
+    Navigator.pop(context);
+
+    await _controller.sendAll(
+      recipients: _bulkRecipientsPayload(),
+      topic: campaign,
+    );
+
+    if (!mounted) return;
+
+    if (_controller.error != null) {
+      _showMessage(_controller.error!);
+      return;
+    }
+
+    final sent = _controller.results.where((result) => result.isSuccess).length;
+
+    _showMessage(
+      'Bulk send completed: $sent/${_controller.results.length} sent.',
+    );
+  }
+
+  List<Map<String, String>> _bulkRecipientsPayload() {
+    return _recipients
+        .map(
+          (recipient) => {
+            'name': recipient['name'] ?? '',
+            'email': recipient['email'] ?? '',
+            'role': recipient['role'] ?? 'Recipient',
+            'context': recipient['role'] ?? '',
+          },
+        )
+        .toList();
   }
 
   // ============================================================
@@ -239,114 +263,117 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   // ============================================================
 
   void _showPreviewDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFFF7F2E8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Preview & send',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF26332F),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFFF7F2E8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-          content: SizedBox(
-            width: 350,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Campaign topic',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF6E756F),
+            title: const Text(
+              'Preview & send',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF26332F),
+              ),
+            ),
+            content: SizedBox(
+              width: 350,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Campaign topic',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF6E756F),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _campaignController.text.trim(),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF26332F),
+                    const SizedBox(height: 6),
+                    Text(
+                      _campaignController.text.trim(),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF26332F),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Recipients',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF6E756F),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Generated drafts',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF6E756F),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  ..._recipients.map(
-                        (recipient) => Padding(
-                      padding: const EdgeInsets.only(bottom: 7),
-                      child: Text(
-                        '${recipient['name']} — ${recipient['email']}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF4F5752),
+                    const SizedBox(height: 8),
+                    ..._controller.generatedEmails.map(
+                      (email) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${email.recipient} - ${email.subject}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF4F5752),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              email.body,
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF6E756F),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'Close',
-                style: TextStyle(
-                  color: Color(0xFF6E756F),
+                  ],
                 ),
               ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-
-                _showMessage(
-                  'Emails ready to send.',
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF17473E),
-                foregroundColor: Colors.white,
-                elevation: 0,
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Close',
+                  style: TextStyle(color: Color(0xFF6E756F)),
+                ),
               ),
-              child: const Text('Send'),
-            ),
-          ],
-        );
-      },
+              ElevatedButton(
+                onPressed: _sendGeneratedEmails,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF17473E),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                ),
+                child: const Text('Send'),
+              ),
+            ],
+          ),
     );
   }
-
   // ============================================================
   // MESSAGE
   // ============================================================
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -393,17 +420,13 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
       backgroundColor: backgroundColor,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 20,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ======================================================
               // HEADER
               // ======================================================
-
               const Text(
                 'Bulk email',
                 style: TextStyle(
@@ -417,10 +440,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
 
               const Text(
                 'AI drafts for multiple recipients',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: secondaryTextColor,
-                ),
+                style: TextStyle(fontSize: 13, color: secondaryTextColor),
               ),
 
               const SizedBox(height: 28),
@@ -428,7 +448,6 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
               // ======================================================
               // CAMPAIGN TOPIC
               // ======================================================
-
               const Text(
                 'CAMPAIGN TOPIC',
                 style: TextStyle(
@@ -445,16 +464,11 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: const Color(0xFFE4DED2),
-                  ),
+                  border: Border.all(color: const Color(0xFFE4DED2)),
                 ),
                 child: TextField(
                   controller: _campaignController,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: textColor,
-                  ),
+                  style: const TextStyle(fontSize: 14, color: textColor),
                   decoration: const InputDecoration(
                     hintText: 'Enter campaign topic...',
                     hintStyle: TextStyle(
@@ -475,7 +489,6 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
               // ======================================================
               // RECIPIENTS TITLE
               // ======================================================
-
               const Text(
                 'RECIPIENTS',
                 style: TextStyle(
@@ -491,35 +504,28 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
               // ======================================================
               // RECIPIENTS
               // ======================================================
-
               Expanded(
                 child: ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    ...List.generate(
-                      _recipients.length,
-                          (index) {
-                        final recipient = _recipients[index];
+                    ...List.generate(_recipients.length, (index) {
+                      final recipient = _recipients[index];
 
-                        return Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 9,
-                          ),
-                          child: _recipientCard(
-                            initials: recipient['initials']!,
-                            name: recipient['name']!,
-                            email: recipient['email']!,
-                            role: recipient['role']!,
-                            index: index,
-                          ),
-                        );
-                      },
-                    ),
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 9),
+                        child: _recipientCard(
+                          initials: recipient['initials']!,
+                          name: recipient['name']!,
+                          email: recipient['email']!,
+                          role: recipient['role']!,
+                          index: index,
+                        ),
+                      );
+                    }),
 
                     // ==================================================
                     // ADD RECIPIENT
                     // ==================================================
-
                     GestureDetector(
                       onTap: _showAddRecipientDialog,
                       child: Container(
@@ -527,9 +533,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFFF9F5EC),
                           borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: const Color(0xFFE4DED2),
-                          ),
+                          border: Border.all(color: const Color(0xFFE4DED2)),
                         ),
                         child: Row(
                           children: [
@@ -566,50 +570,44 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                     // ==================================================
                     // GENERATE EMAILS
                     // ==================================================
-
                     SizedBox(
                       height: 48,
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed:
-                        _isGenerating ? null : _generateEmails,
+                        onPressed: _isGenerating ? null : _generateEmails,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           foregroundColor: Colors.white,
-                          disabledBackgroundColor:
-                          const Color(0xFF78938D),
+                          disabledBackgroundColor: const Color(0xFF78938D),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(24),
                           ),
                         ),
-                        child: _isGenerating
-                            ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                            : const Row(
-                          mainAxisAlignment:
-                          MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.auto_awesome,
-                              size: 17,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Generate emails',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
+                        child:
+                            _isGenerating
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.auto_awesome, size: 17),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Generate emails',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                       ),
                     ),
 
@@ -618,7 +616,6 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                     // ==================================================
                     // PREVIEW & SEND
                     // ==================================================
-
                     SizedBox(
                       height: 48,
                       width: double.infinity,
@@ -667,33 +664,26 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
     required int index,
   }) {
     return Container(
-      constraints: const BoxConstraints(
-        minHeight: 70,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
+      constraints: const BoxConstraints(minHeight: 70),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFE4DED2),
-        ),
+        border: Border.all(color: const Color(0xFFE4DED2)),
       ),
       child: Row(
         children: [
           // ==========================================================
           // AVATAR
           // ==========================================================
-
           Container(
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: index.isEven
-                  ? const Color(0xFF234E46)
-                  : const Color(0xFFC08A35),
+              color:
+                  index.isEven
+                      ? const Color(0xFF234E46)
+                      : const Color(0xFFC08A35),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
@@ -712,7 +702,6 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
           // ==========================================================
           // NAME + ROLE + EMAIL
           // ==========================================================
-
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -747,10 +736,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                   email,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: Color(0xFF9A9D98),
-                  ),
+                  style: const TextStyle(fontSize: 9, color: Color(0xFF9A9D98)),
                 ),
               ],
             ),
@@ -759,14 +745,9 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
           // ==========================================================
           // DELETE
           // ==========================================================
-
           IconButton(
             onPressed: () => _removeRecipient(index),
-            icon: const Icon(
-              Icons.close,
-              size: 17,
-              color: Color(0xFF8B918A),
-            ),
+            icon: const Icon(Icons.close, size: 17, color: Color(0xFF8B918A)),
           ),
         ],
       ),

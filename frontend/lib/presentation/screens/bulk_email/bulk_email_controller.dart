@@ -7,9 +7,7 @@ import '../../../data/services/bulk_email_api_service.dart';
 class BulkEmailController extends ChangeNotifier {
   final BulkEmailApiService apiService;
 
-  BulkEmailController({
-    required this.apiService,
-  });
+  BulkEmailController({required this.apiService});
 
   List<BulkEmail> generatedEmails = [];
 
@@ -20,8 +18,9 @@ class BulkEmailController extends ChangeNotifier {
   String? error;
 
   Future<void> generateEmails({
-    required List<String> recipients,
+    required List<Map<String, String>> recipients,
     required String topic,
+    String instructions = '',
   }) async {
     if (recipients.isEmpty || topic.trim().isEmpty) {
       return;
@@ -36,6 +35,7 @@ class BulkEmailController extends ChangeNotifier {
       generatedEmails = await apiService.generateEmails(
         recipients: recipients,
         topic: topic,
+        instructions: instructions,
       );
     } catch (e) {
       error = e.toString();
@@ -49,29 +49,21 @@ class BulkEmailController extends ChangeNotifier {
     required String id,
     required String newBody,
   }) async {
-    try {
-      final updatedEmail = await apiService.editGenerated(
-        id: id,
-        newBody: newBody,
-      );
+    final index = generatedEmails.indexWhere((email) => email.id == id);
 
-      final index = generatedEmails.indexWhere(
-            (email) => email.id == id,
-      );
-
-      if (index != -1) {
-        generatedEmails[index] = updatedEmail;
-      }
-
-      notifyListeners();
-    } catch (e) {
-      error = e.toString();
-      notifyListeners();
+    if (index != -1) {
+      generatedEmails[index] = generatedEmails[index].copyWith(body: newBody);
     }
+
+    notifyListeners();
   }
 
-  Future<void> sendAll() async {
-    if (generatedEmails.isEmpty) {
+  Future<void> sendAll({
+    required List<Map<String, String>> recipients,
+    required String topic,
+    String instructions = '',
+  }) async {
+    if (recipients.isEmpty || topic.trim().isEmpty) {
       return;
     }
 
@@ -82,7 +74,9 @@ class BulkEmailController extends ChangeNotifier {
 
     try {
       results = await apiService.sendAll(
-        emails: generatedEmails,
+        recipients: recipients,
+        topic: topic,
+        instructions: instructions,
       );
     } catch (e) {
       error = e.toString();

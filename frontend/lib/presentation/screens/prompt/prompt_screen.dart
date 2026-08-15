@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/domain/usecases/agent_usecase.dart';
 
 class PromptScreen extends StatefulWidget {
   const PromptScreen({super.key});
@@ -8,6 +10,7 @@ class PromptScreen extends StatefulWidget {
 }
 
 class _PromptScreenState extends State<PromptScreen> {
+  late final AgentUseCase _agentUseCase;
   final TextEditingController _promptController = TextEditingController();
 
   // ============================================================
@@ -20,6 +23,12 @@ class _PromptScreenState extends State<PromptScreen> {
   bool _isThinking = false;
 
   @override
+  void initState() {
+    super.initState();
+    _agentUseCase = getIt<AgentUseCase>();
+  }
+
+  @override
   void dispose() {
     _promptController.dispose();
     super.dispose();
@@ -29,25 +38,31 @@ class _PromptScreenState extends State<PromptScreen> {
   // SEND PROMPT
   // ============================================================
 
-  void _sendPrompt() {
+  Future<void> _sendPrompt() async {
     final message = _promptController.text.trim();
 
     if (message.isEmpty) return;
 
     setState(() {
       // Add user message
-      _messages.add({
-        'type': 'user',
-        'text': message,
-      });
+      _messages.add({'type': 'user', 'text': message});
 
       _promptController.clear();
 
       _isThinking = true;
     });
 
-    // Simulation of AI response
-    Future.delayed(const Duration(milliseconds: 900), () {
+    try {
+      final response = await _agentUseCase.chat(message);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isThinking = false;
+
+        _messages.add({'type': 'assistant', 'text': response});
+      });
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
@@ -55,32 +70,11 @@ class _PromptScreenState extends State<PromptScreen> {
 
         _messages.add({
           'type': 'assistant',
-          'text': _generateDemoResponse(message),
+          'text':
+              'I could not reach the assistant. Please check the backend and try again.',
         });
       });
-    });
-  }
-
-  // ============================================================
-  // DEMO AI RESPONSE
-  // ============================================================
-
-  String _generateDemoResponse(String message) {
-    final text = message.toLowerCase();
-
-    if (text.contains('urgent')) {
-      return 'I can check your urgent emails and show you the most important ones.';
     }
-
-    if (text.contains('classif')) {
-      return 'I can classify your inbox into categories such as urgent, support and information.';
-    }
-
-    if (text.contains('email') || text.contains('mail')) {
-      return 'I can help you read, classify, summarize or reply to your emails.';
-    }
-
-    return 'I understood your instruction. I can help you manage your emails based on this request.';
   }
 
   // ============================================================
@@ -124,10 +118,7 @@ class _PromptScreenState extends State<PromptScreen> {
     setState(() {
       _showConfirmation = false;
 
-      _messages.add({
-        'type': 'assistant',
-        'text': 'Action cancelled.',
-      });
+      _messages.add({'type': 'assistant', 'text': 'Action cancelled.'});
     });
   }
 
@@ -147,25 +138,16 @@ class _PromptScreenState extends State<PromptScreen> {
       // ==========================================================
       // BODY
       // ==========================================================
-
       body: SafeArea(
         child: Column(
           children: [
-
             // ======================================================
             // HEADER
             // ======================================================
-
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                20,
-                18,
-                18,
-                10,
-              ),
+              padding: const EdgeInsets.fromLTRB(20, 18, 18, 10),
               child: Row(
                 children: [
-
                   const Expanded(
                     child: Text(
                       'Ask the assistant',
@@ -198,31 +180,22 @@ class _PromptScreenState extends State<PromptScreen> {
             // ======================================================
             // QUICK ACTIONS
             // ======================================================
-
             SizedBox(
               height: 38,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 children: [
-
                   GestureDetector(
                     onTap: _urgentEmails,
-                    child: _quickAction(
-                      icon: '✨',
-                      text: 'Urgent emails',
-                    ),
+                    child: _quickAction(icon: '✨', text: 'Urgent emails'),
                   ),
 
                   const SizedBox(width: 8),
 
                   GestureDetector(
                     onTap: _classifyInbox,
-                    child: _quickAction(
-                      text: 'Classify inbox',
-                    ),
+                    child: _quickAction(text: 'Classify inbox'),
                   ),
                 ],
               ),
@@ -233,75 +206,52 @@ class _PromptScreenState extends State<PromptScreen> {
             // ======================================================
             // CONVERSATION
             // ======================================================
-
             Expanded(
-              child: _messages.isEmpty && !_isThinking
-                  ? _emptyConversation()
-                  : ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  18,
-                  8,
-                  18,
-                  10,
-                ),
-                children: [
+              child:
+                  _messages.isEmpty && !_isThinking
+                      ? _emptyConversation()
+                      : ListView(
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
+                        children: [
+                          // Dynamic messages
+                          ..._messages.map((message) {
+                            if (message['type'] == 'user') {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 9),
+                                child: _userMessage(message['text']),
+                              );
+                            }
 
-                  // Dynamic messages
-                  ..._messages.map((message) {
-                    if (message['type'] == 'user') {
-                      return Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 9,
-                        ),
-                        child: _userMessage(
-                          message['text'],
-                        ),
-                      );
-                    }
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 9),
+                              child: _assistantMessage(message['text']),
+                            );
+                          }),
 
-                    return Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 9,
+                          // Thinking
+                          if (_isThinking)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 9),
+                              child: _thinkingBox(),
+                            ),
+
+                          // Confirmation
+                          if (_showConfirmation)
+                            _confirmationBox(
+                              onConfirm: _confirmAction,
+                              onCancel: _cancelAction,
+                            ),
+                        ],
                       ),
-                      child: _assistantMessage(
-                        message['text'],
-                      ),
-                    );
-                  }),
-
-                  // Thinking
-                  if (_isThinking)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 9,
-                      ),
-                      child: _thinkingBox(),
-                    ),
-
-                  // Confirmation
-                  if (_showConfirmation)
-                    _confirmationBox(
-                      onConfirm: _confirmAction,
-                      onCancel: _cancelAction,
-                    ),
-                ],
-              ),
             ),
 
             // ======================================================
             // INPUT
             // ======================================================
-
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                18,
-                5,
-                18,
-                10,
-              ),
+              padding: const EdgeInsets.fromLTRB(18, 5, 18, 10),
               child: Row(
                 children: [
-
                   // Text field
                   Expanded(
                     child: Container(
@@ -309,9 +259,7 @@ class _PromptScreenState extends State<PromptScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: const Color(0xFFE1DCD1),
-                        ),
+                        border: Border.all(color: const Color(0xFFE1DCD1)),
                       ),
                       child: TextField(
                         controller: _promptController,
@@ -362,7 +310,6 @@ class _PromptScreenState extends State<PromptScreen> {
       // ============================================================
       // BOTTOM NAVIGATION
       // ============================================================
-
       bottomNavigationBar: _bottomNavigationBar(),
     );
   }
@@ -374,20 +321,11 @@ class _PromptScreenState extends State<PromptScreen> {
   Widget _emptyConversation() {
     return const Center(
       child: Padding(
-        padding: EdgeInsets.only(
-          bottom: 40,
-          left: 40,
-          right: 40,
-        ),
+        padding: EdgeInsets.only(bottom: 40, left: 40, right: 40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-
-            Icon(
-              Icons.auto_awesome,
-              size: 38,
-              color: Color(0xFFB6B0A3),
-            ),
+            Icon(Icons.auto_awesome, size: 38, color: Color(0xFFB6B0A3)),
 
             SizedBox(height: 12),
 
@@ -405,10 +343,7 @@ class _PromptScreenState extends State<PromptScreen> {
             Text(
               'Ask me anything about your emails.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                color: Color(0xFF898D87),
-              ),
+              style: TextStyle(fontSize: 11, color: Color(0xFF898D87)),
             ),
           ],
         ),
@@ -420,33 +355,19 @@ class _PromptScreenState extends State<PromptScreen> {
   // QUICK ACTION
   // ==============================================================
 
-  Widget _quickAction({
-    String? icon,
-    required String text,
-  }) {
+  Widget _quickAction({String? icon, required String text}) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 13,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFE0DBD0),
-        ),
+        border: Border.all(color: const Color(0xFFE0DBD0)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-
           if (icon != null) ...[
-            Text(
-              icon,
-              style: const TextStyle(
-                fontSize: 12,
-              ),
-            ),
+            Text(icon, style: const TextStyle(fontSize: 12)),
 
             const SizedBox(width: 4),
           ],
@@ -472,13 +393,8 @@ class _PromptScreenState extends State<PromptScreen> {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        constraints: const BoxConstraints(
-          maxWidth: 250,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 11,
-        ),
+        constraints: const BoxConstraints(maxWidth: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.only(
@@ -486,9 +402,7 @@ class _PromptScreenState extends State<PromptScreen> {
             topRight: Radius.circular(16),
             bottomRight: Radius.circular(16),
           ),
-          border: Border.all(
-            color: const Color(0xFFE1DCD1),
-          ),
+          border: Border.all(color: const Color(0xFFE1DCD1)),
         ),
         child: Text(
           text,
@@ -510,13 +424,8 @@ class _PromptScreenState extends State<PromptScreen> {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        constraints: const BoxConstraints(
-          maxWidth: 260,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 11,
-        ),
+        constraints: const BoxConstraints(maxWidth: 260),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: const BoxDecoration(
           color: Color(0xFF17473E),
           borderRadius: BorderRadius.only(
@@ -551,7 +460,6 @@ class _PromptScreenState extends State<PromptScreen> {
       ),
       child: const Row(
         children: [
-
           SizedBox(
             width: 15,
             height: 15,
@@ -585,12 +493,7 @@ class _PromptScreenState extends State<PromptScreen> {
     required VoidCallback onCancel,
   }) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        12,
-        10,
-        12,
-        11,
-      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
       decoration: BoxDecoration(
         color: const Color(0xFFF3E3BD),
         borderRadius: BorderRadius.circular(15),
@@ -598,7 +501,6 @@ class _PromptScreenState extends State<PromptScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           const Text(
             'Confirm action',
             style: TextStyle(
@@ -612,7 +514,6 @@ class _PromptScreenState extends State<PromptScreen> {
 
           Row(
             children: [
-
               Expanded(
                 child: SizedBox(
                   height: 36,
@@ -646,9 +547,7 @@ class _PromptScreenState extends State<PromptScreen> {
                     onPressed: onCancel,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF37423D),
-                      side: const BorderSide(
-                        color: Color(0xFF37423D),
-                      ),
+                      side: const BorderSide(color: Color(0xFF37423D)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -679,25 +578,14 @@ class _PromptScreenState extends State<PromptScreen> {
       height: 68,
       decoration: const BoxDecoration(
         color: Color(0xFFFCF9F2),
-        border: Border(
-          top: BorderSide(
-            color: Color(0xFFE2DDD2),
-          ),
-        ),
+        border: Border(top: BorderSide(color: Color(0xFFE2DDD2))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
+          _navItem(icon: Icons.home_outlined, label: 'Home'),
 
-          _navItem(
-            icon: Icons.home_outlined,
-            label: 'Home',
-          ),
-
-          _navItem(
-            icon: Icons.mail_outline_rounded,
-            label: 'Today',
-          ),
+          _navItem(icon: Icons.mail_outline_rounded, label: 'Today'),
 
           _navItem(
             icon: Icons.lightbulb_outline_rounded,
@@ -705,10 +593,7 @@ class _PromptScreenState extends State<PromptScreen> {
             notification: '3',
           ),
 
-          _navItem(
-            icon: Icons.person_outline_rounded,
-            label: 'Profile',
-          ),
+          _navItem(icon: Icons.person_outline_rounded, label: 'Profile'),
         ],
       ),
     );
@@ -726,16 +611,10 @@ class _PromptScreenState extends State<PromptScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-
         Stack(
           clipBehavior: Clip.none,
           children: [
-
-            Icon(
-              icon,
-              size: 22,
-              color: const Color(0xFF858A85),
-            ),
+            Icon(icon, size: 22, color: const Color(0xFF858A85)),
 
             if (notification != null)
               Positioned(
