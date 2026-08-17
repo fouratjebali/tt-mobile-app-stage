@@ -4,6 +4,7 @@ import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/presentation/screens/bulk_email/bulk_email_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/dashboard/dashboard_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
 
@@ -607,7 +608,14 @@ class _ShortcutsRow extends StatelessWidget {
           child: _ShortcutButton(
             icon: Icons.dashboard_outlined,
             label: 'Dashboard',
-            onTap: () => _showPending(context),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DashboardScreen(),
+                ),
+              );
+            },
           ),
         ),
 
@@ -632,12 +640,6 @@ class _ShortcutsRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  void _showPending(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('This workspace is being prepared.')),
     );
   }
 }
