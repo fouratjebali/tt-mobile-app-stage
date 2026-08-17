@@ -58,6 +58,7 @@ class BulkEmailGenerator:
         self.llm = OllamaLLM(
             base_url=settings.OLLAMA_BASE_URL,
             model=settings.OLLAMA_MODEL,
+            num_gpu=settings.OLLAMA_NUM_GPU,
             temperature=0.4,   # un peu plus créatif pour la personnalisation
         )
         self._chain = PromptTemplate.from_template(BULK_PERSONALIZED_PROMPT) | self.llm

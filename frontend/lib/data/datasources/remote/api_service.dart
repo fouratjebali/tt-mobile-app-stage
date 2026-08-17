@@ -32,7 +32,7 @@ class ApiService {
   final AuthSecureStorage _secureStorage;
   final Dio _dio;
 
-  static const requestTimeout = Duration(seconds: 12);
+  static const requestTimeout = Duration(seconds: 60);
 
   Future<dynamic> get(
     String path, {

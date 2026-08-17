@@ -134,33 +134,37 @@ def fetch_emails(max_results: int = 10, query: str = "is:unread") -> list[Email]
         fallback = _offline_filter(_offline_mailbox(), query)
         return fallback[:max_results]
 
-    results = service.users().messages().list(
-        userId="me",
-        maxResults=max_results,
-        q=query
-    ).execute()
-
-    messages = results.get("messages", [])
-
-    for msg in messages:
-        msg_data = service.users().messages().get(
+    try:
+        results = service.users().messages().list(
             userId="me",
-            id=msg["id"],
-            format="full"
+            maxResults=max_results,
+            q=query
         ).execute()
 
-        headers = msg_data["payload"]["headers"]
-        labels  = msg_data.get("labelIds", [])
+        messages = results.get("messages", [])
 
-        email = Email(
-            id=msg["id"],
-            subject=_get_header(headers, "Subject") or "(Sans objet)",
-            sender=_get_header(headers, "From"),
-            body=_decode_body(msg_data["payload"]),
-            date=_get_header(headers, "Date"),
-            is_read="UNREAD" not in labels,
-        )
-        emails.append(email)
+        for msg in messages:
+            msg_data = service.users().messages().get(
+                userId="me",
+                id=msg["id"],
+                format="full"
+            ).execute()
+
+            headers = msg_data["payload"]["headers"]
+            labels  = msg_data.get("labelIds", [])
+
+            email = Email(
+                id=msg["id"],
+                subject=_get_header(headers, "Subject") or "(Sans objet)",
+                sender=_get_header(headers, "From"),
+                body=_decode_body(msg_data["payload"]),
+                date=_get_header(headers, "Date"),
+                is_read="UNREAD" not in labels,
+            )
+            emails.append(email)
+    except Exception:
+        fallback = _offline_filter(_offline_mailbox(), query)
+        return fallback[:max_results]
 
     return emails
 
@@ -172,11 +176,14 @@ def fetch_single_email(email_id: str) -> Optional[Email]:
     except Exception:
         return _offline_lookup(email_id)
 
-    msg_data = service.users().messages().get(
-        userId="me",
-        id=email_id,
-        format="full"
-    ).execute()
+    try:
+        msg_data = service.users().messages().get(
+            userId="me",
+            id=email_id,
+            format="full"
+        ).execute()
+    except Exception:
+        return _offline_lookup(email_id)
 
     headers = msg_data["payload"]["headers"]
     labels  = msg_data.get("labelIds", [])

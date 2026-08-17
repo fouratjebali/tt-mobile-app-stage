@@ -69,6 +69,7 @@ class JuryAndSocialAgent:
         self.llm = ChatOllama(
             base_url=settings.OLLAMA_BASE_URL,
             model=settings.OLLAMA_MODEL,
+            num_gpu=settings.OLLAMA_NUM_GPU,
             temperature=0.0,  # déterministe : c'est un rôle de contrôle, pas de créativité
             num_predict=getattr(settings, "OLLAMA_NUM_PREDICT", 512),
         )

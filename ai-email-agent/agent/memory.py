@@ -61,6 +61,7 @@ class ConversationMemory:
             base_url=settings.OLLAMA_BASE_URL,
             model=settings.OLLAMA_MODEL,
             temperature=0.1,
+            num_gpu=settings.OLLAMA_NUM_GPU,
         )
 
     def add_human(self, text: str) -> None:

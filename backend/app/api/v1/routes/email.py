@@ -31,7 +31,7 @@ router = APIRouter()
     ),
 )
 async def today_emails(
-    max_results: int = Query(default=10, ge=1, le=50),
+    max_results: int = Query(default=5, ge=1, le=50),
     bridge: AgentBridge = Depends(get_agent_bridge),
 ) -> EmailListResponse:
     result = await bridge.read_today_emails(max_results=max_results)
@@ -48,7 +48,7 @@ async def today_emails(
     ),
 )
 async def review_emails(
-    max_results: int = Query(default=10, ge=1, le=50),
+    max_results: int = Query(default=5, ge=1, le=50),
     bridge: AgentBridge = Depends(get_agent_bridge),
 ) -> EmailListResponse:
     result = await bridge.read_review_emails(max_results=max_results)
