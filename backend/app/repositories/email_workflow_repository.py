@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.auth import User
@@ -248,22 +248,35 @@ class EmailWorkflowRepository:
         )
 
     def list_pipeline_candidates(self, *, user: User, limit: int) -> list[Email]:
-        candidate_statuses = (
-            "PENDING_ANALYSIS",
-            "PENDING_JURY",
-            "PENDING_USER_REVIEW",
+        notification_exists = (
+            select(UserNotification.id)
+            .where(
+                UserNotification.user_id == user.id,
+                UserNotification.email_id == Email.id,
+                UserNotification.kind == "email_treated",
+            )
+            .exists()
+        )
+        jury_verdict_exists = (
+            select(JuryVerdict.id).where(JuryVerdict.email_id == Email.id).exists()
         )
         return list(
             self._db.scalars(
                 select(Email)
                 .where(
                     Email.user_id == user.id,
-                    Email.status.in_(candidate_statuses),
+                    or_(
+                        Email.status.in_(("PENDING_ANALYSIS", "PENDING_JURY")),
+                        (
+                            (Email.status == "PENDING_USER_REVIEW")
+                            & (~notification_exists | ~jury_verdict_exists)
+                        ),
+                    ),
                 )
                 .order_by(
-                    desc(Email.received_at).nullslast(),
-                    desc(Email.updated_at),
-                    desc(Email.created_at),
+                    Email.updated_at.asc().nullsfirst(),
+                    Email.received_at.asc().nullsfirst(),
+                    Email.created_at.asc(),
                 )
                 .limit(limit)
             )
@@ -318,6 +331,8 @@ class EmailWorkflowRepository:
         )
         self._db.add(stat)
         self._db.commit()
+        self._db.refresh(stat)
+        return stat
 
     def create_notification_once(
         self,
@@ -328,7 +343,7 @@ class EmailWorkflowRepository:
         title: str,
         body: str,
         data: dict[str, Any] | None = None,
-    ) -> UserNotification:
+    ) -> tuple[UserNotification, bool]:
         notification = self._db.scalar(
             select(UserNotification).where(
                 UserNotification.user_id == user.id,
@@ -348,8 +363,9 @@ class EmailWorkflowRepository:
             self._db.add(notification)
             self._db.commit()
             self._db.refresh(notification)
+            return notification, True
 
-        return notification
+        return notification, False
 
     def list_notifications(
         self,
@@ -392,8 +408,6 @@ class EmailWorkflowRepository:
 
     def list_users(self) -> list[User]:
         return list(self._db.scalars(select(User).order_by(desc(User.updated_at))))
-        self._db.refresh(stat)
-        return stat
 
     def update_statuses(
         self,

@@ -95,7 +95,7 @@ class EmailBackgroundPipeline:
                 email_status="PENDING_USER_REVIEW",
                 response_status="PENDING_USER_REVIEW",
             )
-            self._repository.create_notification_once(
+            _, notification_created = self._repository.create_notification_once(
                 user=user,
                 email=email,
                 kind="email_treated",
@@ -107,7 +107,8 @@ class EmailBackgroundPipeline:
                     "sender": email.sender,
                 },
             )
-            notified += 1
+            if notification_created:
+                notified += 1
 
         return treated, notified
 
@@ -165,7 +166,9 @@ async def _run_pipeline_once() -> None:
     try:
         result = await EmailBackgroundPipeline(db).run_once_for_all_users()
         logger.info("Email background pipeline result: %s", result)
+        print(f"Email background pipeline result: {result}", flush=True)
     except Exception:
         logger.exception("Email background pipeline failed.")
+        print("Email background pipeline failed. Check backend logs.", flush=True)
     finally:
         db.close()

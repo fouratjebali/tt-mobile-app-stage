@@ -347,14 +347,6 @@ def _reply_body(payload: dict[str, Any]) -> str:
 
 
 def _status_for(payload: dict[str, Any]) -> str:
-    priority = str(payload.get("priority", "")).upper()
-    try:
-        urgency_score = int(payload.get("urgency_score", 0) or 0)
-    except (TypeError, ValueError):
-        urgency_score = 0
-
-    if priority == "URGENT" or urgency_score >= 7:
-        return "PENDING_USER_REVIEW"
     if _reply_body(payload):
         return "PENDING_JURY"
     return "PENDING_ANALYSIS"

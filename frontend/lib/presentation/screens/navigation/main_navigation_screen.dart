@@ -77,6 +77,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           setState(() {
             _selectedIndex = index;
           });
+          if (index == 2) {
+            _reviewViewModel.refreshSilently();
+          }
         },
 
         items: [
