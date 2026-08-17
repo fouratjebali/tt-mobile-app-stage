@@ -12,6 +12,7 @@ from app.schemas.email import (
     SendEmailRequest,
     SendEmailResponse,
 )
+from app.services.email_background_pipeline import EmailBackgroundPipeline
 from app.services.email_pipeline_service import EmailPipelineService
 
 
@@ -124,3 +125,18 @@ async def reject_email(
         user=user,
         email_id=email_id,
     )
+
+
+@router.post(
+    "/pipeline/run",
+    summary="Run email treatment pipeline now",
+    description=(
+        "Syncs unread Gmail messages, stores Agent 1 draft suggestions, sends "
+        "them through the jury agent, and moves treated emails to user review."
+    ),
+)
+async def run_pipeline_now(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, int]:
+    return await EmailBackgroundPipeline(db).run_once_for_user(user=user)

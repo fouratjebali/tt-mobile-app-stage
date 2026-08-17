@@ -176,7 +176,7 @@ class EmailPipelineService:
         self._repository.update_statuses(
             email=email,
             response=response,
-            email_status="sent",
+            email_status="DONE",
             response_status="sent",
             sent_message_id=message_id,
         )
@@ -207,7 +207,7 @@ class EmailPipelineService:
         self._repository.update_statuses(
             email=email,
             response=None,
-            email_status="ignored",
+            email_status="DONE",
         )
         return SendEmailResponse(status="ignored", raw_result=None)
 
@@ -273,18 +273,18 @@ def _response_context(payload: dict[str, Any], reply_body: str) -> dict[str, Any
 
 def _email_status_for(verdict: str) -> str:
     if verdict == "VALIDATED":
-        return "approved"
+        return "PENDING_USER_REVIEW"
     if verdict == "REJECTED":
-        return "blocked"
-    return "needs_review"
+        return "PENDING_USER_REVIEW"
+    return "PENDING_USER_REVIEW"
 
 
 def _response_status_for(verdict: str) -> str:
     if verdict == "VALIDATED":
-        return "approved"
+        return "PENDING_USER_REVIEW"
     if verdict == "REJECTED":
-        return "blocked"
-    return "needs_review"
+        return "PENDING_USER_REVIEW"
+    return "PENDING_USER_REVIEW"
 
 
 def _to_email_preview(email: Email) -> EmailPreview:

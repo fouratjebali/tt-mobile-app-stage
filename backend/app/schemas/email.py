@@ -12,6 +12,7 @@ class EmailPreview(BaseModel):
     is_read: bool | None = None
     body_preview: str | None = None
     body: str | None = None
+    status: str | None = None
     category: str | None = None
     priority: str | None = None
     urgency_score: int | None = None

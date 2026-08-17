@@ -264,6 +264,7 @@ class EmailCacheService:
             is_read=email.is_read,
             body_preview=email.body_preview,
             body=email.body if include_body else None,
+            status=email.status,
             category=analysis.category if analysis else None,
             priority=analysis.priority if analysis else None,
             urgency_score=analysis.urgency_score if analysis else None,

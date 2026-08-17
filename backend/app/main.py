@@ -1,8 +1,11 @@
+import asyncio
+
 from fastapi import FastAPI
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.db.session import init_db
+from app.services.email_background_pipeline import pipeline_loop
 
 
 def create_app() -> FastAPI:
@@ -53,8 +56,25 @@ def create_app() -> FastAPI:
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
     @app.on_event("startup")
-    def on_startup() -> None:
+    async def on_startup() -> None:
         init_db()
+        app.state.email_pipeline_stop_event = asyncio.Event()
+        app.state.email_pipeline_task = asyncio.create_task(
+            pipeline_loop(app.state.email_pipeline_stop_event)
+        )
+
+    @app.on_event("shutdown")
+    async def on_shutdown() -> None:
+        stop_event = getattr(app.state, "email_pipeline_stop_event", None)
+        task = getattr(app.state, "email_pipeline_task", None)
+        if stop_event is not None:
+            stop_event.set()
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     @app.get("/")
     def root() -> dict[str, str]:

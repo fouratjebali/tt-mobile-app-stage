@@ -45,10 +45,7 @@ class ReviewViewModel extends ChangeNotifier {
     state = LoadState.loading;
     notifyListeners();
     try {
-      final loaded = await _emailUseCase.getReviewList();
-      emails = loaded
-          .where((email) => !_handledEmailIds.contains(email.id))
-          .toList(growable: false);
+      emails = await _loadVisibleReviewEmails();
       state = LoadState.success;
       errorMessage = null;
     } catch (_) {
@@ -58,7 +55,26 @@ class ReviewViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> refreshSilently() async {
+    if (state == LoadState.loading || isSubmittingAction) return;
+    try {
+      emails = await _loadVisibleReviewEmails();
+      state = LoadState.success;
+      errorMessage = null;
+      notifyListeners();
+    } catch (_) {
+      // Keep the current list on background refresh failures.
+    }
+  }
+
   Future<void> refresh() => loadReviewEmails();
+
+  Future<List<Email>> _loadVisibleReviewEmails() async {
+    final loaded = await _emailUseCase.getReviewList();
+    return loaded
+        .where((email) => !_handledEmailIds.contains(email.id))
+        .toList(growable: false);
+  }
 
   Future<void> validateAndSend(String emailId) async {
     final body = _resolveReplyBody(emailId);

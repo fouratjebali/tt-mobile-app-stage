@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.auth import User
 from app.models.email import Email, EmailAnalysis, EmailResponse, JuryVerdict, Stat
+from app.models.notification import UserNotification
 
 
 class EmailWorkflowRepository:
@@ -227,6 +228,7 @@ class EmailWorkflowRepository:
             "REVIEW_REQUIRED",
             "blocked",
             "PENDING",
+            "PENDING_JURY",
             "PENDING_USER_REVIEW",
         )
         return list(
@@ -235,6 +237,28 @@ class EmailWorkflowRepository:
                 .where(
                     Email.user_id == user.id,
                     Email.status.in_(review_statuses),
+                )
+                .order_by(
+                    desc(Email.received_at).nullslast(),
+                    desc(Email.updated_at),
+                    desc(Email.created_at),
+                )
+                .limit(limit)
+            )
+        )
+
+    def list_pipeline_candidates(self, *, user: User, limit: int) -> list[Email]:
+        candidate_statuses = (
+            "PENDING_ANALYSIS",
+            "PENDING_JURY",
+            "PENDING_USER_REVIEW",
+        )
+        return list(
+            self._db.scalars(
+                select(Email)
+                .where(
+                    Email.user_id == user.id,
+                    Email.status.in_(candidate_statuses),
                 )
                 .order_by(
                     desc(Email.received_at).nullslast(),
@@ -260,12 +284,13 @@ class EmailWorkflowRepository:
             .where(Email.user_id == user.id)
             .where(EmailResponse.status == "sent")
         )
-        urgent_count = sum(
-            1
-            for email in emails
-            if email.status
-            in {"needs_review", "REVIEW_REQUIRED", "blocked", "PENDING_USER_REVIEW"}
-        )
+        urgent_count = 0
+        for email in emails:
+            analysis = self.get_latest_analysis(email)
+            if analysis is None:
+                continue
+            if analysis.priority == "URGENT" or int(analysis.urgency_score or 0) >= 7:
+                urgent_count += 1
 
         return {
             "processed_count": len(emails),
@@ -293,6 +318,80 @@ class EmailWorkflowRepository:
         )
         self._db.add(stat)
         self._db.commit()
+
+    def create_notification_once(
+        self,
+        *,
+        user: User,
+        email: Email,
+        kind: str,
+        title: str,
+        body: str,
+        data: dict[str, Any] | None = None,
+    ) -> UserNotification:
+        notification = self._db.scalar(
+            select(UserNotification).where(
+                UserNotification.user_id == user.id,
+                UserNotification.email_id == email.id,
+                UserNotification.kind == kind,
+            )
+        )
+        if notification is None:
+            notification = UserNotification(
+                user_id=user.id,
+                email_id=email.id,
+                kind=kind,
+                title=title,
+                body=body,
+                data=data,
+            )
+            self._db.add(notification)
+            self._db.commit()
+            self._db.refresh(notification)
+
+        return notification
+
+    def list_notifications(
+        self,
+        *,
+        user: User,
+        limit: int,
+        unread_only: bool = False,
+    ) -> list[UserNotification]:
+        query = select(UserNotification).where(UserNotification.user_id == user.id)
+        if unread_only:
+            query = query.where(UserNotification.read_at.is_(None))
+
+        return list(
+            self._db.scalars(
+                query.order_by(desc(UserNotification.created_at)).limit(limit)
+            )
+        )
+
+    def unread_notification_count(self, *, user: User) -> int:
+        count = self._db.scalar(
+            select(func.count(UserNotification.id)).where(
+                UserNotification.user_id == user.id,
+                UserNotification.read_at.is_(None),
+            )
+        )
+        return int(count or 0)
+
+    def mark_notification_read(self, *, user: User, notification_id: str) -> None:
+        notification = self._db.scalar(
+            select(UserNotification).where(
+                UserNotification.user_id == user.id,
+                UserNotification.id == notification_id,
+            )
+        )
+        if notification is None or notification.read_at is not None:
+            return
+
+        notification.read_at = datetime.now(tz=UTC)
+        self._db.commit()
+
+    def list_users(self) -> list[User]:
+        return list(self._db.scalars(select(User).order_by(desc(User.updated_at))))
         self._db.refresh(stat)
         return stat
 

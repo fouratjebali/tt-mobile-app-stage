@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/presentation/screens/home/home_screen.dart';
@@ -17,6 +19,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
   late final ReviewViewModel _reviewViewModel;
+  Timer? _reviewRefreshTimer;
 
   static const List<Widget> _screens = [
     HomeScreen(),
@@ -31,10 +34,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _reviewViewModel = getIt<ReviewViewModel>();
     _reviewViewModel.addListener(_onReviewChanged);
     _reviewViewModel.loadReviewEmails();
+    _reviewRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _reviewViewModel.refreshSilently();
+    });
   }
 
   @override
   void dispose() {
+    _reviewRefreshTimer?.cancel();
     _reviewViewModel.removeListener(_onReviewChanged);
     super.dispose();
   }
