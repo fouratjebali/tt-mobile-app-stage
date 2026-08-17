@@ -1,19 +1,25 @@
 import os
 import tempfile
 from datetime import datetime, timezone
+from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_user
+from app.db.session import get_db
+from app.models.auth import User
 from app.schemas.dashboard import (
     DashboardExportRequest,
     DashboardExportResponse,
     DashboardStatsResponse,
 )
 from app.services.agent_bridge import AgentBridge, get_agent_bridge
+from app.services.email_cache_service import EmailCacheService
 
 
 router = APIRouter()
@@ -28,30 +34,11 @@ router = APIRouter()
     ),
 )
 async def dashboard_stats(
-    bridge: AgentBridge = Depends(get_agent_bridge),
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    refresh: bool = Query(default=False),
 ) -> DashboardStatsResponse:
-    result = await bridge.dashboard_stats()
-    payload = result.payload
-    return DashboardStatsResponse(
-        processed_count=int(payload.get("processed_count", 0) or 0),
-        urgent_count=int(payload.get("urgent_count", 0) or 0),
-        review_count=int(payload.get("review_count", 0) or 0),
-        sent_count=int(payload.get("sent_count", 0) or 0),
-        categories=_to_categories(payload.get("categories")),
-        metadata={
-            key: value
-            for key, value in payload.items()
-            if key
-            not in {
-                "processed_count",
-                "urgent_count",
-                "review_count",
-                "sent_count",
-                "categories",
-            }
-        },
-        raw_result=result.raw_result,
-    )
+    return await EmailCacheService(db).dashboard_stats(user=user, refresh=refresh)
 
 
 @router.post(

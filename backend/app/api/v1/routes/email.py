@@ -9,13 +9,10 @@ from app.models.auth import User
 from app.schemas.email import (
     EmailDetailResponse,
     EmailListResponse,
-    EmailPreview,
     SendEmailRequest,
     SendEmailResponse,
 )
 from app.services.email_pipeline_service import EmailPipelineService
-from app.services.agent_bridge import AgentBridge, get_agent_bridge
-from app.utils.json_tools import list_from_payload
 
 
 router = APIRouter()
@@ -31,11 +28,16 @@ router = APIRouter()
     ),
 )
 async def today_emails(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
     max_results: int = Query(default=5, ge=1, le=50),
-    bridge: AgentBridge = Depends(get_agent_bridge),
+    refresh: bool = Query(default=False),
 ) -> EmailListResponse:
-    result = await bridge.read_today_emails(max_results=max_results)
-    return _to_email_list_response(result.payload, result.raw_result)
+    return await EmailPipelineService(db).today_emails(
+        user=user,
+        max_results=max_results,
+        refresh=refresh,
+    )
 
 
 @router.get(
@@ -48,11 +50,16 @@ async def today_emails(
     ),
 )
 async def review_emails(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
     max_results: int = Query(default=5, ge=1, le=50),
-    bridge: AgentBridge = Depends(get_agent_bridge),
+    refresh: bool = Query(default=False),
 ) -> EmailListResponse:
-    result = await bridge.read_review_emails(max_results=max_results)
-    return _to_email_list_response(result.payload, result.raw_result)
+    return await EmailPipelineService(db).review_emails(
+        user=user,
+        max_results=max_results,
+        refresh=refresh,
+    )
 
 
 @router.get(
@@ -68,10 +75,12 @@ async def email_detail(
     email_id: str,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    refresh: bool = Query(default=False),
 ) -> EmailDetailResponse:
-    return await EmailPipelineService(db).analyze_and_verify(
+    return await EmailPipelineService(db).email_detail(
         user=user,
         email_id=email_id,
+        refresh=refresh,
     )
 
 
@@ -114,32 +123,4 @@ async def reject_email(
     return await EmailPipelineService(db).reject_email(
         user=user,
         email_id=email_id,
-    )
-
-
-def _to_email_list_response(
-    payload: dict,
-    raw_result: str,
-) -> EmailListResponse:
-    email_payloads = list_from_payload(payload, "emails", "urgent_emails", "items")
-    emails = [_to_email_preview(item) for item in email_payloads]
-    return EmailListResponse(
-        status=str(payload.get("status", "ok")),
-        count=int(payload.get("count", len(emails)) or 0),
-        emails=emails,
-        raw_result=raw_result,
-    )
-
-
-def _to_email_preview(payload: dict) -> EmailPreview:
-    return EmailPreview(
-        id=payload.get("id") or payload.get("email_id"),
-        subject=str(payload.get("subject", "")),
-        sender=str(payload.get("sender", "")),
-        date=payload.get("date"),
-        is_read=payload.get("is_read"),
-        body_preview=payload.get("body_preview") or payload.get("preview"),
-        category=payload.get("category"),
-        priority=payload.get("priority"),
-        urgency_score=payload.get("urgency_score"),
     )

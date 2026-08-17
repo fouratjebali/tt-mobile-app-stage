@@ -1,13 +1,17 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_user
+from app.db.session import get_db
+from app.models.auth import User
 from app.schemas.agent import (
     AgentChatRequest,
     AgentChatResponse,
     AgentConfirmActionRequest,
 )
 from app.services.agent_bridge import AgentBridge, get_agent_bridge
-from app.services.agent_service import AgentService, get_agent_service
+from app.services.agent_service import build_agent_service
 
 
 router = APIRouter()
@@ -24,9 +28,10 @@ router = APIRouter()
 )
 async def chat(
     request: AgentChatRequest,
-    service: AgentService = Depends(get_agent_service),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> AgentChatResponse:
-    return await service.chat(request)
+    return await build_agent_service(db).chat(request, user=user)
 
 
 @router.post(

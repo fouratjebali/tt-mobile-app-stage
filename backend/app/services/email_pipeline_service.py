@@ -8,16 +8,58 @@ from app.repositories.email_workflow_repository import EmailWorkflowRepository
 from app.schemas.email import (
     EmailAnalysisPayload,
     EmailDetailResponse,
+    EmailListResponse,
     EmailPreview,
     SendEmailResponse,
 )
 from app.services.agent_bridge import AgentBridge
+from app.services.email_cache_service import EmailCacheService
 
 
 class EmailPipelineService:
     def __init__(self, db: Session, bridge: AgentBridge | None = None) -> None:
         self._repository = EmailWorkflowRepository(db)
         self._bridge = bridge or AgentBridge()
+        self._cache = EmailCacheService(db, self._bridge)
+
+    async def today_emails(
+        self,
+        *,
+        user: User,
+        max_results: int,
+        refresh: bool = False,
+    ) -> EmailListResponse:
+        return await self._cache.today_emails(
+            user=user,
+            max_results=max_results,
+            refresh=refresh,
+        )
+
+    async def review_emails(
+        self,
+        *,
+        user: User,
+        max_results: int,
+        refresh: bool = False,
+    ) -> EmailListResponse:
+        return await self._cache.review_emails(
+            user=user,
+            max_results=max_results,
+            refresh=refresh,
+        )
+
+    async def email_detail(
+        self,
+        *,
+        user: User,
+        email_id: str,
+        refresh: bool = False,
+    ) -> EmailDetailResponse:
+        return await self._cache.email_detail(
+            user=user,
+            email_id=email_id,
+            refresh=refresh,
+        )
 
     async def analyze_and_verify(
         self,

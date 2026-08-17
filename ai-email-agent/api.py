@@ -43,7 +43,7 @@ def unread_emails(
     max_results: int = Query(default=10, ge=1, le=50),
 ) -> dict[str, Any]:
     emails = fetch_emails(max_results=max_results, query="is:unread")
-    return _email_list_response(emails)
+    return _email_list_response(emails, include_analysis=True)
 
 
 @app.get("/emails/review")
@@ -174,11 +174,18 @@ def _try_fast_chat_response(message: str) -> str | None:
     return "\n".join(lines)
 
 
-def _email_list_response(emails: list[Email]) -> dict[str, Any]:
+def _email_list_response(
+    emails: list[Email],
+    *,
+    include_analysis: bool = False,
+) -> dict[str, Any]:
     return {
         "status": "ok" if emails else "empty",
         "count": len(emails),
-        "emails": [_email_preview(email) for email in emails],
+        "emails": [
+            _email_with_analysis(email) if include_analysis else _email_preview(email)
+            for email in emails
+        ],
     }
 
 
@@ -190,6 +197,7 @@ def _email_preview(email: Email) -> dict[str, Any]:
         "date": _iso_date(email.date),
         "is_read": email.is_read,
         "body_preview": email.short_body(),
+        "body": email.body,
     }
 
 
@@ -217,6 +225,14 @@ def _email_with_analysis(email: Email) -> dict[str, Any]:
         sender=email.sender,
         body=email.body,
     )
+    reply = chains._rule_based_reply(
+        subject=email.subject,
+        sender=email.sender,
+        body=email.body,
+        category=classification.category,
+        priority=priority.priority,
+        summary=summary.summary,
+    )
 
     return {
         **_email_preview(email),
@@ -227,6 +243,9 @@ def _email_with_analysis(email: Email) -> dict[str, Any]:
         "summary": summary.summary,
         "action_required": summary.action_required,
         "language": summary.language,
+        "suggested_reply": reply.reply,
+        "reply_subject": reply.reply_subject,
+        "tone": reply.tone,
     }
 
 

@@ -5,11 +5,13 @@ from pydantic import BaseModel, Field
 
 class EmailPreview(BaseModel):
     id: str | None = None
+    thread_id: str | None = None
     subject: str = ""
     sender: str = ""
     date: str | None = None
     is_read: bool | None = None
     body_preview: str | None = None
+    body: str | None = None
     category: str | None = None
     priority: str | None = None
     urgency_score: int | None = None
