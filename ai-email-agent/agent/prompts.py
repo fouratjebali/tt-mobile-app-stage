@@ -140,3 +140,55 @@ Respond ONLY with valid JSON:
   "pending_actions": ["list of things not yet done"]
 }}
 """
+
+
+try:
+    from langchain_core.prompts import PromptTemplate
+except ImportError:
+    PromptTemplate = None
+
+
+if PromptTemplate is not None:
+    email_analysis_prompt = PromptTemplate.from_template(
+        """
+You are a multilingual email triage assistant for English and French emails.
+Analyze the email and return only valid JSON.
+
+Rules:
+- Detect French accurately, including accents and common business terms.
+- Do not default French professional emails to LOW unless they are clearly automated and informational.
+- Recruitment, internship, job offers, interviews, applications, invoices, offers and contracts are COMMERCIAL.
+- Direct invitations, meetings, confirmations, questions and requests for help are SUPPORT.
+- Complaints, dissatisfaction, incidents, outages and refund requests are RECLAMATION.
+- Newsletters, no-reply updates and FYI messages with no user action are INFORMATION.
+- Use URGENT for same-day deadlines, outages, angry complaints, blocked service, escalation or explicit urgency.
+- Use NORMAL for direct invitations, opportunities, support questions and replies expected within 24 hours.
+- Use LOW only for automated/no-action information.
+- Write the suggested reply in the same language as the email.
+- Make the reply specific to the email context; avoid generic "I will get back if needed" replies when action is requested.
+
+Email:
+Subject: {subject}
+From: {sender}
+Category hint, if any: {category}
+Body:
+{body}
+
+JSON schema:
+{{
+  "category": "RECLAMATION | INFORMATION | SUPPORT | COMMERCIAL",
+  "confidence": 0.0,
+  "priority": "URGENT | NORMAL | LOW",
+  "urgency_score": 0,
+  "summary": "one concise summary sentence",
+  "action_required": "specific action or no immediate action required",
+  "language": "fr | en | unknown",
+  "suggested_reply": "complete proposed reply",
+  "reply_subject": "reply subject",
+  "tone": "professional | helpful | courteous | neutral",
+  "reason": "short reason"
+}}
+"""
+    )
+else:
+    email_analysis_prompt = None

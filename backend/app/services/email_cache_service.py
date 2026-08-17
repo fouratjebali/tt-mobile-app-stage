@@ -128,6 +128,19 @@ class EmailCacheService:
             or "last" in normalized
             or "recent" in normalized
         )
+        wants_summary = (
+            "summarize" in normalized
+            or "summarise" in normalized
+            or "summary" in normalized
+            or "resume" in normalized
+            or "résume" in normalized
+            or "résumé" in normalized
+        )
+        wants_single_latest = (
+            "last email" in normalized
+            or "latest email" in normalized
+            or "recent email" in normalized
+        )
         wants_classify = "classify" in normalized or "classification" in normalized
         wants_urgent = "urgent" in normalized or "priority" in normalized
         wants_stats = (
@@ -162,12 +175,19 @@ class EmailCacheService:
                 )
             return "\n".join(lines)
 
-        if not wants_unread and not wants_latest and not wants_classify:
+        if not wants_unread and not wants_latest and not wants_classify and not wants_summary:
             return None
 
-        today = await self.today_emails(user=user, max_results=5)
+        today = await self.today_emails(
+            user=user,
+            max_results=1 if wants_single_latest or wants_summary else 5,
+        )
         if not today.emails:
             return "I did not find unread emails in your Gmail inbox."
+
+        if wants_summary or wants_single_latest:
+            email = today.emails[0]
+            return _format_chat_email_summary(email)
 
         if wants_classify:
             lines = ["Here are your latest unread emails with classification:"]
@@ -185,7 +205,7 @@ class EmailCacheService:
         lines = ["Here are your latest unread emails:"]
         for email in today.emails:
             lines.append(
-                f"- {email.subject} from {email.sender}: {email.body_preview or ''}"
+                _format_chat_email_line(email)
             )
         return "\n".join(lines)
 
@@ -303,6 +323,35 @@ class EmailCacheService:
                 "comment": verdict.comment,
             }
         return payload
+
+
+def _format_chat_email_summary(email: EmailPreview) -> str:
+    priority = (email.priority or "NORMAL").lower()
+    category = email.category or "INFORMATION"
+    score = email.urgency_score if email.urgency_score is not None else 0
+    summary = (email.summary or email.body_preview or "No summary available.").strip()
+    reply = (email.suggested_reply or "").strip()
+
+    lines = [
+        "Latest unread email:",
+        f"- Subject: {email.subject or '(no subject)'}",
+        f"- From: {email.sender}",
+        f"- Category: {category}",
+        f"- Priority: {priority} ({score}/10)",
+        f"- Summary: {summary}",
+    ]
+    if reply:
+        lines.append(f"- Suggested reply: {reply}")
+    return "\n".join(lines)
+
+
+def _format_chat_email_line(email: EmailPreview) -> str:
+    summary = email.summary or email.body_preview or ""
+    priority = (email.priority or "NORMAL").lower()
+    return (
+        f"- {email.subject} from {email.sender}: "
+        f"{priority} priority. {summary}".strip()
+    )
 
 
 def _parse_datetime(value: Any) -> datetime | None:

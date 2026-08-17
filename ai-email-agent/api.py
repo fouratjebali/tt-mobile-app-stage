@@ -113,6 +113,19 @@ def _try_fast_chat_response(message: str) -> str | None:
     normalized = message.lower()
     wants_unread = "unread" in normalized or "inbox" in normalized
     wants_latest = "latest" in normalized or "last" in normalized or "recent" in normalized
+    wants_summary = (
+        "summarize" in normalized
+        or "summarise" in normalized
+        or "summary" in normalized
+        or "resume" in normalized
+        or "résume" in normalized
+        or "résumé" in normalized
+    )
+    wants_single_latest = (
+        "last email" in normalized
+        or "latest email" in normalized
+        or "recent email" in normalized
+    )
     wants_classify = "classify" in normalized or "classification" in normalized
     wants_urgent = "urgent" in normalized or "priority" in normalized
     wants_stats = "stats" in normalized or "dashboard" in normalized or "statistics" in normalized
@@ -145,12 +158,18 @@ def _try_fast_chat_response(message: str) -> str | None:
             )
         return "\n".join(lines)
 
-    if not wants_unread and not wants_latest and not wants_classify:
+    if not wants_unread and not wants_latest and not wants_classify and not wants_summary:
         return None
 
-    emails = fetch_emails(max_results=5, query="is:unread")
+    emails = fetch_emails(
+        max_results=1 if wants_single_latest or wants_summary else 5,
+        query="is:unread",
+    )
     if not emails:
         return "I did not find unread emails in your Gmail inbox."
+
+    if wants_summary or wants_single_latest:
+        return _format_chat_email_summary(_email_with_analysis(emails[0]))
 
     if wants_classify:
         analyzed = [_email_with_analysis(email) for email in emails]
@@ -168,10 +187,35 @@ def _try_fast_chat_response(message: str) -> str | None:
 
     lines = ["Here are your latest unread emails:"]
     for email in emails:
-        lines.append(
-            f"- {email.subject} from {email.sender}: {email.short_body(140)}"
-        )
+        lines.append(_format_chat_email_line(_email_with_analysis(email)))
     return "\n".join(lines)
+
+
+def _format_chat_email_summary(email: dict[str, Any]) -> str:
+    priority = str(email.get("priority") or "NORMAL").lower()
+    score = int(email.get("urgency_score") or 0)
+    summary = str(email.get("summary") or email.get("body_preview") or "No summary available.").strip()
+    reply = str(email.get("suggested_reply") or "").strip()
+    lines = [
+        "Latest unread email:",
+        f"- Subject: {email.get('subject') or '(no subject)'}",
+        f"- From: {email.get('sender') or ''}",
+        f"- Category: {email.get('category') or 'INFORMATION'}",
+        f"- Priority: {priority} ({score}/10)",
+        f"- Summary: {summary}",
+    ]
+    if reply:
+        lines.append(f"- Suggested reply: {reply}")
+    return "\n".join(lines)
+
+
+def _format_chat_email_line(email: dict[str, Any]) -> str:
+    priority = str(email.get("priority") or "NORMAL").lower()
+    summary = str(email.get("summary") or email.get("body_preview") or "").strip()
+    return (
+        f"- {email.get('subject') or '(no subject)'} from {email.get('sender') or ''}: "
+        f"{priority} priority. {summary}"
+    ).strip()
 
 
 def _email_list_response(
