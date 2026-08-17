@@ -76,6 +76,22 @@ class EmailRepositoryImpl implements EmailRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> getDashboardStats({required String period}) async {
+    final payload = await apiService.get('/dashboard/stats', queryParameters: {
+      'period': period,
+    });
+    return _asMap(payload);
+  }
+
+  @override
+  Future<Map<String, dynamic>> exportDashboardReport({required String period}) async {
+    final payload = await apiService.post('/dashboard/export', body: {
+      'period': period,
+    });
+    return _asMap(payload);
+  }
+
+  @override
   Future<Email?> getEmailById(String id) async {
     try {
       final payload = await apiService.get('/email/$id');

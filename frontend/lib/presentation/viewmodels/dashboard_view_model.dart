@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart' as pw;
 import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
 
@@ -42,11 +44,19 @@ class DashboardViewModel extends ChangeNotifier {
   List<Email> _emails = const [];
   bool _isLoading = false;
   String? _errorMessage;
+  Map<String, dynamic> _backendStats = const {};
 
   DashboardPeriod selectedPeriod = DashboardPeriod.sevenDays;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  String get periodLabel => switch (selectedPeriod) {
+    DashboardPeriod.sevenDays => '7D',
+    DashboardPeriod.thirtyDays => '30D',
+  };
+
+  String get apiPeriod => selectedPeriod == DashboardPeriod.sevenDays ? '7d' : '30d';
 
   List<Email> get filteredEmails {
     if (_emails.isEmpty) return const [];
@@ -62,27 +72,28 @@ class DashboardViewModel extends ChangeNotifier {
         .toList();
   }
 
-  int get totalEmails => filteredEmails.length;
+  int get totalEmails => _backendStats['processed_count'] is int
+      ? _asInt(_backendStats['processed_count'])
+      : filteredEmails.length;
 
   double get autoHandledRate {
-    if (totalEmails == 0) return 0;
-    final count =
-        filteredEmails.where((email) {
-          final isAutoHandled = email.status == Status.DONE;
-          return isAutoHandled;
-        }).length;
-    return (count / totalEmails) * 100;
+    final fallback = _fallbackAutoHandledRate();
+    final processed = _asInt(_backendStats['processed_count']);
+    final sent = _asInt(_backendStats['sent_count']);
+    if (processed > 0 && sent >= 0) {
+      return (sent / processed) * 100;
+    }
+    return fallback;
   }
 
   double get juryApprovalRate {
-    final juryEmails =
-        filteredEmails.where((email) => email.jury != null).toList();
-    if (juryEmails.isEmpty) return 0;
-    final approved =
-        juryEmails
-            .where((email) => email.jury?.verdict == JuryVerdict.APPROVED)
-            .length;
-    return (approved / juryEmails.length) * 100;
+    final fallback = _fallbackJuryApprovalRate();
+    final review = _asInt(_backendStats['review_count']);
+    final sent = _asInt(_backendStats['sent_count']);
+    if (review > 0 && sent > 0) {
+      return ((sent / review) * 100).clamp(0, 100);
+    }
+    return fallback;
   }
 
   double get averageResponseMinutes {
@@ -168,16 +179,19 @@ class DashboardViewModel extends ChangeNotifier {
         .toList();
   }
 
-  String get periodLabel => switch (selectedPeriod) {
-    DashboardPeriod.sevenDays => '7D',
-    DashboardPeriod.thirtyDays => '30D',
-  };
-
   void setPeriod(DashboardPeriod period) {
     if (selectedPeriod == period) return;
     selectedPeriod = period;
     notifyListeners();
+    unawaited(loadDashboardData());
   }
+
+  Future<void> loadStats(DashboardPeriod period) async {
+    selectedPeriod = period;
+    await loadDashboardData();
+  }
+
+  Future<void> changePeriod(DashboardPeriod period) => loadStats(period);
 
   Future<void> loadDashboardData() async {
     _isLoading = true;
@@ -185,17 +199,63 @@ class DashboardViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _backendStats = await _emailUseCase.getDashboardStats(period: apiPeriod);
+    } catch (_) {
+      _backendStats = const {};
+    }
+
+    try {
       _emails = await _emailUseCase.getEmails();
-    } catch (error) {
+    } catch (_) {
       _errorMessage = 'Unable to load dashboard data.';
       _emails = const [];
-    } finally {
-      _isLoading = false;
-      notifyListeners();
     }
+
+    _isLoading = false;
+    notifyListeners();
   }
 
-  Future<void> exportPdf() async {
+  Future<void> exportReport() async {
+    try {
+      await _emailUseCase.exportDashboardReport(period: apiPeriod);
+    } catch (_) {
+      // The backend export route is optional; we still generate a local PDF report.
+    }
+
+    final file = await _generatePdfReport();
+    await Share.shareXFiles([
+      XFile(file.path, name: 'dashboard_report.pdf', mimeType: 'application/pdf'),
+    ], text: 'TT Mail Assistant dashboard report');
+  }
+
+  Future<void> exportPdf() => exportReport();
+
+  int _asInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  double _fallbackAutoHandledRate() {
+    if (filteredEmails.isEmpty) return 0;
+    final count =
+        filteredEmails.where((email) => email.status == Status.DONE).length;
+    return (count / filteredEmails.length) * 100;
+  }
+
+  double _fallbackJuryApprovalRate() {
+    final juryEmails =
+        filteredEmails.where((email) => email.jury != null).toList();
+    if (juryEmails.isEmpty) return 0;
+    final approved =
+        juryEmails
+            .where((email) => email.jury?.verdict == JuryVerdict.APPROVED)
+            .length;
+    return (approved / juryEmails.length) * 100;
+  }
+
+  Future<File> _generatePdfReport() async {
     final pdf = pw.Document();
     final tableRows = [
       ['Metric', 'Value'],
@@ -247,11 +307,7 @@ class DashboardViewModel extends ChangeNotifier {
       '${Directory.systemTemp.path}/tt_dashboard_${DateTime.now().millisecondsSinceEpoch}.pdf',
     );
     await file.writeAsBytes(await pdf.save());
-
-    if (kDebugMode) {
-      // Intentionally kept lightweight: the export is written to the temp directory.
-      debugPrint('Dashboard PDF exported to ${file.path}');
-    }
+    return file;
   }
 
   String _categoryLabel(EmailCategory category) {

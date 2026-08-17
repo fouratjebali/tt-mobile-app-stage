@@ -24,4 +24,10 @@ class EmailUseCase {
   Future<List<Email>> getReviewList() => _repository.getReviewRequiredEmails();
   Future<Email?> getEmailDetail(String emailId) =>
       _repository.getEmailById(emailId);
+
+  Future<Map<String, dynamic>> getDashboardStats({required String period}) =>
+      _repository.getDashboardStats(period: period);
+
+  Future<Map<String, dynamic>> exportDashboardReport({required String period}) =>
+      _repository.exportDashboardReport(period: period);
 }

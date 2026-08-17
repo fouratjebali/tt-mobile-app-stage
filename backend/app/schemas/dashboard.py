@@ -13,6 +13,14 @@ class DashboardStatsResponse(BaseModel):
     raw_result: str | None = None
 
 
+class DashboardExportRequest(BaseModel):
+    period: str = '7d'
+
+
 class DashboardExportResponse(BaseModel):
     status: str
     message: str
+    period: str = '7d'
+    file_name: str | None = None
+    file_size_bytes: int | None = None
+    generated_at: str | None = None

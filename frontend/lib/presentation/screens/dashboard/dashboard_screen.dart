@@ -67,7 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               _PeriodSelector(
                 selected: _viewModel.selectedPeriod,
-                onChanged: (period) => _viewModel.setPeriod(period),
+                onChanged: (period) => _viewModel.changePeriod(period),
               ),
               if (_viewModel.errorMessage != null) ...[
                 const SizedBox(height: 16),

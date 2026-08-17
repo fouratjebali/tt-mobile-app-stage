@@ -12,4 +12,7 @@ abstract class EmailRepository {
   Future<List<Email>> getReviewRequiredEmails();
   Future<void> markAsRead(String id);
   Future<Email?> getEmailById(String id);
+
+  Future<Map<String, dynamic>> getDashboardStats({required String period});
+  Future<Map<String, dynamic>> exportDashboardReport({required String period});
 }
