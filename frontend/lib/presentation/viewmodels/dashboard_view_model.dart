@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart' as pw;
 import 'package:pdf/widgets.dart' as pw;
@@ -56,7 +55,8 @@ class DashboardViewModel extends ChangeNotifier {
     DashboardPeriod.thirtyDays => '30D',
   };
 
-  String get apiPeriod => selectedPeriod == DashboardPeriod.sevenDays ? '7d' : '30d';
+  String get apiPeriod =>
+      selectedPeriod == DashboardPeriod.sevenDays ? '7d' : '30d';
 
   List<Email> get filteredEmails {
     if (_emails.isEmpty) return const [];
@@ -72,9 +72,10 @@ class DashboardViewModel extends ChangeNotifier {
         .toList();
   }
 
-  int get totalEmails => _backendStats['processed_count'] is int
-      ? _asInt(_backendStats['processed_count'])
-      : filteredEmails.length;
+  int get totalEmails =>
+      _backendStats['processed_count'] is int
+          ? _asInt(_backendStats['processed_count'])
+          : filteredEmails.length;
 
   double get autoHandledRate {
     final fallback = _fallbackAutoHandledRate();
@@ -223,9 +224,13 @@ class DashboardViewModel extends ChangeNotifier {
     }
 
     final file = await _generatePdfReport();
-    await Share.shareXFiles([
-      XFile(file.path, name: 'dashboard_report.pdf', mimeType: 'application/pdf'),
-    ], text: 'TT Mail Assistant dashboard report');
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'application/pdf')],
+        fileNameOverrides: const ['dashboard_report.pdf'],
+        text: 'TT Mail Assistant dashboard report',
+      ),
+    );
   }
 
   Future<void> exportPdf() => exportReport();
