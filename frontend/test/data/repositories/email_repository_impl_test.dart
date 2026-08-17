@@ -169,6 +169,40 @@ void main() {
     },
   );
 
+  test(
+    'getReviewRequiredEmails parses top-level analysis and suggested reply',
+        () async {
+
+      api.response = {
+        'emails': [
+          {
+            'id': '1',
+            'subject': 'Needs review',
+            'body_preview': 'Original email preview',
+            'status': 'PENDING_USER_REVIEW',
+            'category': 'INFORMATION',
+            'priority': 'LOW',
+            'confidence': 0.9,
+            'summary': 'Short summary',
+            'suggested_reply': 'Suggested draft',
+            'date': DateTime.now().toIso8601String(),
+          }
+        ]
+      };
+
+
+      final result =
+      await repository.getReviewRequiredEmails();
+
+
+      expect(result.length, 1);
+      expect(result.first.body.plain, 'Original email preview');
+      expect(result.first.analysis?.suggestedReply, 'Suggested draft');
+      expect(result.first.analysis?.priority, Priority.LOW);
+
+    },
+  );
+
 
 
   test(

@@ -13,6 +13,10 @@ class EmailPreview(BaseModel):
     body_preview: str | None = None
     body: str | None = None
     status: str | None = None
+    confidence: float | None = None
+    summary: str | None = None
+    suggested_reply: str | None = None
+    reply_subject: str | None = None
     category: str | None = None
     priority: str | None = None
     urgency_score: int | None = None

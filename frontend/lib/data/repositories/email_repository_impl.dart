@@ -163,10 +163,15 @@ class EmailRepositoryImpl implements EmailRepository {
       from: _parseSender(json['from'] ?? json['sender']),
       to: _parseRecipients(json['to'] ?? json['recipients']),
       date: _parseDate(json['date'] ?? json['received_at']),
-      body: _parseBody(json['body'] ?? json['body_text'] ?? json['preview']),
+      body: _parseBody(
+        json['body'] ??
+            json['body_text'] ??
+            json['body_preview'] ??
+            json['preview'],
+      ),
       attachments: _parseAttachments(json['attachments']),
       status: _parseStatus(json['status']),
-      analysis: _parseAnalysis(json['analysis']),
+      analysis: _parseAnalysis(_analysisSource(json)),
       jury: _parseJury(json['jury'] ?? json['jury_verdict']),
     );
   }
@@ -238,6 +243,24 @@ class EmailRepositoryImpl implements EmailRepository {
       confidence: _double(map['confidence'] ?? map['confidence_score']),
       category: _parseCategory(map['category']),
     );
+  }
+
+  Object? _analysisSource(Map<String, dynamic> json) {
+    if (json['analysis'] is Map) return json['analysis'];
+
+    const analysisKeys = [
+      'summary',
+      'suggested_reply',
+      'suggestedReply',
+      'priority',
+      'confidence',
+      'confidence_score',
+      'category',
+    ];
+    final hasTopLevelAnalysis =
+        analysisKeys.any((key) => json.containsKey(key) && json[key] != null);
+
+    return hasTopLevelAnalysis ? json : null;
   }
 
   Jury? _parseJury(Object? value) {

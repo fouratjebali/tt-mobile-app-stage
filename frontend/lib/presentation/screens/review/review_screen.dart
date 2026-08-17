@@ -280,6 +280,18 @@ class _ReviewEmailCard extends StatelessWidget {
     return parts.isEmpty ? 'Manual review required' : parts.join(' — ');
   }
 
+  String get _emailPreview {
+    final body = email.body.plain.trim();
+    if (body.isNotEmpty) return body;
+    return 'No preview available.';
+  }
+
+  String get _suggestedReply {
+    final suggested = email.analysis?.suggestedReply.trim() ?? '';
+    if (suggested.isNotEmpty) return suggested;
+    return 'No suggested reply was generated yet.';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -333,6 +345,19 @@ class _ReviewEmailCard extends StatelessWidget {
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 12),
+            _ReviewTextBlock(
+              title: 'Email',
+              text: _emailPreview,
+              maxLines: 4,
+            ),
+            const SizedBox(height: 10),
+            _ReviewTextBlock(
+              title: 'Suggested reply',
+              text: _suggestedReply,
+              maxLines: 5,
+              highlighted: true,
             ),
             const SizedBox(height: 12),
             Row(
@@ -404,6 +429,62 @@ class _ReviewEmailCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Priority badge chip
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _ReviewTextBlock extends StatelessWidget {
+  const _ReviewTextBlock({
+    required this.title,
+    required this.text,
+    required this.maxLines,
+    this.highlighted = false,
+  });
+
+  final String title;
+  final String text;
+  final int maxLines;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor =
+        highlighted
+            ? AppPalette.lavender.withValues(alpha: 0.3)
+            : Colors.grey.withValues(alpha: 0.18);
+    final background =
+        highlighted
+            ? AppPalette.lavender.withValues(alpha: 0.08)
+            : Colors.grey.withValues(alpha: 0.06);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: highlighted ? AppPalette.lavender : Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, height: 1.35),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _PriorityBadge extends StatelessWidget {
   const _PriorityBadge({required this.label, required this.color});

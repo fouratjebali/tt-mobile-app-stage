@@ -255,6 +255,7 @@ class EmailCacheService:
 
     def _to_preview(self, email: Email, *, include_body: bool = False) -> EmailPreview:
         analysis = self._repository.get_latest_analysis(email)
+        response = self._repository.get_latest_response(email)
         return EmailPreview(
             id=email.gmail_message_id,
             thread_id=email.thread_id,
@@ -265,6 +266,10 @@ class EmailCacheService:
             body_preview=email.body_preview,
             body=email.body if include_body else None,
             status=email.status,
+            confidence=analysis.classification_confidence if analysis else None,
+            summary=analysis.summary if analysis else None,
+            suggested_reply=response.body if response else None,
+            reply_subject=response.subject if response else None,
             category=analysis.category if analysis else None,
             priority=analysis.priority if analysis else None,
             urgency_score=analysis.urgency_score if analysis else None,
