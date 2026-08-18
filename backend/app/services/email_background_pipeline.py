@@ -69,9 +69,18 @@ class EmailBackgroundPipeline:
         )
 
         for email in candidates:
+            if email.status == "DONE" or self._repository.has_sent_response(email):
+                continue
+
             analysis = self._repository.get_latest_analysis(email)
             response = self._repository.get_latest_response(email)
             if analysis is None or response is None:
+                continue
+            if (
+                response.status == "sent"
+                or response.sent_at is not None
+                or response.gmail_message_id is not None
+            ):
                 continue
 
             verdict = self._repository.get_latest_jury_verdict(email)

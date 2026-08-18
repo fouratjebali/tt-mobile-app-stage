@@ -344,10 +344,10 @@ class _KPIGrid extends StatelessWidget {
         ),
 
         _KPICard(
-          title: 'Confident',
+          title: 'Sent',
           value: autoSent.toString(),
           color: AppPalette.blue,
-          icon: Icons.auto_awesome,
+          icon: Icons.send_outlined,
         ),
 
         _KPICard(

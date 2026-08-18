@@ -245,6 +245,8 @@ class EmailCacheService:
             gmail_message_id=str(gmail_message_id),
             payload=normalized_payload,
         )
+        if email.status == "DONE" or self._repository.has_sent_response(email):
+            return email
 
         if _has_analysis(payload):
             self._repository.upsert_analysis(email=email, payload=payload)

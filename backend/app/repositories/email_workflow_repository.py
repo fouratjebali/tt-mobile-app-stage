@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import desc, func, or_, select
+from sqlalchemy import desc, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.auth import User
@@ -48,7 +48,10 @@ class EmailWorkflowRepository:
         if "received_at" in payload:
             email.received_at = payload.get("received_at")
         email.is_read = bool(payload.get("is_read", email.is_read))
-        email.status = str(payload.get("status", email.status or "new"))
+        next_status = str(payload.get("status", email.status or "new"))
+        if email.status == "DONE" and next_status != "DONE":
+            next_status = "DONE"
+        email.status = next_status
         self._db.commit()
         self._db.refresh(email)
         return email
@@ -196,6 +199,20 @@ class EmailWorkflowRepository:
             .order_by(desc(EmailResponse.created_at))
         )
 
+    def has_sent_response(self, email: Email) -> bool:
+        return self._db.scalar(
+            select(
+                exists().where(
+                    EmailResponse.email_id == email.id,
+                    or_(
+                        EmailResponse.status == "sent",
+                        EmailResponse.sent_at.is_not(None),
+                        EmailResponse.gmail_message_id.is_not(None),
+                    ),
+                )
+            )
+        )
+
     def get_latest_jury_verdict(self, email: Email) -> JuryVerdict | None:
         return self._db.scalar(
             select(JuryVerdict)
@@ -239,6 +256,14 @@ class EmailWorkflowRepository:
                 .where(
                     Email.user_id == user.id,
                     Email.status.in_(review_statuses),
+                    ~exists().where(
+                        EmailResponse.email_id == Email.id,
+                        or_(
+                            EmailResponse.status == "sent",
+                            EmailResponse.sent_at.is_not(None),
+                            EmailResponse.gmail_message_id.is_not(None),
+                        ),
+                    ),
                 )
                 .order_by(
                     desc(Email.received_at).nullslast(),
@@ -267,6 +292,15 @@ class EmailWorkflowRepository:
                 select(Email)
                 .where(
                     Email.user_id == user.id,
+                    Email.status != "DONE",
+                    ~exists().where(
+                        EmailResponse.email_id == Email.id,
+                        or_(
+                            EmailResponse.status == "sent",
+                            EmailResponse.sent_at.is_not(None),
+                            EmailResponse.gmail_message_id.is_not(None),
+                        ),
+                    ),
                     or_(
                         Email.status.in_(("PENDING_ANALYSIS", "PENDING_JURY")),
                         (
@@ -297,7 +331,13 @@ class EmailWorkflowRepository:
             select(func.count(EmailResponse.id))
             .join(Email, Email.id == EmailResponse.email_id)
             .where(Email.user_id == user.id)
-            .where(EmailResponse.status == "sent")
+            .where(
+                or_(
+                    EmailResponse.status == "sent",
+                    EmailResponse.sent_at.is_not(None),
+                    EmailResponse.gmail_message_id.is_not(None),
+                )
+            )
         )
         urgent_count = 0
         for email in emails:
@@ -420,8 +460,19 @@ class EmailWorkflowRepository:
         response_status: str | None = None,
         sent_message_id: str | None = None,
     ) -> None:
+        has_confirmed_send = response is not None and (
+            response.status == "sent"
+            or response.sent_at is not None
+            or response.gmail_message_id is not None
+        )
+        if email.status == "DONE" and email_status != "DONE":
+            email_status = "DONE"
+        if has_confirmed_send and email_status != "DONE":
+            email_status = "DONE"
         email.status = email_status
         if response is not None and response_status is not None:
+            if has_confirmed_send and response_status != "sent":
+                response_status = "sent"
             response.status = response_status
             if sent_message_id is not None:
                 response.gmail_message_id = sent_message_id
