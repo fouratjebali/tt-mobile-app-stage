@@ -25,13 +25,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late final ReviewViewModel _reviewViewModel;
   Timer? _reviewRefreshTimer;
 
-  static const List<Widget> _screens = [
-    HomeScreen(),
-    TodayActivityScreen(),
-    ReviewScreen(),
-    ProfileScreen(),
-  ];
-
   static const List<AppNavigationItemData> _items = [
     AppNavigationItemData(
       label: 'Home',
@@ -58,7 +51,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex.clamp(0, _screens.length - 1).toInt();
+    _selectedIndex = widget.initialIndex.clamp(0, _items.length - 1).toInt();
     _reviewViewModel = getIt<ReviewViewModel>();
     _reviewViewModel.addListener(_onReviewChanged);
     _reviewViewModel.loadReviewEmails();
@@ -81,9 +74,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final reviewCount = _reviewViewModel.pendingCount;
+    final screens = [
+      HomeScreen(onSelectTab: _selectTab),
+      const TodayActivityScreen(),
+      const ReviewScreen(),
+      const ProfileScreen(),
+    ];
 
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: IndexedStack(index: _selectedIndex, children: screens),
       floatingActionButton: AppAssistantFab(onPressed: _openPrompt),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: AppBottomNavigationBar(

@@ -4,12 +4,13 @@ import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/presentation/screens/bulk_email/bulk_email_screen.dart';
-import 'package:tt_mail_assistant/presentation/screens/dashboard/dashboard_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onSelectTab});
+
+  final ValueChanged<int>? onSelectTab;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -108,7 +109,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         actionLabel: 'Tools',
                       ),
                       const SizedBox(height: 12),
-                      _ShortcutsRow(),
+                      _ShortcutsRow(
+                        onReviewTap: () => widget.onSelectTab?.call(2),
+                      ),
                     ],
                   ),
                 ),
@@ -639,7 +642,9 @@ class _ActivityCard extends StatelessWidget {
 }
 
 class _ShortcutsRow extends StatelessWidget {
-  const _ShortcutsRow();
+  const _ShortcutsRow({required this.onReviewTap});
+
+  final VoidCallback onReviewTap;
 
   @override
   Widget build(BuildContext context) {
@@ -647,16 +652,9 @@ class _ShortcutsRow extends StatelessWidget {
       children: [
         Expanded(
           child: _ShortcutButton(
-            icon: Icons.dashboard_outlined,
-            label: 'Dashboard',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const DashboardScreen(),
-                ),
-              );
-            },
+            icon: Icons.rate_review_outlined,
+            label: 'Review replies',
+            onTap: onReviewTap,
           ),
         ),
 
