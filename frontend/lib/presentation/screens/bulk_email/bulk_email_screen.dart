@@ -68,83 +68,15 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   }
 
   Future<void> _showAddRecipientDialog() async {
-    final nameController = TextEditingController();
-    final emailController = TextEditingController();
-    final roleController = TextEditingController();
-    final tone = _BulkTone.of(context);
-
     final recipient = await showDialog<Map<String, String>>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: tone.surface,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: BorderSide(color: tone.border),
-          ),
-          title: Text(
-            'Add recipient',
-            style: TextStyle(
-              color: tone.text,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _DialogField(controller: nameController, hintText: 'Name'),
-              const SizedBox(height: 10),
-              _DialogField(
-                controller: emailController,
-                hintText: 'Email',
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 10),
-              _DialogField(controller: roleController, hintText: 'Role'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: tone.muted)),
-            ),
-            FilledButton(
-              onPressed: () {
-                final name = nameController.text.trim();
-                final email = emailController.text.trim();
-                final role = roleController.text.trim();
-                if (name.isEmpty || email.isEmpty) return;
-                Navigator.pop(context, {
-                  'initials': _getInitials(name),
-                  'name': name,
-                  'email': email,
-                  'role': role.isEmpty ? 'Recipient' : role,
-                });
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
+      builder: (context) => const _AddRecipientDialog(),
     );
-
-    nameController.dispose();
-    emailController.dispose();
-    roleController.dispose();
 
     if (recipient == null) return;
     setState(() {
       _recipients.add(recipient);
     });
-  }
-
-  String _getInitials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   void _removeRecipient(int index) {
@@ -461,6 +393,89 @@ class _BulkTone {
           isDark
               ? AppPalette.white.withValues(alpha: 0.62)
               : AppPalette.pine.withValues(alpha: 0.68),
+    );
+  }
+}
+
+class _AddRecipientDialog extends StatefulWidget {
+  const _AddRecipientDialog();
+
+  @override
+  State<_AddRecipientDialog> createState() => _AddRecipientDialogState();
+}
+
+class _AddRecipientDialogState extends State<_AddRecipientDialog> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _roleController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _roleController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final role = _roleController.text.trim();
+    if (name.isEmpty || email.isEmpty) return;
+
+    Navigator.pop(context, {
+      'initials': _recipientInitials(name),
+      'name': name,
+      'email': email,
+      'role': role.isEmpty ? 'Recipient' : role,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _BulkTone.of(context);
+
+    return AlertDialog(
+      backgroundColor: tone.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: tone.border),
+      ),
+      title: Text(
+        'Add recipient',
+        style: TextStyle(
+          color: tone.text,
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _DialogField(controller: _nameController, hintText: 'Name'),
+          const SizedBox(height: 10),
+          _DialogField(
+            controller: _emailController,
+            hintText: 'Email',
+            keyboardType: TextInputType.emailAddress,
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: 10),
+          _DialogField(
+            controller: _roleController,
+            hintText: 'Role',
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: TextStyle(color: tone.muted)),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Add')),
+      ],
     );
   }
 }
@@ -819,16 +834,25 @@ class _RecipientCard extends StatelessWidget {
   }
 }
 
+String _recipientInitials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+'));
+  if (parts.isEmpty || parts.first.isEmpty) return '?';
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+}
+
 class _DialogField extends StatelessWidget {
   const _DialogField({
     required this.controller,
     required this.hintText,
     this.keyboardType,
+    this.onSubmitted,
   });
 
   final TextEditingController controller;
   final String hintText;
   final TextInputType? keyboardType;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -836,6 +860,9 @@ class _DialogField extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      textInputAction:
+          onSubmitted == null ? TextInputAction.next : TextInputAction.done,
+      onSubmitted: onSubmitted,
       style: TextStyle(color: tone.text, fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         hintText: hintText,
