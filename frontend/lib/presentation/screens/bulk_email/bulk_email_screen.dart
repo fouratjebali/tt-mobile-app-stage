@@ -504,7 +504,7 @@ class _BulkHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Bulk email',
+                  'Group drafts',
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 24,

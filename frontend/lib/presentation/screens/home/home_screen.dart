@@ -665,7 +665,7 @@ class _ShortcutsRow extends StatelessWidget {
         Expanded(
           child: _ShortcutButton(
             icon: Icons.mail_outline,
-            label: 'Bulk Email',
+            label: 'Group drafts',
 
             // =================================================
             // BULK EMAIL S10
