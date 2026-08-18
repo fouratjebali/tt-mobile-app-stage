@@ -133,9 +133,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Reject email'),
+            title: const Text('Do not respond'),
             content: const Text(
-              'Ignore this email and remove it from review queue?',
+              'Mark this email as handled without sending a reply?',
             ),
             actions: [
               TextButton(
@@ -144,7 +144,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Reject'),
+                child: const Text('Confirm'),
               ),
             ],
           ),
@@ -347,11 +347,7 @@ class _ReviewEmailCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 12),
-            _ReviewTextBlock(
-              title: 'Email',
-              text: _emailPreview,
-              maxLines: 4,
-            ),
+            _ReviewTextBlock(title: 'Email', text: _emailPreview, maxLines: 4),
             const SizedBox(height: 10),
             _ReviewTextBlock(
               title: 'Suggested reply',
@@ -409,7 +405,7 @@ class _ReviewEmailCard extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: isSubmitting ? null : onReject,
                 icon: const Icon(Icons.close, size: 16),
-                label: const Text('Reject'),
+                label: const Text("Don't respond"),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.red[700],
                   textStyle: const TextStyle(

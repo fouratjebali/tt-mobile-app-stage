@@ -97,7 +97,7 @@ class ReviewViewModel extends ChangeNotifier {
 
   Future<void> reject(String emailId) async {
     await _runActionWithRetry(
-      actionLabel: 'reject this email',
+      actionLabel: 'mark this email as no response needed',
       completedEmailId: emailId,
       action: () => _emailUseCase.reject(emailId: emailId),
     );

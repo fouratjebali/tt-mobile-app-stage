@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.auth import User
-from app.models.email import Email, EmailAnalysis
+from app.models.email import Email
 from app.repositories.email_workflow_repository import EmailWorkflowRepository
 from app.schemas.email import (
     EmailAnalysisPayload,
@@ -137,42 +137,15 @@ class EmailPipelineService:
                 payload={"id": email_id, "sender": "", "status": "draft"},
             )
 
-        analysis = self._repository.get_latest_analysis(email)
-        response = self._repository.create_response(
+        latest_response = self._repository.get_latest_response(email)
+        response = self._repository.upsert_draft_response(
             email=email,
-            subject="",
+            subject=latest_response.subject if latest_response else f"Re: {email.subject}",
             body=body,
-            tone="professional",
-            status="draft",
+            tone=latest_response.tone if latest_response else "professional",
             payload={"reply_body": body},
         )
-        verdict_payload = await self._bridge.verify_with_jury(
-            email=_email_context(email),
-            analysis=_analysis_context_from_model(analysis),
-            agent_response={"reply_body": body, "tone": "professional"},
-        )
-        self._repository.create_jury_verdict(
-            email=email,
-            analysis=analysis,
-            response=response,
-            verdict_payload=verdict_payload,
-        )
-
-        verdict = verdict_payload.get("verdict", "PENDING")
-        if verdict != "VALIDATED":
-            self._repository.update_statuses(
-                email=email,
-                response=response,
-                email_status=_email_status_for(str(verdict)),
-                response_status=_response_status_for(str(verdict)),
-            )
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    "Jury agent did not validate this reply. "
-                    "Edit the suggested response and try again."
-                ),
-            )
+        verdict = self._repository.get_latest_jury_verdict(email)
 
         send_result = await self._bridge.send_email_reply(email_id=email_id, body=body)
         send_status = str(send_result.payload.get("status", "")).lower()
@@ -193,7 +166,7 @@ class EmailPipelineService:
         return SendEmailResponse(
             status=str(send_result.payload.get("status", "sent")),
             message_id=message_id,
-            jury_verdict=verdict_payload,
+            jury_verdict=verdict.raw_payload if verdict is not None else None,
             raw_result=send_result.raw_result,
         )
 
@@ -256,20 +229,6 @@ def _analysis_context(payload: dict[str, Any]) -> dict[str, Any]:
         "summary": payload.get("summary"),
         "action_required": payload.get("action_required"),
         "language": payload.get("language"),
-    }
-
-
-def _analysis_context_from_model(analysis: EmailAnalysis | None) -> dict[str, Any]:
-    if analysis is None:
-        return {}
-
-    return {
-        "category": analysis.category,
-        "confidence": analysis.classification_confidence,
-        "priority": analysis.priority,
-        "urgency_score": analysis.urgency_score,
-        "summary": analysis.summary,
-        "action_required": analysis.action_required,
     }
 
 

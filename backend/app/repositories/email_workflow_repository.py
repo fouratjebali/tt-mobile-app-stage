@@ -126,7 +126,9 @@ class EmailWorkflowRepository:
             select(EmailResponse)
             .where(
                 EmailResponse.email_id == email.id,
-                EmailResponse.status.in_(("draft", "needs_review", "approved")),
+                EmailResponse.status.in_(
+                    ("draft", "needs_review", "approved", "PENDING_USER_REVIEW")
+                ),
             )
             .order_by(desc(EmailResponse.created_at))
         )
