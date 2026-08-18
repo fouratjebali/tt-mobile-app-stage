@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:tt_mail_assistant/core/config/api_config.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
+import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/data/services/bulk_email_api_service.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 import 'package:tt_mail_assistant/presentation/widgets/app_bottom_navigation_bar.dart';
@@ -50,7 +50,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   void initState() {
     super.initState();
     _controller = BulkEmailController(
-      apiService: BulkEmailApiService(baseUrl: ApiConfig.baseUrl),
+      apiService: BulkEmailApiService(apiService: getIt<ApiService>()),
     );
     _reviewViewModel = getIt<ReviewViewModel>();
     _reviewViewModel.addListener(_onReviewChanged);

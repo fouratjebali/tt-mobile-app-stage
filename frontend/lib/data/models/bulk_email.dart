@@ -31,6 +31,7 @@ class BulkEmail {
       subject: json['subject']?.toString() ?? '',
       body:
           json['body']?.toString() ??
+          json['body_preview']?.toString() ??
           json['reply_body']?.toString() ??
           json['suggested_reply']?.toString() ??
           '',
