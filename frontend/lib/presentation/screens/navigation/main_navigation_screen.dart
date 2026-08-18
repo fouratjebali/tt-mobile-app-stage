@@ -7,6 +7,7 @@ import 'package:tt_mail_assistant/presentation/screens/profile/profile_screen.da
 import 'package:tt_mail_assistant/presentation/screens/prompt/prompt_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/review/review_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/today/today_activity_screen.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -79,6 +80,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           });
           if (index == 2) {
             _reviewViewModel.refreshSilently();
+          } else if (index == 0) {
+            getIt<HomeViewModel>().refresh();
           }
         },
 

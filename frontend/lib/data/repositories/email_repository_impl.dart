@@ -33,7 +33,22 @@ class EmailRepositoryImpl implements EmailRepository {
     required String emailId,
     required String body,
   }) async {
-    await apiService.post('/email/$emailId/send', body: {'body': body});
+    final payload = await apiService.post(
+      '/email/$emailId/send',
+      body: {'body': body},
+    );
+    final map = _asMap(payload);
+    final status = _string(map['status']).toLowerCase();
+    final messageId = _string(map['message_id'] ?? map['messageId']);
+    if (status != 'sent' || messageId.isEmpty) {
+      throw ApiException(
+        statusCode: status == 'sent' ? 502 : 409,
+        message:
+            status.isEmpty
+                ? 'Reply was not sent. Please retry.'
+                : 'Reply was not sent: $status.',
+      );
+    }
   }
 
   @override
@@ -76,18 +91,24 @@ class EmailRepositoryImpl implements EmailRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> getDashboardStats({required String period}) async {
-    final payload = await apiService.get('/dashboard/stats', queryParameters: {
-      'period': period,
-    });
+  Future<Map<String, dynamic>> getDashboardStats({
+    required String period,
+  }) async {
+    final payload = await apiService.get(
+      '/dashboard/stats',
+      queryParameters: {'period': period},
+    );
     return _asMap(payload);
   }
 
   @override
-  Future<Map<String, dynamic>> exportDashboardReport({required String period}) async {
-    final payload = await apiService.post('/dashboard/export', body: {
-      'period': period,
-    });
+  Future<Map<String, dynamic>> exportDashboardReport({
+    required String period,
+  }) async {
+    final payload = await apiService.post(
+      '/dashboard/export',
+      body: {'period': period},
+    );
     return _asMap(payload);
   }
 
@@ -257,8 +278,9 @@ class EmailRepositoryImpl implements EmailRepository {
       'confidence_score',
       'category',
     ];
-    final hasTopLevelAnalysis =
-        analysisKeys.any((key) => json.containsKey(key) && json[key] != null);
+    final hasTopLevelAnalysis = analysisKeys.any(
+      (key) => json.containsKey(key) && json[key] != null,
+    );
 
     return hasTopLevelAnalysis ? json : null;
   }

@@ -1,14 +1,16 @@
 from functools import lru_cache
 from email.utils import parsedate_to_datetime
+from email.utils import parseaddr
 from typing import Any
 
-from fastapi import FastAPI, Query
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Query, status
+from pydantic import BaseModel, Field
 
 from agent.chains import EmailChains
 from agent.agent import EmailAgent
 from config.settings import settings
 from gmail.reader import Email, fetch_emails, fetch_single_email
+from gmail.sender import send_email as gmail_send
 
 
 app = FastAPI(title="TT Mail Assistant Agent 1")
@@ -21,6 +23,10 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+
+
+class SendReplyRequest(BaseModel):
+    body: str = Field(min_length=1)
 
 
 @lru_cache(maxsize=1)
@@ -70,6 +76,46 @@ def email_detail(email_id: str) -> dict[str, Any]:
     if email is None:
         return {"status": "not_found", "email": None}
     return _email_detail_response(email)
+
+
+@app.post("/emails/{email_id}/send")
+def send_email_reply(email_id: str, request: SendReplyRequest) -> dict[str, Any]:
+    email = fetch_single_email(email_id)
+    if email is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Email {email_id} not found.",
+        )
+
+    recipient = parseaddr(email.sender)[1] or email.sender.strip()
+    if "@" not in recipient:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot send reply because the sender address is invalid.",
+        )
+
+    subject = _reply_subject(email.subject)
+    try:
+        sent = gmail_send(to=recipient, subject=subject, body=request.body)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Gmail send failed: {exc}",
+        ) from exc
+
+    message_id = str(sent.get("id") or "").strip()
+    if not message_id:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Gmail did not confirm the sent message.",
+        )
+
+    return {
+        "status": "sent",
+        "message_id": message_id,
+        "to": recipient,
+        "subject": subject,
+    }
 
 
 @app.get("/dashboard/stats")
@@ -318,3 +364,10 @@ def _email_detail_response(email: Email) -> dict[str, Any]:
         "reply_subject": reply.reply_subject,
         "tone": reply.tone,
     }
+
+
+def _reply_subject(subject: str) -> str:
+    cleaned = subject.strip() if subject else "Your message"
+    if cleaned.lower().startswith("re:"):
+        return cleaned
+    return f"Re: {cleaned}"

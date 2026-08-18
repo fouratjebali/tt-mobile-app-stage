@@ -15,7 +15,6 @@ class ReviewViewModel extends ChangeNotifier {
   bool isSubmittingAction = false;
   List<Email> emails = [];
   Future<void> Function()? _lastFailedAction;
-  final Set<String> _handledEmailIds = <String>{};
 
   int get pendingCount => emails.length;
 
@@ -70,10 +69,7 @@ class ReviewViewModel extends ChangeNotifier {
   Future<void> refresh() => loadReviewEmails();
 
   Future<List<Email>> _loadVisibleReviewEmails() async {
-    final loaded = await _emailUseCase.getReviewList();
-    return loaded
-        .where((email) => !_handledEmailIds.contains(email.id))
-        .toList(growable: false);
+    return _emailUseCase.getReviewList();
   }
 
   Future<void> validateAndSend(String emailId) async {
@@ -124,7 +120,6 @@ class ReviewViewModel extends ChangeNotifier {
     try {
       await action();
       _lastFailedAction = null;
-      _handledEmailIds.add(completedEmailId);
       emails = emails.where((email) => email.id != completedEmailId).toList();
       await loadReviewEmails();
     } catch (error) {

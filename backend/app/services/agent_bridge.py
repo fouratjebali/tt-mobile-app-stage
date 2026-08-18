@@ -85,15 +85,14 @@ class AgentBridge:
         )
 
     async def send_email_reply(self, email_id: str, body: str) -> AgentBridgeResult:
-        return await self._chat_json(
-            task=(
-                "Send the following reply for the selected Gmail message. "
-                "Use the email id to identify the recipient if needed, then send "
-                "with send_single_email.\n"
-                f"email_id={email_id}\n"
-                f"body={body}"
-            ),
-            expected_schema='{"status":"sent","message_id":""}',
+        payload = await self._post(
+            service_name="Email Agent",
+            url=f"{self._agent_url}/emails/{email_id}/send",
+            json={"body": body},
+        )
+        return AgentBridgeResult(
+            payload=payload,
+            raw_result="",
         )
 
     async def generate_bulk(

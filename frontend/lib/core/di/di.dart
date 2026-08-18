@@ -121,7 +121,7 @@ Future<void> init() async {
   getIt.registerLazySingleton<SettingsUseCase>(
     () => SettingsUseCase(getIt<SettingsRepository>()),
   );
-  getIt.registerFactory<HomeViewModel>(
+  getIt.registerLazySingleton<HomeViewModel>(
     () => HomeViewModel(
       emailUseCase: getIt<EmailUseCase>(),
       settingsUseCase: getIt<SettingsUseCase>(),

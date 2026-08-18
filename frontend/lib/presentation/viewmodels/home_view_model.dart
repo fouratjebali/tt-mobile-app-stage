@@ -38,14 +38,13 @@ class HomeViewModel extends ChangeNotifier {
     try {
       final user = await _authUseCase.getCurrentUser();
       final emails = await _emailUseCase.getEmails();
+      final stats = await _emailUseCase.getDashboardStats(period: '7d');
       final autoProcessing = await _settingsUseCase.getAutoProcessing();
 
-      final processed = emails.where((e) => e.status == Status.DONE).length;
-      final review =
-          emails.where((e) => e.status == Status.PENDING_USER_REVIEW).length;
-      final confident =
-          emails.where((e) => (e.analysis?.confidence ?? 0) >= 0.8).length;
-      final accuracy = emails.isEmpty ? 0.0 : (processed / emails.length) * 100;
+      final processed = _asInt(stats['processed_count']);
+      final sent = _asInt(stats['sent_count']);
+      final review = _asInt(stats['review_count']);
+      final accuracy = processed == 0 ? 0.0 : (sent / processed) * 100;
 
       userName =
           (user?.displayName?.trim().isNotEmpty ?? false)
@@ -55,7 +54,7 @@ class HomeViewModel extends ChangeNotifier {
       userPhotoUrl = _cleanPhotoUrl(user?.photoUrl);
       agentActive = autoProcessing;
       processedToday = processed;
-      autoSent = confident;
+      autoSent = sent;
       needReview = review;
       accuracyRate = accuracy;
       recentEmails = emails.take(3).toList(growable: false);
@@ -80,5 +79,11 @@ class HomeViewModel extends ChangeNotifier {
   String? _cleanPhotoUrl(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  int _asInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }

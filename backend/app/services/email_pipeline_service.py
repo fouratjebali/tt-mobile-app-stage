@@ -1,5 +1,6 @@
 from typing import Any
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.auth import User
@@ -165,14 +166,23 @@ class EmailPipelineService:
                 email_status=_email_status_for(str(verdict)),
                 response_status=_response_status_for(str(verdict)),
             )
-            return SendEmailResponse(
-                status=str(verdict).lower(),
-                jury_verdict=verdict_payload,
-                raw_result=None,
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Jury agent did not validate this reply. "
+                    "Edit the suggested response and try again."
+                ),
             )
 
         send_result = await self._bridge.send_email_reply(email_id=email_id, body=body)
-        message_id = send_result.payload.get("message_id")
+        send_status = str(send_result.payload.get("status", "")).lower()
+        message_id = str(send_result.payload.get("message_id") or "").strip()
+        if send_status != "sent" or not message_id:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Gmail did not confirm that the reply was sent.",
+            )
+
         self._repository.update_statuses(
             email=email,
             response=response,
