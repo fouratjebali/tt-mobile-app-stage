@@ -296,6 +296,10 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
               }),
             _AddRecipientButton(onTap: _showAddRecipientDialog),
             const SizedBox(height: 18),
+            if (_isGenerating) ...[
+              _GenerationProgress(recipientCount: _recipients.length),
+              const SizedBox(height: 12),
+            ],
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -322,7 +326,9 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                               )
                               : const Icon(Icons.auto_awesome_rounded),
                       label: Text(
-                        _isGenerating ? 'Generating drafts' : 'Generate drafts',
+                        _isGenerating
+                            ? 'Drafting ${_recipients.length} emails'
+                            : 'Generate drafts',
                       ),
                     ),
                   ),
@@ -331,7 +337,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                     height: 50,
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: _previewAndSend,
+                      onPressed: _isGenerating ? null : _previewAndSend,
                       icon: const Icon(Icons.send_outlined, size: 18),
                       label: const Text('Preview and send'),
                       style: OutlinedButton.styleFrom(
@@ -732,6 +738,67 @@ class _AddRecipientButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _GenerationProgress extends StatelessWidget {
+  const _GenerationProgress({required this.recipientCount});
+
+  final int recipientCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _BulkTone.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppPalette.teal.withValues(alpha: isDark ? 0.16 : 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppPalette.teal.withValues(alpha: isDark ? 0.30 : 0.18),
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: isDark ? AppPalette.lavender : AppPalette.deepTeal,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Preparing personalized drafts',
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Ollama is writing $recipientCount drafts. This can take a minute or two.',
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

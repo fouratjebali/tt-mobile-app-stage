@@ -39,12 +39,17 @@ class ApiService {
     bool authenticated = true,
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
+    Duration? timeout,
   }) async {
     final response = await _send(
       () => _dio.get<Object?>(
         _normalizePath(path),
         queryParameters: queryParameters,
-        options: _options(authenticated: authenticated, headers: headers),
+        options: _options(
+          authenticated: authenticated,
+          headers: headers,
+          timeout: timeout,
+        ),
       ),
     );
 
@@ -56,12 +61,17 @@ class ApiService {
     Object? body,
     bool authenticated = true,
     Map<String, String>? headers,
+    Duration? timeout,
   }) async {
     final response = await _send(
       () => _dio.post<Object?>(
         _normalizePath(path),
         data: body ?? const <String, dynamic>{},
-        options: _options(authenticated: authenticated, headers: headers),
+        options: _options(
+          authenticated: authenticated,
+          headers: headers,
+          timeout: timeout,
+        ),
       ),
     );
 
@@ -72,11 +82,16 @@ class ApiService {
     String path, {
     bool authenticated = true,
     Map<String, String>? headers,
+    Duration? timeout,
   }) async {
     final response = await _send(
       () => _dio.delete<Object?>(
         _normalizePath(path),
-        options: _options(authenticated: authenticated, headers: headers),
+        options: _options(
+          authenticated: authenticated,
+          headers: headers,
+          timeout: timeout,
+        ),
       ),
     );
 
@@ -86,10 +101,13 @@ class ApiService {
   Options _options({
     required bool authenticated,
     Map<String, String>? headers,
+    Duration? timeout,
   }) {
     return Options(
       extra: {'authenticated': authenticated},
       headers: headers,
+      sendTimeout: timeout,
+      receiveTimeout: timeout,
     );
   }
 

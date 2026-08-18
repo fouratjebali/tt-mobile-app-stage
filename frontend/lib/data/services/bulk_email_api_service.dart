@@ -8,6 +8,7 @@ class BulkEmailApiService {
     : _apiService = apiService;
 
   final ApiService _apiService;
+  static const Duration _generationTimeout = Duration(minutes: 5);
 
   Future<List<BulkEmail>> generateEmails({
     required List<Map<String, String>> recipients,
@@ -21,6 +22,7 @@ class BulkEmailApiService {
         'topic': topic,
         'instructions': instructions,
       },
+      timeout: _generationTimeout,
     );
 
     final emails = _listFromResponse(data, 'details', 'emails');
@@ -42,6 +44,7 @@ class BulkEmailApiService {
         'topic': topic,
         'instructions': instructions,
       },
+      timeout: _generationTimeout,
     );
 
     final results = _listFromResponse(data, 'details', 'results');
