@@ -246,37 +246,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 32),
 
-          // AGENT SETTINGS SECTION
-          _SectionHeader(title: 'Agent Settings'),
+          // EMAIL ASSISTANT SECTION
+          _SectionHeader(title: 'Email assistant'),
           const SizedBox(height: 12),
-          _AgentStatusPanel(
+          _AssistantControlPanel(
             isActive: autoProcessing,
             onChanged: _updateAutoProcessing,
           ),
           const SizedBox(height: 12),
-          _SliderSettingCard(
-            title: 'Urgency Threshold',
-            subtitle: 'Score: ${urgencyThreshold.toStringAsFixed(1)}',
-            value: urgencyThreshold,
-            min: 1,
-            max: 10,
-            divisions: 9,
-            onChanged: _updateUrgencyThreshold,
-          ),
-          const SizedBox(height: 12),
-          _SliderSettingCard(
-            title: 'Jury Confidence Min',
-            subtitle: 'Score: ${confidenceThreshold.toStringAsFixed(0)}%',
-            value: confidenceThreshold,
-            min: 0,
-            max: 100,
-            divisions: 10,
-            onChanged: _updateConfidenceThreshold,
+          _AdvancedAssistantSettings(
+            urgencyThreshold: urgencyThreshold,
+            confidenceThreshold: confidenceThreshold,
+            onUrgencyChanged: _updateUrgencyThreshold,
+            onConfidenceChanged: _updateConfidenceThreshold,
           ),
           const SizedBox(height: 32),
 
           // APP PREFERENCES SECTION
-          _SectionHeader(title: 'App Preferences'),
+          _SectionHeader(title: 'App preferences'),
           const SizedBox(height: 12),
           _PreferenceToggle(
             title: 'Push notifications',
@@ -500,8 +487,11 @@ class _AccountCard extends StatelessWidget {
   }
 }
 
-class _AgentStatusPanel extends StatelessWidget {
-  const _AgentStatusPanel({required this.isActive, required this.onChanged});
+class _AssistantControlPanel extends StatelessWidget {
+  const _AssistantControlPanel({
+    required this.isActive,
+    required this.onChanged,
+  });
 
   final bool isActive;
   final ValueChanged<bool> onChanged;
@@ -528,7 +518,9 @@ class _AgentStatusPanel extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              isActive ? Icons.bolt_outlined : Icons.pause_circle_outline,
+              isActive
+                  ? Icons.mark_email_read_outlined
+                  : Icons.pause_circle_outline,
               color: color,
             ),
           ),
@@ -538,7 +530,7 @@ class _AgentStatusPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Agent status',
+                  'Handle new emails',
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 16,
@@ -548,8 +540,8 @@ class _AgentStatusPanel extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   isActive
-                      ? 'Active: new unread emails are processed automatically.'
-                      : 'Paused: emails stay untouched until you resume it.',
+                      ? 'Unread emails are checked and prepared for your review.'
+                      : 'New emails will wait until you turn this back on.',
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 13,
@@ -588,10 +580,78 @@ class _SettingCard extends StatelessWidget {
   }
 }
 
-class _SliderSettingCard extends StatelessWidget {
-  const _SliderSettingCard({
+class _AdvancedAssistantSettings extends StatelessWidget {
+  const _AdvancedAssistantSettings({
+    required this.urgencyThreshold,
+    required this.confidenceThreshold,
+    required this.onUrgencyChanged,
+    required this.onConfidenceChanged,
+  });
+
+  final double urgencyThreshold;
+  final double confidenceThreshold;
+  final ValueChanged<double> onUrgencyChanged;
+  final ValueChanged<double> onConfidenceChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
+    return _SettingCard(
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          iconColor: tone.muted,
+          collapsedIconColor: tone.muted,
+          title: Text(
+            'Advanced tuning',
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          subtitle: Text(
+            'Only change this if the team asks you to.',
+            style: TextStyle(
+              color: tone.muted,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          children: [
+            _AdvancedSlider(
+              title: 'Urgent email sensitivity',
+              valueLabel: urgencyThreshold.toStringAsFixed(1),
+              value: urgencyThreshold,
+              min: 1,
+              max: 10,
+              divisions: 9,
+              onChanged: onUrgencyChanged,
+            ),
+            const SizedBox(height: 8),
+            _AdvancedSlider(
+              title: 'Review strictness',
+              valueLabel: '${confidenceThreshold.toStringAsFixed(0)}%',
+              value: confidenceThreshold,
+              min: 0,
+              max: 100,
+              divisions: 10,
+              onChanged: onConfidenceChanged,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdvancedSlider extends StatelessWidget {
+  const _AdvancedSlider({
     required this.title,
-    required this.subtitle,
+    required this.valueLabel,
     required this.value,
     required this.min,
     required this.max,
@@ -600,7 +660,7 @@ class _SliderSettingCard extends StatelessWidget {
   });
 
   final String title;
-  final String subtitle;
+  final String valueLabel;
   final double value;
   final double min;
   final double max;
@@ -611,47 +671,41 @@ class _SliderSettingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tone = _ProfileTone.of(context);
 
-    return _SettingCard(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: tone.text,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: tone.text,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                 ),
-                Text(
-                  subtitle.replaceFirst('Score: ', ''),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AppPalette.teal,
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 6),
-            Slider(
-              value: value.clamp(min, max),
-              onChanged: onChanged,
-              min: min,
-              max: max,
-              divisions: divisions,
-              activeColor: AppPalette.lavender,
+            Text(
+              valueLabel,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: AppPalette.teal,
+              ),
             ),
           ],
         ),
-      ),
+        Slider(
+          value: value.clamp(min, max),
+          onChanged: onChanged,
+          min: min,
+          max: max,
+          divisions: divisions,
+          activeColor: AppPalette.lavender,
+        ),
+      ],
     );
   }
 }
