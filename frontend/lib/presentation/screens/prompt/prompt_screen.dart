@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/domain/usecases/agent_usecase.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
+import 'package:tt_mail_assistant/presentation/widgets/app_bottom_navigation_bar.dart';
 
 class PromptScreen extends StatefulWidget {
   const PromptScreen({super.key});
@@ -11,6 +13,7 @@ class PromptScreen extends StatefulWidget {
 
 class _PromptScreenState extends State<PromptScreen> {
   late final AgentUseCase _agentUseCase;
+  late final ReviewViewModel _reviewViewModel;
   final TextEditingController _promptController = TextEditingController();
 
   // ============================================================
@@ -26,12 +29,19 @@ class _PromptScreenState extends State<PromptScreen> {
   void initState() {
     super.initState();
     _agentUseCase = getIt<AgentUseCase>();
+    _reviewViewModel = getIt<ReviewViewModel>();
+    _reviewViewModel.addListener(_onReviewChanged);
   }
 
   @override
   void dispose() {
+    _reviewViewModel.removeListener(_onReviewChanged);
     _promptController.dispose();
     super.dispose();
+  }
+
+  void _onReviewChanged() {
+    if (mounted) setState(() {});
   }
 
   // ============================================================
@@ -310,7 +320,34 @@ class _PromptScreenState extends State<PromptScreen> {
       // ============================================================
       // BOTTOM NAVIGATION
       // ============================================================
-      bottomNavigationBar: _bottomNavigationBar(),
+      bottomNavigationBar: AppBottomNavigationBar(
+        selectedIndex: -1,
+        reviewCount: _reviewViewModel.pendingCount,
+        items: const [
+          AppNavigationItemData(
+            label: 'Home',
+            icon: Icons.home_outlined,
+            activeIcon: Icons.home_rounded,
+          ),
+          AppNavigationItemData(
+            label: 'Today',
+            icon: Icons.calendar_today_outlined,
+            activeIcon: Icons.calendar_today_rounded,
+          ),
+          AppNavigationItemData(
+            label: 'Review',
+            icon: Icons.mark_email_unread_outlined,
+            activeIcon: Icons.mark_email_unread_rounded,
+          ),
+          AppNavigationItemData(
+            label: 'Profile',
+            icon: Icons.person_outline_rounded,
+            activeIcon: Icons.person_rounded,
+          ),
+        ],
+        showAssistantSpace: false,
+        onItemSelected: (index) => Navigator.pop(context, index),
+      ),
     );
   }
 
@@ -566,92 +603,6 @@ class _PromptScreenState extends State<PromptScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  // ==============================================================
-  // BOTTOM NAVIGATION
-  // ==============================================================
-
-  Widget _bottomNavigationBar() {
-    return Container(
-      height: 68,
-      decoration: const BoxDecoration(
-        color: Color(0xFFFCF9F2),
-        border: Border(top: BorderSide(color: Color(0xFFE2DDD2))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(icon: Icons.home_outlined, label: 'Home'),
-
-          _navItem(icon: Icons.mail_outline_rounded, label: 'Today'),
-
-          _navItem(
-            icon: Icons.lightbulb_outline_rounded,
-            label: 'Review',
-            notification: '3',
-          ),
-
-          _navItem(icon: Icons.person_outline_rounded, label: 'Profile'),
-        ],
-      ),
-    );
-  }
-
-  // ==============================================================
-  // NAV ITEM
-  // ==============================================================
-
-  Widget _navItem({
-    required IconData icon,
-    required String label,
-    String? notification,
-  }) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Icon(icon, size: 22, color: const Color(0xFF858A85)),
-
-            if (notification != null)
-              Positioned(
-                right: -9,
-                top: -7,
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFB74A35),
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    notification,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-
-        const SizedBox(height: 3),
-
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9,
-            color: Color(0xFF858A85),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 }
