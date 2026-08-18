@@ -111,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 12),
                       _ShortcutsRow(
                         onReviewTap: () => widget.onSelectTab?.call(2),
+                        onSelectTab: widget.onSelectTab,
                       ),
                     ],
                   ),
@@ -642,9 +643,10 @@ class _ActivityCard extends StatelessWidget {
 }
 
 class _ShortcutsRow extends StatelessWidget {
-  const _ShortcutsRow({required this.onReviewTap});
+  const _ShortcutsRow({required this.onReviewTap, this.onSelectTab});
 
   final VoidCallback onReviewTap;
+  final ValueChanged<int>? onSelectTab;
 
   @override
   Widget build(BuildContext context) {
@@ -668,13 +670,16 @@ class _ShortcutsRow extends StatelessWidget {
             // =================================================
             // BULK EMAIL S10
             // =================================================
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              final selectedTab = await Navigator.push<int>(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const BulkEmailScreen(),
                 ),
               );
+              if (selectedTab != null && context.mounted) {
+                onSelectTab?.call(selectedTab);
+              }
             },
           ),
         ),
