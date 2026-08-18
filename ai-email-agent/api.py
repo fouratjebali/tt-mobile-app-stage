@@ -29,6 +29,18 @@ class SendReplyRequest(BaseModel):
     body: str = Field(min_length=1)
 
 
+class BulkDraft(BaseModel):
+    recipient: str = ""
+    to: str = ""
+    email: str = ""
+    subject: str = Field(min_length=1)
+    body: str = Field(min_length=1)
+
+
+class SendBulkDraftsRequest(BaseModel):
+    drafts: list[BulkDraft] = Field(min_length=1)
+
+
 @lru_cache(maxsize=1)
 def get_agent() -> EmailAgent:
     return EmailAgent()
@@ -115,6 +127,57 @@ def send_email_reply(email_id: str, request: SendReplyRequest) -> dict[str, Any]
         "message_id": message_id,
         "to": recipient,
         "subject": subject,
+    }
+
+
+@app.post("/bulk/send-drafts")
+def send_bulk_drafts(request: SendBulkDraftsRequest) -> dict[str, Any]:
+    details: list[dict[str, Any]] = []
+
+    for draft in request.drafts:
+        recipient = draft.to.strip() or draft.email.strip() or draft.recipient.strip()
+        if "@" not in recipient:
+            details.append(
+                {
+                    "recipient": recipient,
+                    "to": recipient,
+                    "subject": draft.subject,
+                    "status": "error",
+                    "error": "Recipient email is invalid.",
+                }
+            )
+            continue
+
+        try:
+            sent = gmail_send(to=recipient, subject=draft.subject, body=draft.body)
+            details.append(
+                {
+                    "recipient": recipient,
+                    "to": recipient,
+                    "subject": draft.subject,
+                    "status": "sent",
+                    "message_id": str(sent.get("id") or ""),
+                }
+            )
+        except Exception as exc:
+            details.append(
+                {
+                    "recipient": recipient,
+                    "to": recipient,
+                    "subject": draft.subject,
+                    "status": "error",
+                    "error": str(exc),
+                }
+            )
+
+    sent_count = sum(1 for item in details if item.get("status") == "sent")
+    error_count = len(details) - sent_count
+    return {
+        "status": "ok" if error_count == 0 else "partial",
+        "total": len(details),
+        "sent": sent_count,
+        "errors": error_count,
+        "details": details,
     }
 
 

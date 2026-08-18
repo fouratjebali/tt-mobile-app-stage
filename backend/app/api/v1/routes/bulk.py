@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.schemas.bulk import BulkRequest, BulkResponse
 from app.services.agent_bridge import AgentBridge, get_agent_bridge
@@ -21,11 +23,22 @@ async def generate_bulk(
     request: BulkRequest,
     bridge: AgentBridge = Depends(get_agent_bridge),
 ) -> BulkResponse:
-    result = await bridge.generate_bulk(
-        recipients=request.recipients_payload(),
-        topic=request.topic,
-        instructions=request.instructions,
-    )
+    recipients = request.recipients_payload()
+    try:
+        result = await bridge.generate_bulk(
+            recipients=recipients,
+            topic=request.topic,
+            instructions=request.instructions,
+        )
+    except HTTPException as exc:
+        if exc.status_code != 502:
+            raise
+        return _fallback_bulk_response(
+            recipients=recipients,
+            topic=request.topic,
+            raw_result=str(exc.detail),
+        )
+
     return _to_bulk_response(result.payload, result.raw_result)
 
 
@@ -50,6 +63,20 @@ async def send_bulk(
     return _to_bulk_response(result.payload, result.raw_result)
 
 
+@router.post(
+    "/send-drafts",
+    response_model=BulkResponse,
+    summary="Send edited group drafts",
+    description="Sends edited draft emails after the mobile preview step.",
+)
+async def send_edited_bulk_drafts(
+    request: dict[str, list[dict[str, Any]]],
+    bridge: AgentBridge = Depends(get_agent_bridge),
+) -> BulkResponse:
+    result = await bridge.send_bulk_drafts(drafts=request.get("drafts", []))
+    return _to_bulk_response(result.payload, result.raw_result)
+
+
 def _to_bulk_response(payload: dict, raw_result: str) -> BulkResponse:
     details = list_from_payload(payload, "details", "results", "emails")
     return BulkResponse(
@@ -57,6 +84,44 @@ def _to_bulk_response(payload: dict, raw_result: str) -> BulkResponse:
         total=int(payload.get("total", len(details)) or 0),
         sent=int(payload.get("sent", 0) or 0),
         errors=int(payload.get("errors", 0) or 0),
+        details=details,
+        raw_result=raw_result,
+    )
+
+
+def _fallback_bulk_response(
+    *,
+    recipients: list[dict[str, Any]],
+    topic: str,
+    raw_result: str,
+) -> BulkResponse:
+    details = []
+    for index, recipient in enumerate(recipients, start=1):
+        name = str(recipient.get("name") or "there").strip()
+        email = str(recipient.get("email") or "").strip()
+        role = str(recipient.get("role") or "Recipient").strip()
+        details.append(
+            {
+                "id": f"draft-{index}",
+                "to": email,
+                "recipient": name,
+                "subject": topic,
+                "body": (
+                    f"Hello {name},\n\n"
+                    f"I am contacting you about {topic}.\n\n"
+                    "Please let me know if this works for you.\n\n"
+                    "Best regards,"
+                ),
+                "status": "draft",
+                "personalization_note": f"Fallback draft for {role}.",
+            }
+        )
+
+    return BulkResponse(
+        status="fallback",
+        total=len(details),
+        sent=0,
+        errors=0,
         details=details,
         raw_result=raw_result,
     )

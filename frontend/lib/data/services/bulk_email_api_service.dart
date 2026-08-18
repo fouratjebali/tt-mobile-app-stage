@@ -56,6 +56,24 @@ class BulkEmailApiService {
         .toList();
   }
 
+  Future<List<BulkEmailResult>> sendDrafts({
+    required List<BulkEmail> drafts,
+  }) async {
+    final data = await _apiService.post(
+      '/bulk/send-drafts',
+      body: {'drafts': drafts.map((draft) => draft.toJson()).toList()},
+      timeout: _generationTimeout,
+    );
+
+    final results = _listFromResponse(data, 'details', 'results');
+
+    return results
+        .map(
+          (result) => BulkEmailResult.fromJson(result as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
   List<dynamic> _listFromResponse(
     dynamic data,
     String primary,

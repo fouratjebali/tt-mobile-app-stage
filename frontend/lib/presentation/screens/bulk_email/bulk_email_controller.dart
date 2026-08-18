@@ -58,6 +58,31 @@ class BulkEmailController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void replaceGenerated(List<BulkEmail> emails) {
+    generatedEmails = emails;
+    notifyListeners();
+  }
+
+  Future<void> sendGeneratedDrafts() async {
+    if (generatedEmails.isEmpty) {
+      return;
+    }
+
+    isLoading = true;
+    error = null;
+
+    notifyListeners();
+
+    try {
+      results = await apiService.sendDrafts(drafts: generatedEmails);
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> sendAll({
     required List<Map<String, String>> recipients,
     required String topic,

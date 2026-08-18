@@ -137,6 +137,14 @@ class AgentBridge:
             ),
         )
 
+    async def send_bulk_drafts(self, *, drafts: list[dict[str, Any]]) -> AgentBridgeResult:
+        payload = await self._post(
+            service_name="Email Agent",
+            url=f"{self._agent_url}/bulk/send-drafts",
+            json={"drafts": drafts},
+        )
+        return AgentBridgeResult(payload=payload, raw_result="")
+
     async def dashboard_stats(self) -> AgentBridgeResult:
         return await self._get_agent_json(
             path="/dashboard/stats",

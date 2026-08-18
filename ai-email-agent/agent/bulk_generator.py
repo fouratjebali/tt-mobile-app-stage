@@ -202,6 +202,7 @@ class BulkEmailGenerator:
                 "recipient":            ge.recipient.name,
                 "email":                ge.recipient.email,
                 "subject":              ge.subject,
+                "body":                 ge.body,
                 "body_preview":         ge.body[:200],
                 "personalization_note": ge.personalization_note,
                 "status":               ge.status,

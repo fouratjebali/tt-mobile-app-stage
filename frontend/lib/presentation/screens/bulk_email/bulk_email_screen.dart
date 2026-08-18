@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
+import 'package:tt_mail_assistant/data/models/bulk_email.dart';
 import 'package:tt_mail_assistant/data/services/bulk_email_api_service.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 import 'package:tt_mail_assistant/presentation/widgets/app_bottom_navigation_bar.dart';
@@ -109,7 +110,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
 
       if (!mounted) return;
       if (_controller.error != null) {
-        _showMessage(_controller.error!);
+        _showMessage(_friendlyError(_controller.error!));
         return;
       }
 
@@ -118,7 +119,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      _showMessage('Generation failed: $e');
+      _showMessage(_friendlyError(e.toString()));
     } finally {
       if (mounted) {
         setState(() {
@@ -140,7 +141,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
       return;
     }
     if (_controller.generatedEmails.isEmpty) {
-      _showMessage('Generate emails first, then preview and send.');
+      _showMessage('Generate drafts first, then preview and edit them.');
       return;
     }
 
@@ -148,17 +149,11 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   }
 
   Future<void> _sendGeneratedEmails() async {
-    final campaign = _campaignController.text.trim();
-    Navigator.pop(context);
-
-    await _controller.sendAll(
-      recipients: _bulkRecipientsPayload(),
-      topic: campaign,
-    );
+    await _controller.sendGeneratedDrafts();
 
     if (!mounted) return;
     if (_controller.error != null) {
-      _showMessage(_controller.error!);
+      _showMessage(_friendlyError(_controller.error!));
       return;
     }
 
@@ -182,65 +177,14 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   }
 
   void _showPreviewDialog() {
-    final tone = _BulkTone.of(context);
     showDialog<void>(
       context: context,
       builder:
-          (context) => AlertDialog(
-            backgroundColor: tone.surface,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: tone.border),
-            ),
-            title: Text(
-              'Preview and send',
-              style: TextStyle(
-                color: tone.text,
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            content: SizedBox(
-              width: 380,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _PreviewLabel(text: 'Campaign topic'),
-                    const SizedBox(height: 6),
-                    Text(
-                      _campaignController.text.trim(),
-                      style: TextStyle(
-                        color: tone.text,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _PreviewLabel(text: 'Generated drafts'),
-                    const SizedBox(height: 10),
-                    ..._controller.generatedEmails.map(
-                      (email) => _DraftPreview(
-                        recipient: email.recipient,
-                        subject: email.subject,
-                        body: email.body,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Close', style: TextStyle(color: tone.muted)),
-              ),
-              FilledButton(
-                onPressed: _sendGeneratedEmails,
-                child: const Text('Send'),
-              ),
-            ],
+          (context) => _PreviewAndEditDialog(
+            campaign: _campaignController.text.trim(),
+            drafts: _controller.generatedEmails,
+            onSaveDrafts: _controller.replaceGenerated,
+            onSend: _sendGeneratedEmails,
           ),
     );
   }
@@ -249,6 +193,17 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
+  }
+
+  String _friendlyError(String message) {
+    final lower = message.toLowerCase();
+    if (lower.contains('agent') && lower.contains('unavailable')) {
+      return 'Draft service is not ready yet. Please check the backend services and try again.';
+    }
+    if (lower.contains('taking too long') || lower.contains('timeout')) {
+      return 'Draft preparation is taking longer than expected. Please try with fewer recipients or try again.';
+    }
+    return message.replaceFirst(RegExp(r'^Exception:\s*'), '');
   }
 
   @override
@@ -327,7 +282,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                               : const Icon(Icons.auto_awesome_rounded),
                       label: Text(
                         _isGenerating
-                            ? 'Drafting ${_recipients.length} emails'
+                            ? 'Preparing your drafts'
                             : 'Generate drafts',
                       ),
                     ),
@@ -338,8 +293,8 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: _isGenerating ? null : _previewAndSend,
-                      icon: const Icon(Icons.send_outlined, size: 18),
-                      label: const Text('Preview and send'),
+                      icon: const Icon(Icons.edit_note_rounded, size: 20),
+                      label: const Text('Preview and edit'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppPalette.deepTeal,
                         side: BorderSide(
@@ -787,7 +742,7 @@ class _GenerationProgress extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Ollama is writing $recipientCount drafts. This can take a minute or two.',
+                  'This can take a little while for $recipientCount recipients. You can stay on this screen while we prepare them.',
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 12,
@@ -977,23 +932,165 @@ class _PreviewLabel extends StatelessWidget {
   }
 }
 
-class _DraftPreview extends StatelessWidget {
-  const _DraftPreview({
-    required this.recipient,
-    required this.subject,
-    required this.body,
+class _PreviewAndEditDialog extends StatefulWidget {
+  const _PreviewAndEditDialog({
+    required this.campaign,
+    required this.drafts,
+    required this.onSaveDrafts,
+    required this.onSend,
   });
 
-  final String recipient;
-  final String subject;
-  final String body;
+  final String campaign;
+  final List<BulkEmail> drafts;
+  final ValueChanged<List<BulkEmail>> onSaveDrafts;
+  final Future<void> Function() onSend;
+
+  @override
+  State<_PreviewAndEditDialog> createState() => _PreviewAndEditDialogState();
+}
+
+class _PreviewAndEditDialogState extends State<_PreviewAndEditDialog> {
+  late final List<TextEditingController> _subjectControllers;
+  late final List<TextEditingController> _bodyControllers;
+  bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _subjectControllers =
+        widget.drafts
+            .map((draft) => TextEditingController(text: draft.subject))
+            .toList();
+    _bodyControllers =
+        widget.drafts
+            .map((draft) => TextEditingController(text: draft.body))
+            .toList();
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _subjectControllers) {
+      controller.dispose();
+    }
+    for (final controller in _bodyControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    setState(() {
+      _isSending = true;
+    });
+    widget.onSaveDrafts(_editedDrafts());
+    await widget.onSend();
+    if (mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  List<BulkEmail> _editedDrafts() {
+    return List.generate(widget.drafts.length, (index) {
+      return widget.drafts[index].copyWith(
+        subject: _subjectControllers[index].text.trim(),
+        body: _bodyControllers[index].text.trim(),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final tone = _BulkTone.of(context);
+
+    return AlertDialog(
+      backgroundColor: tone.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: tone.border),
+      ),
+      title: Text(
+        'Preview and edit',
+        style: TextStyle(
+          color: tone.text,
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _PreviewLabel(text: 'Campaign topic'),
+              const SizedBox(height: 6),
+              Text(
+                widget.campaign,
+                style: TextStyle(
+                  color: tone.text,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _PreviewLabel(text: 'Drafts'),
+              const SizedBox(height: 10),
+              ...List.generate(widget.drafts.length, (index) {
+                final draft = widget.drafts[index];
+                return _EditableDraftCard(
+                  draft: draft,
+                  subjectController: _subjectControllers[index],
+                  bodyController: _bodyControllers[index],
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSending ? null : () => Navigator.pop(context),
+          child: Text('Close', style: TextStyle(color: tone.muted)),
+        ),
+        FilledButton.icon(
+          onPressed: _isSending ? null : _send,
+          icon:
+              _isSending
+                  ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppPalette.white,
+                    ),
+                  )
+                  : const Icon(Icons.send_rounded, size: 18),
+          label: Text(_isSending ? 'Sending' : 'Send'),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditableDraftCard extends StatelessWidget {
+  const _EditableDraftCard({
+    required this.draft,
+    required this.subjectController,
+    required this.bodyController,
+  });
+
+  final BulkEmail draft;
+  final TextEditingController subjectController;
+  final TextEditingController bodyController;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _BulkTone.of(context);
+
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: tone.softSurface,
@@ -1004,23 +1101,78 @@ class _DraftPreview extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$recipient - $subject',
-            maxLines: 2,
+            draft.recipient,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: tone.text,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 5),
-          Text(
-            body,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: tone.muted, fontSize: 11, height: 1.35),
+          const SizedBox(height: 8),
+          _EditableDraftField(
+            controller: subjectController,
+            label: 'Subject',
+            maxLines: 1,
+          ),
+          const SizedBox(height: 8),
+          _EditableDraftField(
+            controller: bodyController,
+            label: 'Message',
+            maxLines: 7,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EditableDraftField extends StatelessWidget {
+  const _EditableDraftField({
+    required this.controller,
+    required this.label,
+    required this.maxLines,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _BulkTone.of(context);
+
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      style: TextStyle(
+        color: tone.text,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        height: 1.35,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: tone.muted, fontWeight: FontWeight.w700),
+        filled: true,
+        fillColor: tone.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: tone.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: tone.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppPalette.teal, width: 1.4),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
       ),
     );
   }

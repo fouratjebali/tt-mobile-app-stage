@@ -21,6 +21,9 @@ class BulkEmail {
           json['id']?.toString() ??
           json['email_id']?.toString() ??
           json['message_id']?.toString() ??
+          json['to']?.toString() ??
+          json['email']?.toString() ??
+          recipientEmail ??
           '',
       recipient:
           recipientEmail ??
@@ -39,7 +42,14 @@ class BulkEmail {
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'recipient': recipient, 'subject': subject, 'body': body};
+    return {
+      'id': id,
+      'recipient': recipient,
+      'to': recipient,
+      'email': recipient,
+      'subject': subject,
+      'body': body,
+    };
   }
 
   BulkEmail copyWith({
