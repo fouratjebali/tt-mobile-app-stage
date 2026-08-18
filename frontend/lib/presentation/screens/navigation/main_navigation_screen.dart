@@ -81,12 +81,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: _screens),
-      bottomNavigationBar: _FloatingNavigationBar(
+      floatingActionButton: _AssistantFab(onPressed: _openPrompt),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: _NotchedNavigationBar(
         selectedIndex: _selectedIndex,
         reviewCount: reviewCount,
         items: _items,
         onItemSelected: _selectTab,
-        onAssistantPressed: _openPrompt,
       ),
     );
   }
@@ -111,84 +112,142 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
-class _FloatingNavigationBar extends StatelessWidget {
-  const _FloatingNavigationBar({
+class _NotchedNavigationBar extends StatelessWidget {
+  const _NotchedNavigationBar({
     required this.selectedIndex,
     required this.reviewCount,
     required this.items,
     required this.onItemSelected,
-    required this.onAssistantPressed,
   });
 
   final int selectedIndex;
   final int reviewCount;
   final List<_NavItemData> items;
   final ValueChanged<int> onItemSelected;
-  final VoidCallback onAssistantPressed;
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? const Color(0xFF151C1A) : AppPalette.paper;
+    final borderColor =
+        isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : AppPalette.line.withValues(alpha: 0.85);
 
-    return SafeArea(
-      minimum: EdgeInsets.fromLTRB(14, 0, 14, 12 + bottomPadding * 0.2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: _NavSurface(
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.12),
+            blurRadius: 28,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: BottomAppBar(
+        height: 78,
+        color: surface,
+        elevation: 0,
+        notchMargin: 9,
+        shape: const CircularNotchedRectangle(),
+        clipBehavior: Clip.antiAlias,
+        padding: EdgeInsets.zero,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: borderColor)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
               child: Row(
                 children: [
-                  for (var index = 0; index < items.length; index++)
-                    Expanded(
-                      child: _NavItem(
-                        data: items[index],
-                        selected: selectedIndex == index,
-                        badgeCount: index == 2 ? reviewCount : 0,
-                        onTap: () => onItemSelected(index),
-                      ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _NavItem(
+                            data: items[0],
+                            selected: selectedIndex == 0,
+                            badgeCount: 0,
+                            onTap: () => onItemSelected(0),
+                          ),
+                        ),
+                        Expanded(
+                          child: _NavItem(
+                            data: items[1],
+                            selected: selectedIndex == 1,
+                            badgeCount: 0,
+                            onTap: () => onItemSelected(1),
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 78),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _NavItem(
+                            data: items[2],
+                            selected: selectedIndex == 2,
+                            badgeCount: reviewCount,
+                            onTap: () => onItemSelected(2),
+                          ),
+                        ),
+                        Expanded(
+                          child: _NavItem(
+                            data: items[3],
+                            selected: selectedIndex == 3,
+                            badgeCount: 0,
+                            onTap: () => onItemSelected(3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          _AssistantButton(onPressed: onAssistantPressed),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _NavSurface extends StatelessWidget {
-  const _NavSurface({required this.child});
+class _AssistantFab extends StatelessWidget {
+  const _AssistantFab({required this.onPressed});
 
-  final Widget child;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      height: 68,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      width: 64,
+      height: 64,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF151C1A) : AppPalette.paper,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color:
-              isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : AppPalette.line.withValues(alpha: 0.9),
-        ),
+        shape: BoxShape.circle,
+        border: Border.all(color: AppPalette.paper, width: 5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.12),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: AppPalette.deepTeal.withValues(alpha: 0.34),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: child,
+      child: FloatingActionButton(
+        heroTag: 'assistantPromptFab',
+        elevation: 0,
+        highlightElevation: 0,
+        backgroundColor: AppPalette.deepTeal,
+        foregroundColor: AppPalette.white,
+        shape: const CircleBorder(),
+        onPressed: onPressed,
+        child: const Icon(Icons.auto_awesome_rounded, size: 28),
+      ),
     );
   }
 }
@@ -223,93 +282,69 @@ class _NavItem extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
             height: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color:
-                  selected
-                      ? activeColor.withValues(alpha: isDark ? 0.18 : 0.12)
-                      : Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Icon(
-                      selected ? data.activeIcon : data.icon,
-                      size: 22,
-                      color: selected ? activeColor : inactiveColor,
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  bottom: selected ? 2 : -6,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    width: selected ? 28 : 0,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: activeColor,
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                    if (badgeCount > 0)
-                      Positioned(
-                        right: -8,
-                        top: -7,
-                        child: _NavBadge(count: badgeCount),
-                      ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 5),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 180),
-                  style: TextStyle(
-                    color: selected ? activeColor : inactiveColor,
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-                    height: 1,
-                  ),
-                  child: Text(
-                    data.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(
+                          selected ? data.activeIcon : data.icon,
+                          size: selected ? 25 : 24,
+                          color: selected ? activeColor : inactiveColor,
+                        ),
+                        if (badgeCount > 0)
+                          Positioned(
+                            right: -9,
+                            top: -8,
+                            child: _NavBadge(count: badgeCount),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 180),
+                      style: TextStyle(
+                        color: selected ? activeColor : inactiveColor,
+                        fontSize: 10.5,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w700,
+                        height: 1,
+                      ),
+                      child: Text(
+                        data.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AssistantButton extends StatelessWidget {
-  const _AssistantButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 62,
-      height: 62,
-      decoration: BoxDecoration(
-        color: AppPalette.deepTeal,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppPalette.deepTeal.withValues(alpha: 0.32),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(20),
-          child: const Icon(
-            Icons.auto_awesome_rounded,
-            color: AppPalette.white,
-            size: 27,
           ),
         ),
       ),
