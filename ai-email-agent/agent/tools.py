@@ -276,6 +276,76 @@ def suggest_reply(
     }, ensure_ascii=False)
 
 
+# OUTIL 6 : Analyse complÃ¨te d'un email
+@tool
+def analyze_email(email_id: str) -> str:
+    """
+    Runs the complete email analysis in one reliable step.
+    Prefer this tool when the user asks to read, classify, prioritize,
+    summarize, or draft a reply for a single email.
+
+    Args:
+        email_id: the Gmail message ID
+
+    Returns:
+        JSON string with category, priority, summary, action, and suggested reply
+    """
+    validation_error = _validate_email_id(email_id)
+    if validation_error:
+        return json.dumps({"error": validation_error, "email_id": email_id}, ensure_ascii=False)
+
+    try:
+        email = fetch_single_email(email_id)
+    except Exception as exc:
+        return json.dumps({"error": str(exc), "email_id": email_id}, ensure_ascii=False)
+
+    if not email:
+        return json.dumps({"error": f"Email {email_id} not found", "email_id": email_id}, ensure_ascii=False)
+
+    classification = _chains.classify(
+        subject=email.subject,
+        sender=email.sender,
+        body=email.body,
+    )
+    priority = _chains.prioritize(
+        subject=email.subject,
+        sender=email.sender,
+        body=email.body,
+        category=classification.category,
+    )
+    summary = _chains.summarize(
+        subject=email.subject,
+        sender=email.sender,
+        body=email.body,
+    )
+    reply = _chains.suggest_reply(
+        subject=email.subject,
+        sender=email.sender,
+        body=email.body,
+        category=classification.category,
+        priority=priority.priority,
+        summary=summary.summary,
+    )
+
+    return json.dumps({
+        "email_id": email_id,
+        "subject": email.subject,
+        "sender": email.sender,
+        "category": classification.category,
+        "confidence": classification.confidence,
+        "classification_reason": classification.reason,
+        "priority": priority.priority,
+        "urgency_score": priority.urgency_score,
+        "priority_reason": priority.reason,
+        "summary": summary.summary,
+        "action_required": summary.action_required,
+        "language": summary.language,
+        "reply_subject": reply.reply_subject,
+        "suggested_reply": reply.reply,
+        "tone": reply.tone,
+    }, ensure_ascii=False)
+
+
 # OUTIL 6 : Envoyer un email
 @tool
 def send_single_email(to: str, subject: str, body: str) -> str:
@@ -461,6 +531,7 @@ def generate_and_send_bulk_emails(
 # Liste de tous les outils (importée par l'agent)
 ALL_TOOLS = [
     read_emails,
+    analyze_email,
     classify_email,
     prioritize_email,
     summarize_email,

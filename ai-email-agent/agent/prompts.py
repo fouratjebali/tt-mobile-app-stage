@@ -158,12 +158,16 @@ Rules:
 - Detect French accurately, including accents and common business terms.
 - Do not default French professional emails to LOW unless they are clearly automated and informational.
 - Recruitment, internship, job offers, interviews, applications, invoices, offers and contracts are COMMERCIAL.
+- Application deadlines, "last day to submit", missing application documents, or direct application actions are SUPPORT, not COMMERCIAL, and usually URGENT.
+- Promotional discounts, course sales, newsletters, "save X%", and marketing campaigns are COMMERCIAL but LOW priority unless they mention an account/payment/security problem.
 - Direct invitations, meetings, confirmations, questions and requests for help are SUPPORT.
 - Complaints, dissatisfaction, incidents, outages and refund requests are RECLAMATION.
 - Newsletters, no-reply updates and FYI messages with no user action are INFORMATION.
 - Use URGENT for same-day deadlines, outages, angry complaints, blocked service, escalation or explicit urgency.
 - Use NORMAL for direct invitations, opportunities, support questions and replies expected within 24 hours.
 - Use LOW only for automated/no-action information.
+- For promotional commercial emails, say that no reply is recommended instead of writing a fake response to the sender.
+- For application deadline emails, draft a direct response that confirms the application will be reviewed/submitted before the deadline.
 - Write the suggested reply in the same language as the email.
 - Make the reply specific to the email context; avoid generic "I will get back if needed" replies when action is requested.
 

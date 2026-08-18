@@ -91,3 +91,63 @@ def test_automated_linkedin_reaction_stays_low_information():
 
     assert classification.category == "INFORMATION"
     assert priority.priority == "LOW"
+
+
+def test_application_deadline_is_urgent_support_not_commercial():
+    chains = EmailChains()
+    subject = "Last delay to submit your application"
+    sender = "Hustle Hard <hard53823@gmail.com>"
+    body = (
+        "This is the last day to submit your application. "
+        "Please review the requirements and send your application before the deadline."
+    )
+
+    classification = chains.classify(subject, sender, body)
+    priority = chains.prioritize(subject, sender, body, classification.category)
+    summary = chains.summarize(subject, sender, body)
+    reply = chains.suggest_reply(
+        subject,
+        sender,
+        body,
+        classification.category,
+        priority.priority,
+        summary.summary,
+    )
+
+    assert classification.category == "SUPPORT"
+    assert priority.priority == "URGENT"
+    assert priority.urgency_score >= 8
+    assert "submit my application before the deadline" in reply.reply
+
+
+def test_course_discount_is_low_commercial_not_urgent_complaint():
+    chains = EmailChains()
+    subject = "Save 15% on select courses and programs"
+    sender = "edX Team <news@sfmc.edx.org>"
+    body = (
+        "<html><head><style>.cta:hover { color: red; }</style></head>"
+        "<body><h1>Save 15% on select courses and programs</h1>"
+        "<p>Explore online learning options and enroll if you are interested.</p>"
+        "<p>Need enterprise learning solutions? edX For Business can help.</p>"
+        "<p>If you no longer wish to receive these emails, unsubscribe.</p>"
+        "</body></html>"
+    )
+
+    classification = chains.classify(subject, sender, body)
+    priority = chains.prioritize(subject, sender, body, classification.category)
+    summary = chains.summarize(subject, sender, body)
+    reply = chains.suggest_reply(
+        subject,
+        sender,
+        body,
+        classification.category,
+        priority.priority,
+        summary.summary,
+    )
+
+    assert classification.category == "COMMERCIAL"
+    assert priority.priority == "LOW"
+    assert priority.urgency_score <= 3
+    assert summary.action_required == "No reply required; review the offer only if interested"
+    assert reply.tone == "no_reply"
+    assert "No reply recommended" in reply.reply

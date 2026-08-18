@@ -1,5 +1,6 @@
 import json
 import re
+import html as html_lib
 from dataclasses import dataclass, fields
 
 try:
@@ -234,6 +235,62 @@ _ACTION_WORDS = (
     "pourriez-vous",
 )
 
+_APPLICATION_DEADLINE_WORDS = (
+    "last day to submit",
+    "last day",
+    "last delay to submit",
+    "final day",
+    "final reminder to submit",
+    "submit your application",
+    "application deadline",
+    "deadline to submit",
+    "deadline to apply",
+    "apply before",
+    "applications close",
+    "applications closing",
+    "closes today",
+    "closing today",
+    "last deadline",
+    "dernier jour",
+    "dernier delai",
+    "dernier dÃ©lai",
+    "date limite",
+    "deposer votre candidature",
+    "deposez votre candidature",
+    "soumettre votre candidature",
+)
+
+_PROMOTIONAL_WORDS = (
+    "save ",
+    "save up to",
+    "% off",
+    "discount",
+    "promo",
+    "promotion",
+    "sale",
+    "coupon",
+    "select courses",
+    "courses and programs",
+    "course",
+    "courses",
+    "programs",
+    "edx",
+    "enroll now",
+    "limited-time offer",
+    "limited time offer",
+    "deal",
+    "special offer",
+)
+
+_PROMOTIONAL_SENDERS = (
+    "news@",
+    "newsletter",
+    "marketing@",
+    "offers@",
+    "sfmc",
+    "edx",
+)
+
 _SOCIAL_NOTIFICATION_WORDS = (
     "reacted to",
     "a réagi",
@@ -290,7 +347,22 @@ class EmailChains:
 
     @staticmethod
     def _normalize_text(subject: str = "", sender: str = "", body: str = "") -> str:
-        return f"{subject}\n{sender}\n{body}".lower()
+        return "\n".join(
+            EmailChains._plain_text(part)
+            for part in (subject, sender, body)
+            if part
+        ).lower()
+
+    @staticmethod
+    def _plain_text(value: str) -> str:
+        text = html_lib.unescape(str(value))
+        text = re.sub(r"(?is)<!--.*?-->", " ", text)
+        text = re.sub(r"(?is)<(script|style|head)[^>]*>.*?</\1>", " ", text)
+        text = re.sub(r"(?is)<br\s*/?>", "\n", text)
+        text = re.sub(r"(?is)</(p|div|tr|td|li|h[1-6])>", "\n", text)
+        text = re.sub(r"(?is)<[^>]+>", " ", text)
+        text = re.sub(r"https?://\S+", " ", text)
+        return re.sub(r"\s+", " ", text).strip()
 
     @staticmethod
     def _contains_any(text: str, words: tuple[str, ...]) -> bool:
@@ -340,8 +412,45 @@ class EmailChains:
     def _is_social_notification(cls, text: str) -> bool:
         return cls._contains_any(text, _SOCIAL_NOTIFICATION_WORDS)
 
+    @classmethod
+    def _is_application_deadline(cls, text: str) -> bool:
+        return cls._contains_any(text, _APPLICATION_DEADLINE_WORDS)
+
+    @classmethod
+    def _is_promotional_offer(cls, text: str, sender: str = "") -> bool:
+        sender_lower = sender.lower()
+        has_promo_sender = cls._contains_any(sender_lower, _PROMOTIONAL_SENDERS)
+        has_promo_words = cls._contains_any(text, _PROMOTIONAL_WORDS)
+        has_discount = bool(re.search(r"\b\d{1,2}\s?%\b", text))
+        return has_promo_words or has_discount or (
+            has_promo_sender and cls._contains_any(text, ("course", "program", "offer"))
+        )
+
+    @classmethod
+    def _is_deterministic_intent(cls, text: str, sender: str) -> bool:
+        return (
+            cls._is_application_deadline(text)
+            or cls._is_promotional_offer(text, sender)
+            or cls._is_social_notification(text)
+            or cls._contains_any(text, _COMPLAINT_WORDS)
+        )
+
     def _rule_based_classify(self, subject: str, sender: str, body: str):
         text = self._normalize_text(subject, sender, body)
+
+        if self._is_application_deadline(text):
+            return ClassificationResult(
+                category="SUPPORT",
+                confidence=0.93,
+                reason="Application deadline requires direct user action",
+            )
+
+        if self._is_promotional_offer(text, sender):
+            return ClassificationResult(
+                category="COMMERCIAL",
+                confidence=0.91,
+                reason="Promotional or marketing offer detected",
+            )
 
         if self._contains_any(text, _COMPLAINT_WORDS):
             return ClassificationResult(
@@ -403,6 +512,12 @@ class EmailChains:
         career_signal = self._is_career_related(text)
         invitation_signal = self._is_invitation(text)
 
+        if self._is_application_deadline(text):
+            return PriorityResult("URGENT", 9, "Application deadline is time-sensitive")
+
+        if self._is_promotional_offer(text, sender):
+            return PriorityResult("LOW", 2, "Promotional commercial email with no required reply")
+
         if category == "RECLAMATION":
             if urgent_signal:
                 return PriorityResult("URGENT", 9, "Complaint with urgent language")
@@ -435,7 +550,13 @@ class EmailChains:
     def _rule_based_summary(self, subject: str, sender: str, body: str):
         text = self._normalize_text(subject, sender, body)
         language = self._detect_language(f"{subject}\n{body}")
-        if self._is_career_related(text) and subject:
+        if self._is_application_deadline(text) and subject:
+            summary = (
+                f"Application deadline: {subject}. Submit or review the application before the deadline."
+            )
+        elif self._is_promotional_offer(text, sender) and subject:
+            summary = f"Promotional offer: {subject}."
+        elif self._is_career_related(text) and subject:
             summary = (
                 f"Opportunité professionnelle à examiner : {subject}"
                 if language == "fr"
@@ -452,7 +573,11 @@ class EmailChains:
         if not summary:
             summary = "Email summary unavailable"
 
-        if self._contains_any(text, _COMPLAINT_WORDS):
+        if self._is_application_deadline(text):
+            action_required = "Submit or review the application before the deadline"
+        elif self._is_promotional_offer(text, sender):
+            action_required = "No reply required; review the offer only if interested"
+        elif self._contains_any(text, _COMPLAINT_WORDS):
             action_required = "Respond to the complaint and propose a resolution"
         elif self._is_career_related(text):
             action_required = "Review the opportunity and decide whether to apply or respond"
@@ -491,7 +616,21 @@ class EmailChains:
         is_urgent = priority == "URGENT"
         reply_subject = f"Re: {subject}" if subject else "Re: Your message"
 
-        if category == "RECLAMATION":
+        if self._is_application_deadline(text):
+            reply = (
+                "Hello,\n\n"
+                "Thank you for the reminder. I will review the requirements and submit my application before the deadline. "
+                "Please let me know if any document or information is still missing.\n\n"
+                "Best regards,"
+            )
+            tone = "professional"
+        elif self._is_promotional_offer(text, sender):
+            reply = (
+                "No reply recommended.\n\n"
+                "This is a promotional commercial email. Review the offer only if it is useful; otherwise it can be ignored."
+            )
+            tone = "no_reply"
+        elif category == "RECLAMATION":
             reply = (
                 "Bonjour,\n\n"
                 "Merci pour votre message. Je suis désolé pour le problème rencontré et je vais l'examiner en priorité. "
@@ -587,19 +726,29 @@ class EmailChains:
         return ReplyResult(reply=reply, reply_subject=reply_subject, tone=tone)
 
     def classify(self, subject: str, sender: str, body: str):
+        fallback = self._rule_based_classify(subject, sender, body)
+        text = self._normalize_text(subject, sender, body)
+        if self._is_deterministic_intent(text, sender):
+            return fallback
+
         if self.analysis_chain is not None:
             try:
                 raw = self.analysis_chain.invoke(
                     {"subject": subject, "sender": sender, "body": body, "category": ""}
                 )
                 return self._parse_model_result(
-                    raw, self._rule_based_classify(subject, sender, body)
+                    raw, fallback
                 )
             except Exception:
                 pass
-        return self._rule_based_classify(subject, sender, body)
+        return fallback
 
     def prioritize(self, subject: str, sender: str, body: str, category: str):
+        fallback = self._rule_based_priority(subject, sender, body, category)
+        text = self._normalize_text(subject, sender, body)
+        if self._is_application_deadline(text) or self._is_promotional_offer(text, sender):
+            return fallback
+
         if self.analysis_chain is not None:
             try:
                 raw = self.analysis_chain.invoke(
@@ -611,24 +760,29 @@ class EmailChains:
                     }
                 )
                 return self._parse_model_result(
-                    raw, self._rule_based_priority(subject, sender, body, category)
+                    raw, fallback
                 )
             except Exception:
                 pass
-        return self._rule_based_priority(subject, sender, body, category)
+        return fallback
 
     def summarize(self, subject: str, sender: str, body: str):
+        fallback = self._rule_based_summary(subject, sender, body)
+        text = self._normalize_text(subject, sender, body)
+        if self._is_application_deadline(text) or self._is_promotional_offer(text, sender):
+            return fallback
+
         if self.analysis_chain is not None:
             try:
                 raw = self.analysis_chain.invoke(
                     {"subject": subject, "sender": sender, "body": body, "category": ""}
                 )
                 return self._parse_model_result(
-                    raw, self._rule_based_summary(subject, sender, body)
+                    raw, fallback
                 )
             except Exception:
                 pass
-        return self._rule_based_summary(subject, sender, body)
+        return fallback
 
     def suggest_reply(
         self,
@@ -639,6 +793,11 @@ class EmailChains:
         priority: str,
         summary: str,
     ):
+        fallback = self._rule_based_reply(subject, sender, body, category, priority, summary)
+        text = self._normalize_text(subject, sender, body)
+        if self._is_application_deadline(text) or self._is_promotional_offer(text, sender):
+            return fallback
+
         if self.analysis_chain is not None:
             try:
                 raw = self.analysis_chain.invoke(
@@ -653,13 +812,11 @@ class EmailChains:
                 )
                 return self._parse_model_result(
                     raw,
-                    self._rule_based_reply(
-                        subject, sender, body, category, priority, summary
-                    ),
+                    fallback,
                 )
             except Exception:
                 pass
-        return self._rule_based_reply(subject, sender, body, category, priority, summary)
+        return fallback
 
     @staticmethod
     def _parse_model_result(raw, fallback):
