@@ -247,12 +247,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // AGENT SETTINGS SECTION
           _SectionHeader(title: 'Agent Settings'),
           const SizedBox(height: 12),
-          _ThresholdCard(
-            title: 'Auto-processing',
-            subtitle: 'Agent automatically processes emails',
-            value: autoProcessing,
-            onChanged: (val) => _updateAutoProcessing(val as bool),
-            isSwitch: true,
+          _AgentStatusPanel(
+            isActive: autoProcessing,
+            onChanged: _updateAutoProcessing,
           ),
           const SizedBox(height: 12),
           _SliderSettingCard(
@@ -384,16 +381,14 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return _SettingCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             CircleAvatar(
               radius: 32,
-              backgroundColor: AppPalette.lavender.withValues(alpha: 0.2),
+              backgroundColor: AppPalette.sage,
               backgroundImage:
                   userPhotoUrl != null ? NetworkImage(userPhotoUrl!) : null,
               child:
@@ -433,13 +428,13 @@ class _AccountCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       'Gmail connected',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.green.shade700,
+                        color: AppPalette.deepTeal,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -462,62 +457,87 @@ class _AccountCard extends StatelessWidget {
   }
 }
 
-class _ThresholdCard extends StatelessWidget {
-  const _ThresholdCard({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-    required this.isSwitch,
-  });
+class _AgentStatusPanel extends StatelessWidget {
+  const _AgentStatusPanel({required this.isActive, required this.onChanged});
 
-  final String title;
-  final String subtitle;
-  final dynamic value;
-  final Function(dynamic) onChanged;
-  final bool isSwitch;
+  final bool isActive;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            if (isSwitch)
-              Switch(
-                value: value as bool,
-                onChanged: (newValue) async {
-                  await onChanged(newValue);
-                },
-                activeColor: AppPalette.lavender,
-              ),
-          ],
-        ),
+    final color = isActive ? AppPalette.deepTeal : AppPalette.amber;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppPalette.paper,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppPalette.line),
       ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isActive ? Icons.bolt_outlined : Icons.pause_circle_outline,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Agent status',
+                  style: TextStyle(
+                    color: AppPalette.ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isActive
+                      ? 'Active: new unread emails are processed automatically.'
+                      : 'Paused: emails stay untouched until you resume it.',
+                  style: TextStyle(
+                    color: AppPalette.pine.withValues(alpha: 0.68),
+                    fontSize: 13,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(value: isActive, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingCard extends StatelessWidget {
+  const _SettingCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppPalette.paper,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppPalette.line),
+      ),
+      child: child,
     );
   }
 }
@@ -543,9 +563,7 @@ class _SliderSettingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    return _SettingCard(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
         child: Column(
@@ -602,9 +620,7 @@ class _PreferenceToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return _SettingCard(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
