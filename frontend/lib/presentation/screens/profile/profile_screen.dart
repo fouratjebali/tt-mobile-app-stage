@@ -224,6 +224,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
+    final tone = _ProfileTone.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile & Settings'),
@@ -294,37 +296,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onChanged: _updateDarkMode,
           ),
           const SizedBox(height: 12),
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: _showReplyLanguagePicker,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Reply language',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+          _SettingCard(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: _showReplyLanguagePicker,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 16,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Reply language',
+                          style: TextStyle(
+                            color: tone.text,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        replyLanguage,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
-                ],
+                        const SizedBox(height: 4),
+                        Text(
+                          replyLanguage,
+                          style: TextStyle(fontSize: 14, color: tone.muted),
+                        ),
+                      ],
+                    ),
+                    Icon(Icons.arrow_forward_ios, size: 16, color: tone.muted),
+                  ],
+                ),
               ),
             ),
           ),
@@ -351,15 +355,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+class _ProfileTone {
+  const _ProfileTone({
+    required this.surface,
+    required this.softSurface,
+    required this.border,
+    required this.text,
+    required this.muted,
+  });
+
+  final Color surface;
+  final Color softSurface;
+  final Color border;
+  final Color text;
+  final Color muted;
+
+  static _ProfileTone of(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return _ProfileTone(
+      surface: isDark ? const Color(0xFF151C1A) : AppPalette.paper,
+      softSurface:
+          isDark ? AppPalette.white.withValues(alpha: 0.07) : AppPalette.sage,
+      border:
+          isDark ? AppPalette.white.withValues(alpha: 0.08) : AppPalette.line,
+      text: isDark ? AppPalette.white : AppPalette.ink,
+      muted:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.62)
+              : AppPalette.pine.withValues(alpha: 0.68),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
   final String title;
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
+        color: tone.text,
         fontSize: 16,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.5,
@@ -381,6 +420,8 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
     return _SettingCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -388,14 +429,15 @@ class _AccountCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 32,
-              backgroundColor: AppPalette.sage,
+              backgroundColor: tone.softSurface,
               backgroundImage:
                   userPhotoUrl != null ? NetworkImage(userPhotoUrl!) : null,
               child:
                   userPhotoUrl == null
                       ? Text(
                         _initials(userName, userEmail),
-                        style: const TextStyle(
+                        style: TextStyle(
+                          color: tone.text,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
@@ -409,7 +451,8 @@ class _AccountCard extends StatelessWidget {
                 children: [
                   Text(
                     userName,
-                    style: const TextStyle(
+                    style: TextStyle(
+                      color: tone.text,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),
@@ -417,7 +460,7 @@ class _AccountCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     userEmail,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 14, color: tone.muted),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
@@ -427,7 +470,7 @@ class _AccountCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade100,
+                      color: AppPalette.teal.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -466,13 +509,14 @@ class _AgentStatusPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive ? AppPalette.deepTeal : AppPalette.amber;
+    final tone = _ProfileTone.of(context);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppPalette.paper,
+        color: tone.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppPalette.line),
+        border: Border.all(color: tone.border),
       ),
       child: Row(
         children: [
@@ -493,10 +537,10 @@ class _AgentStatusPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Agent status',
                   style: TextStyle(
-                    color: AppPalette.ink,
+                    color: tone.text,
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
@@ -507,7 +551,7 @@ class _AgentStatusPanel extends StatelessWidget {
                       ? 'Active: new unread emails are processed automatically.'
                       : 'Paused: emails stay untouched until you resume it.',
                   style: TextStyle(
-                    color: AppPalette.pine.withValues(alpha: 0.68),
+                    color: tone.muted,
                     fontSize: 13,
                     height: 1.35,
                     fontWeight: FontWeight.w500,
@@ -531,11 +575,13 @@ class _SettingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
     return Container(
       decoration: BoxDecoration(
-        color: AppPalette.paper,
+        color: tone.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppPalette.line),
+        border: Border.all(color: tone.border),
       ),
       child: child,
     );
@@ -563,6 +609,8 @@ class _SliderSettingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
     return _SettingCard(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
@@ -575,7 +623,8 @@ class _SliderSettingCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
+                      color: tone.text,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
@@ -620,6 +669,8 @@ class _PreferenceToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
     return _SettingCard(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -628,7 +679,11 @@ class _PreferenceToggle extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             Switch(
               value: value,
@@ -657,6 +712,8 @@ class _LanguageOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
@@ -664,19 +721,15 @@ class _LanguageOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color:
-                selected
-                    ? AppPalette.teal
-                    : Colors.black.withValues(alpha: 0.08),
-          ),
+          border: Border.all(color: selected ? AppPalette.teal : tone.border),
         ),
         child: Row(
           children: [
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
+                  color: tone.text,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),

@@ -117,6 +117,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class _HomeTone {
+  const _HomeTone({
+    required this.surface,
+    required this.softSurface,
+    required this.border,
+    required this.text,
+    required this.muted,
+  });
+
+  final Color surface;
+  final Color softSurface;
+  final Color border;
+  final Color text;
+  final Color muted;
+
+  static _HomeTone of(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return _HomeTone(
+      surface: isDark ? const Color(0xFF151C1A) : AppPalette.paper,
+      softSurface:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.06)
+              : AppPalette.sage.withValues(alpha: 0.65),
+      border:
+          isDark ? AppPalette.white.withValues(alpha: 0.08) : AppPalette.line,
+      text: isDark ? AppPalette.white : AppPalette.ink,
+      muted:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.64)
+              : AppPalette.pine.withValues(alpha: 0.68),
+    );
+  }
+}
+
 class _GreetingHeader extends StatelessWidget {
   const _GreetingHeader({
     required this.userName,
@@ -132,6 +166,7 @@ class _GreetingHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final theme = Theme.of(context);
+    final tone = _HomeTone.of(context);
 
     final greeting =
         now.hour < 12
@@ -164,7 +199,7 @@ class _GreetingHeader extends StatelessWidget {
                 _formatDate(now),
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppPalette.pine.withValues(alpha: 0.68),
+                  color: tone.muted,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -176,7 +211,7 @@ class _GreetingHeader extends StatelessWidget {
 
         CircleAvatar(
           radius: 25,
-          backgroundColor: AppPalette.sage,
+          backgroundColor: tone.softSurface,
 
           backgroundImage:
               userPhotoUrl == null ? null : NetworkImage(userPhotoUrl!),
@@ -185,8 +220,8 @@ class _GreetingHeader extends StatelessWidget {
               userPhotoUrl == null
                   ? Text(
                     _initials(userName, userEmail),
-                    style: const TextStyle(
-                      color: AppPalette.pine,
+                    style: TextStyle(
+                      color: tone.text,
                       fontWeight: FontWeight.w800,
                     ),
                   )
@@ -250,13 +285,14 @@ class _ReviewSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasReview = count > 0;
     final accent = hasReview ? AppPalette.clay : AppPalette.deepTeal;
+    final tone = _HomeTone.of(context);
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppPalette.paper,
+        color: tone.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppPalette.line),
+        border: Border.all(color: tone.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,8 +320,8 @@ class _ReviewSummaryCard extends StatelessWidget {
                   hasReview
                       ? '$count replies need review'
                       : 'Inbox is under control',
-                  style: const TextStyle(
-                    color: AppPalette.ink,
+                  style: TextStyle(
+                    color: tone.text,
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                     height: 1.2,
@@ -297,7 +333,7 @@ class _ReviewSummaryCard extends StatelessWidget {
                       ? 'Open Review to check drafts before sending.'
                       : 'New unread emails will appear here after the agents process them.',
                   style: TextStyle(
-                    color: AppPalette.pine.withValues(alpha: 0.72),
+                    color: tone.muted,
                     fontSize: 13,
                     height: 1.35,
                     fontWeight: FontWeight.w500,
@@ -383,12 +419,14 @@ class _KPICard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _HomeTone.of(context);
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppPalette.paper,
+        color: tone.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppPalette.line),
+        border: Border.all(color: tone.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -427,7 +465,7 @@ class _KPICard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: AppPalette.pine.withValues(alpha: 0.68),
+                    color: tone.muted,
                   ),
                 ),
               ],
@@ -447,13 +485,15 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _HomeTone.of(context);
+
     return Row(
       children: [
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              color: AppPalette.ink,
+            style: TextStyle(
+              color: tone.text,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
@@ -462,7 +502,7 @@ class _SectionTitle extends StatelessWidget {
         Text(
           actionLabel,
           style: TextStyle(
-            color: AppPalette.pine.withValues(alpha: 0.58),
+            color: tone.muted,
             fontSize: 12,
             fontWeight: FontWeight.w800,
           ),
@@ -483,13 +523,14 @@ class _ActivityCard extends StatelessWidget {
     final priority = email.analysis?.priority ?? Priority.NORMAL;
 
     final category = email.analysis?.category ?? EmailCategory.INFORMATION;
+    final tone = _HomeTone.of(context);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: AppPalette.paper,
+        color: tone.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppPalette.line),
+        border: Border.all(color: tone.border),
       ),
       child: Material(
         color: Colors.transparent,
@@ -522,8 +563,8 @@ class _ActivityCard extends StatelessWidget {
 
                             overflow: TextOverflow.ellipsis,
 
-                            style: const TextStyle(
-                              color: AppPalette.ink,
+                            style: TextStyle(
+                              color: tone.text,
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
                               height: 1.3,
@@ -541,7 +582,7 @@ class _ActivityCard extends StatelessWidget {
 
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppPalette.pine.withValues(alpha: 0.64),
+                              color: tone.muted,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -657,6 +698,8 @@ class _ShortcutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _HomeTone.of(context);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -665,9 +708,9 @@ class _ShortcutButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           decoration: BoxDecoration(
-            color: AppPalette.sage.withValues(alpha: 0.65),
+            color: tone.softSurface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppPalette.line),
+            border: Border.all(color: tone.border),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -679,10 +722,10 @@ class _ShortcutButton extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: AppPalette.pine,
+                    color: tone.text,
                   ),
                 ),
               ),
@@ -752,27 +795,33 @@ class _EmptyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _HomeTone.of(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
 
       decoration: BoxDecoration(
-        color: AppPalette.paper,
+        color: tone.surface,
 
         borderRadius: BorderRadius.circular(12),
 
-        border: Border.all(color: AppPalette.line),
+        border: Border.all(color: tone.border),
       ),
 
       child: Column(
         children: [
-          Icon(icon, size: 38, color: AppPalette.pine.withValues(alpha: 0.38)),
+          Icon(icon, size: 38, color: tone.muted.withValues(alpha: 0.62)),
 
           const SizedBox(height: 12),
 
           Text(
             title,
 
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
           ),
 
           const SizedBox(height: 4),
@@ -781,10 +830,7 @@ class _EmptyPanel extends StatelessWidget {
             subtitle,
             textAlign: TextAlign.center,
 
-            style: TextStyle(
-              fontSize: 13,
-              color: AppPalette.pine.withValues(alpha: 0.64),
-            ),
+            style: TextStyle(fontSize: 13, color: tone.muted),
           ),
         ],
       ),
