@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/errors/error_message.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
+import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
 
 enum EmailDetailMode { readOnly, edit }
 
@@ -19,19 +22,18 @@ class EmailDetailScreen extends StatefulWidget {
 }
 
 class _EmailDetailScreenState extends State<EmailDetailScreen> {
+  late final EmailUseCase _emailUseCase;
   late final TextEditingController _replyController;
+  bool _isSubmitting = false;
+  String? _actionError;
+
+  bool get _isEditMode => widget.mode == EmailDetailMode.edit;
 
   @override
   void initState() {
     super.initState();
-    _replyController = TextEditingController(
-      text:
-          widget.email.analysis?.suggestedReply.trim().isNotEmpty == true
-              ? widget.email.analysis!.suggestedReply
-              : widget.email.body.plain.trim().isNotEmpty
-              ? widget.email.body.plain
-              : 'Hi,\n\nThanks for your message. We are reviewing it and will come back to you shortly.\n\nBest regards,',
-    );
+    _emailUseCase = getIt<EmailUseCase>();
+    _replyController = TextEditingController(text: _initialReply);
   }
 
   @override
@@ -40,1041 +42,999 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
     super.dispose();
   }
 
-  String _getCategoryLabel(EmailCategory? category) {
-    if (category == null) return 'INFO';
-    switch (category) {
-      case EmailCategory.RECLAMATION:
-        return 'RECLAMATION';
-      case EmailCategory.COMMERCIAL:
-        return 'COMMERCIAL';
-      case EmailCategory.SUPPORT:
-        return 'SUPPORT';
-      case EmailCategory.INFORMATION:
-        return 'INFO';
+  String get _initialReply {
+    final suggested = widget.email.analysis?.suggestedReply.trim() ?? '';
+    if (suggested.isNotEmpty) return suggested;
+    return 'Bonjour,\n\nMerci pour votre message. Nous allons le consulter et revenir vers vous rapidement.\n\nCordialement,';
+  }
+
+  Future<void> _sendReply({required bool edited}) async {
+    final body = _replyController.text.trim();
+    if (body.isEmpty) {
+      setState(() => _actionError = 'Reply cannot be empty.');
+      return;
     }
-  }
 
-  Color _getCategoryColor(EmailCategory? category) {
-    if (category == null) return Colors.blue;
-    switch (category) {
-      case EmailCategory.RECLAMATION:
-        return Colors.red;
-      case EmailCategory.COMMERCIAL:
-        return Colors.green;
-      case EmailCategory.SUPPORT:
-        return Colors.orange;
-      case EmailCategory.INFORMATION:
-        return Colors.blue;
-    }
-  }
-
-  String _getPriorityLabel(Priority priority) {
-    switch (priority) {
-      case Priority.URGENT:
-        return 'URGENT';
-      case Priority.NORMAL:
-        return 'NORMAL';
-      case Priority.LOW:
-        return 'LOW';
-    }
-  }
-
-  Color _getPriorityColor(Priority priority) {
-    switch (priority) {
-      case Priority.URGENT:
-        return Colors.red;
-      case Priority.NORMAL:
-        return Colors.orange;
-      case Priority.LOW:
-        return Colors.green;
-    }
-  }
-
-  String _getVerdictLabel(JuryVerdict verdict) {
-    switch (verdict) {
-      case JuryVerdict.APPROVED:
-        return 'Validated';
-      case JuryVerdict.REJECTED:
-        return 'Rejected';
-      case JuryVerdict.UNCERTAIN:
-        return 'Uncertain';
-    }
-  }
-
-  Color _getVerdictColor(JuryVerdict verdict) {
-    switch (verdict) {
-      case JuryVerdict.APPROVED:
-        return Colors.green;
-      case JuryVerdict.REJECTED:
-        return Colors.red;
-      case JuryVerdict.UNCERTAIN:
-        return Colors.orange;
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day} ${_monthName(date.month)} ${date.year} at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _monthName(int month) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months[month - 1];
-  }
-
-  Future<void> _confirmAndSend(String actionLabel) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Confirm send'),
-            content: Text('Send this reply as $actionLabel?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Send'),
-              ),
-            ],
-          ),
+    final confirmed = await _confirmAction(
+      title: edited ? 'Send edited reply?' : 'Send reply?',
+      message:
+          edited
+              ? 'Send the edited reply to this sender?'
+              : 'Send the suggested reply to this sender?',
+      confirmLabel: 'Send',
     );
+    if (confirmed != true) return;
 
-    if (confirmed == true) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Reply sent: $actionLabel'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.of(context).maybePop();
-    }
+    await _runAction(() {
+      return edited
+          ? _emailUseCase.editAndSend(emailId: widget.email.id, body: body)
+          : _emailUseCase.validateAndSend(emailId: widget.email.id, body: body);
+    }, successMessage: 'Reply sent.');
   }
 
   Future<void> _ignoreEmail() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await _confirmAction(
+      title: 'Skip reply?',
+      message: 'Mark this email as handled without sending a reply?',
+      confirmLabel: 'Skip',
+      destructive: true,
+    );
+    if (confirmed != true) return;
+
+    await _runAction(
+      () => _emailUseCase.reject(emailId: widget.email.id),
+      successMessage: 'Email marked as handled.',
+    );
+  }
+
+  Future<void> _runAction(
+    Future<void> Function() action, {
+    required String successMessage,
+  }) async {
+    if (_isSubmitting) return;
+    setState(() {
+      _isSubmitting = true;
+      _actionError = null;
+    });
+
+    try {
+      await action();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(successMessage),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.of(context).maybePop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _actionError = ErrorMessage.fromException(error));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<bool?> _confirmAction({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    bool destructive = false,
+  }) {
+    final tone = _DetailTone.of(context);
+
+    return showDialog<bool>(
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Ignore message'),
-            content: const Text(
-              'Do you want to ignore this email without sending a reply?',
+            backgroundColor: tone.surface,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: tone.border),
+            ),
+            title: Text(
+              title,
+              style: TextStyle(color: tone.text, fontWeight: FontWeight.w900),
+            ),
+            content: Text(
+              message,
+              style: TextStyle(color: tone.muted, height: 1.35),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
+                child: Text('Cancel', style: TextStyle(color: tone.muted)),
               ),
-              TextButton(
+              FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Ignore'),
+                style:
+                    destructive
+                        ? FilledButton.styleFrom(
+                          backgroundColor: AppPalette.clay,
+                        )
+                        : null,
+                child: Text(confirmLabel),
               ),
             ],
           ),
     );
-
-    if (confirmed == true && mounted) {
-      Navigator.of(context).maybePop();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final tone = _DetailTone.of(context);
     final priority = widget.email.analysis?.priority ?? Priority.NORMAL;
-    final category = widget.email.analysis?.category;
-    final analysis = widget.email.analysis;
-    final jury = widget.email.jury;
-
-    if (widget.mode == EmailDetailMode.edit) {
-      return _buildEditMode(context, priority, category, analysis, jury);
-    }
-
-    return _buildReadOnlyMode(context, priority, category, analysis, jury);
-  }
-
-  Widget _buildEditMode(
-    BuildContext context,
-    Priority priority,
-    EmailCategory? category,
-    Analysis? analysis,
-    Jury? jury,
-  ) {
-    final verdict = jury?.verdict ?? JuryVerdict.UNCERTAIN;
-    final confidence =
-        analysis != null
-            ? '${(analysis.confidence * 100).toStringAsFixed(0)}%'
-            : 'N/A';
+    final category =
+        widget.email.analysis?.category ?? EmailCategory.INFORMATION;
+    final body = widget.email.body.plain.trim();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2F1),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: const Text(
-          'Review & respond',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _getPriorityColor(priority).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      bottomNavigationBar:
+          _isEditMode
+              ? _ActionBar(
+                isSubmitting: _isSubmitting,
+                onSend: () => _sendReply(edited: false),
+                onEditSend: () => _sendReply(edited: true),
+                onSkip: _ignoreEmail,
+              )
+              : null,
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: _DetailTopBar(
+                title: _isEditMode ? 'Review reply' : 'Email',
+                status: widget.email.status,
+                onBack: () => Navigator.of(context).maybePop(),
+              ),
             ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 6, 16, _isEditMode ? 18 : 30),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _MessageHero(
+                    email: widget.email,
+                    category: category,
+                    priority: priority,
+                  ),
+                  if (_actionError != null) ...[
+                    const SizedBox(height: 12),
+                    _InlineError(message: _actionError!),
+                  ],
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    title: 'Message',
+                    icon: Icons.mail_outline_rounded,
+                    child: SelectableText(
+                      body.isEmpty ? 'No plain-text body available.' : body,
+                      style: TextStyle(
+                        color: tone.text,
+                        fontSize: 14,
+                        height: 1.55,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (widget.email.attachments.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _AttachmentsCard(attachments: widget.email.attachments),
+                  ],
+                  if (widget.email.analysis != null) ...[
+                    const SizedBox(height: 12),
+                    _AnalysisCard(analysis: widget.email.analysis!),
+                  ],
+                  if (widget.email.jury != null) ...[
+                    const SizedBox(height: 12),
+                    _JuryCard(jury: widget.email.jury!),
+                  ],
+                  if (_isEditMode || _hasSuggestedReply(widget.email)) ...[
+                    const SizedBox(height: 12),
+                    _ReplyCard(
+                      controller: _replyController,
+                      editable: _isEditMode,
+                    ),
+                  ],
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _hasSuggestedReply(Email email) {
+    return email.analysis?.suggestedReply.trim().isNotEmpty == true;
+  }
+}
+
+class _DetailTone {
+  const _DetailTone({
+    required this.surface,
+    required this.softSurface,
+    required this.border,
+    required this.text,
+    required this.muted,
+  });
+
+  final Color surface;
+  final Color softSurface;
+  final Color border;
+  final Color text;
+  final Color muted;
+
+  static _DetailTone of(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return _DetailTone(
+      surface: isDark ? const Color(0xFF151C1A) : AppPalette.paper,
+      softSurface:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.07)
+              : AppPalette.sage.withValues(alpha: 0.58),
+      border:
+          isDark ? AppPalette.white.withValues(alpha: 0.08) : AppPalette.line,
+      text: isDark ? AppPalette.white : AppPalette.ink,
+      muted:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.62)
+              : AppPalette.pine.withValues(alpha: 0.68),
+    );
+  }
+}
+
+class _DetailTopBar extends StatelessWidget {
+  const _DetailTopBar({
+    required this.title,
+    required this.status,
+    required this.onBack,
+  });
+
+  final String title;
+  final Status status;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _DetailTone.of(context);
+    final statusColor = _statusColor(status);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 16, 6),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Back',
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back_rounded),
+            color: tone.text,
+          ),
+          Expanded(
             child: Text(
-              _getPriorityLabel(priority),
+              title,
               style: TextStyle(
-                color: _getPriorityColor(priority),
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
+                color: tone.text,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          _InfoPill(label: _statusLabel(status), color: statusColor),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageHero extends StatelessWidget {
+  const _MessageHero({
+    required this.email,
+    required this.category,
+    required this.priority,
+  });
+
+  final Email email;
+  final EmailCategory category;
+  final Priority priority;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _DetailTone.of(context);
+    final senderName = _senderName(email.from);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tone.border),
+        boxShadow: [
+          if (Theme.of(context).brightness != Brightness.dark)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SenderAvatar(sender: email.from),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      senderName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.text,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _senderAddress(email.from),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                _formatDate(email.date),
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: tone.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            email.subject.trim().isEmpty ? '(No subject)' : email.subject,
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              height: 1.18,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InfoPill(
+                label: _priorityLabel(priority),
+                color: _priorityColor(priority),
+              ),
+              _InfoPill(
+                label: _categoryLabel(category),
+                color: _categoryColor(category),
+              ),
+              if (email.attachments.isNotEmpty)
+                _InfoPill(
+                  label:
+                      '${email.attachments.length} attachment${email.attachments.length == 1 ? '' : 's'}',
+                  color: AppPalette.blue,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SenderAvatar extends StatelessWidget {
+  const _SenderAvatar({required this.sender});
+
+  final Sender sender;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 21,
+      backgroundColor: AppPalette.teal.withValues(alpha: 0.14),
+      child: Text(
+        _initial(sender),
+        style: const TextStyle(
+          color: AppPalette.deepTeal,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.accent,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _DetailTone.of(context);
+    final color = accent ?? AppPalette.deepTeal;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _AnalysisCard extends StatelessWidget {
+  const _AnalysisCard({required this.analysis});
+
+  final Analysis analysis;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _DetailTone.of(context);
+    final priority = analysis.priority;
+    final category = analysis.category ?? EmailCategory.INFORMATION;
+
+    return _SectionCard(
+      title: 'Assistant analysis',
+      icon: Icons.auto_awesome_rounded,
+      accent: AppPalette.blue,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InfoPill(
+                label: _categoryLabel(category),
+                color: _categoryColor(category),
+              ),
+              _InfoPill(
+                label: _priorityLabel(priority),
+                color: _priorityColor(priority),
+              ),
+              _InfoPill(
+                label:
+                    '${(analysis.confidence * 100).clamp(0, 100).toStringAsFixed(0)}% confidence',
+                color: AppPalette.blue,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            analysis.summary.trim().isEmpty
+                ? 'No summary available.'
+                : analysis.summary,
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 13,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JuryCard extends StatelessWidget {
+  const _JuryCard({required this.jury});
+
+  final Jury jury;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _DetailTone.of(context);
+    final color = _verdictColor(jury.verdict);
+    final reasoning = jury.reasoning?.trim();
+
+    return _SectionCard(
+      title: 'Final check',
+      icon: Icons.verified_outlined,
+      accent: color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _InfoPill(label: _verdictLabel(jury.verdict), color: color),
+          if (reasoning != null && reasoning.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              reasoning,
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 13,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReplyCard extends StatelessWidget {
+  const _ReplyCard({required this.controller, required this.editable});
+
+  final TextEditingController controller;
+  final bool editable;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _DetailTone.of(context);
+
+    return _SectionCard(
+      title: editable ? 'Suggested reply' : 'Reply draft',
+      icon: Icons.edit_note_rounded,
+      accent: AppPalette.deepTeal,
+      child:
+          editable
+              ? TextField(
+                controller: controller,
+                minLines: 6,
+                maxLines: 12,
+                style: TextStyle(
+                  color: tone.text,
+                  fontSize: 14,
+                  height: 1.45,
+                  fontWeight: FontWeight.w500,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Edit the reply before sending...',
+                  hintStyle: TextStyle(color: tone.muted),
+                  filled: true,
+                  fillColor: tone.softSurface,
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: tone.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: tone.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: AppPalette.teal),
+                  ),
+                ),
+              )
+              : SelectableText(
+                controller.text,
+                style: TextStyle(
+                  color: tone.text,
+                  fontSize: 14,
+                  height: 1.55,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+    );
+  }
+}
+
+class _AttachmentsCard extends StatelessWidget {
+  const _AttachmentsCard({required this.attachments});
+
+  final List<Attachment> attachments;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _DetailTone.of(context);
+
+    return _SectionCard(
+      title: 'Attachments',
+      icon: Icons.attach_file_rounded,
+      accent: AppPalette.amber,
+      child: Column(
+        children:
+            attachments.map((attachment) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: tone.softSurface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: tone.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.insert_drive_file_outlined,
+                      color: AppPalette.amber,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            attachment.filename,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: tone.text,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _formatFileSize(attachment.size),
+                            style: TextStyle(
+                              color: tone.muted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+      ),
+    );
+  }
+}
+
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({
+    required this.isSubmitting,
+    required this.onSend,
+    required this.onEditSend,
+    required this.onSkip,
+  });
+
+  final bool isSubmitting;
+  final VoidCallback onSend;
+  final VoidCallback onEditSend;
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _DetailTone.of(context);
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        decoration: BoxDecoration(
+          color: tone.surface,
+          border: Border(top: BorderSide(color: tone.border)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: isSubmitting ? null : onSend,
+                icon:
+                    isSubmitting
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.send_rounded, size: 18),
+                label: const Text('Send'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: isSubmitting ? null : onEditSend,
+                icon: const Icon(Icons.edit_rounded, size: 18),
+                label: const Text('Edit & send'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? AppPalette.lavender
+                          : AppPalette.deepTeal,
+                  side: BorderSide(
+                    color: AppPalette.deepTeal.withValues(alpha: 0.34),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Tooltip(
+              message: 'Skip reply',
+              child: IconButton(
+                onPressed: isSubmitting ? null : onSkip,
+                style: IconButton.styleFrom(
+                  backgroundColor: AppPalette.clay.withValues(alpha: 0.10),
+                  foregroundColor: AppPalette.clay,
+                  disabledForegroundColor: tone.muted.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineError extends StatelessWidget {
+  const _InlineError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppPalette.clay.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppPalette.clay.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppPalette.clay,
+            size: 19,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppPalette.clay,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.email.subject.trim().isEmpty
-                    ? '(No subject)'
-                    : widget.email.subject,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.email.from.email,
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: Text(
-                  widget.email.body.plain.trim().isEmpty
-                      ? 'No plain-text body available.'
-                      : widget.email.body.plain,
-                  style: const TextStyle(fontSize: 13, height: 1.6),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'AI-SUGGESTED REPLY — EDITABLE',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: TextField(
-                  controller: _replyController,
-                  minLines: 5,
-                  maxLines: 10,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Edit your response…',
-                  ),
-                  style: const TextStyle(fontSize: 14, height: 1.6),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'JURY VERDICT',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Verdict',
-                          style: TextStyle(fontSize: 13, color: Colors.grey),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getVerdictColor(
-                              verdict,
-                            ).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _getVerdictLabel(verdict),
-                            style: TextStyle(
-                              color: _getVerdictColor(verdict),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Confidence',
-                          style: TextStyle(fontSize: 13, color: Colors.grey),
-                        ),
-                        Text(
-                          confidence,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (jury?.reasoning != null &&
-                        jury!.reasoning!.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      const Text(
-                        'Reason',
-                        style: TextStyle(fontSize: 13, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        jury.reasoning!,
-                        style: const TextStyle(fontSize: 13, height: 1.5),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => _confirmAndSend('as-is'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.black87,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Send as-is'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => _confirmAndSend('edited response'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppPalette.lavender,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Edit & send'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _ignoreEmail,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.black87,
-                        side: const BorderSide(color: Colors.grey),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Ignore'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReadOnlyMode(
-    BuildContext context,
-    Priority priority,
-    EmailCategory? category,
-    Analysis? analysis,
-    Jury? jury,
-  ) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Email Detail'), elevation: 0),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _EmailHeader(
-              subject: widget.email.subject,
-              senderName: widget.email.from.name,
-              senderEmail: widget.email.from.email,
-              date: _formatDate(widget.email.date),
-              category: category,
-              priority: priority,
-              categoryColor: _getCategoryColor(category),
-              priorityColor: _getPriorityColor(priority),
-            ),
-            const SizedBox(height: 24),
-            _ContentSection(
-              title: 'Email Content',
-              content:
-                  widget.email.body.plain.trim().isEmpty
-                      ? 'No plain-text body available.'
-                      : widget.email.body.plain,
-            ),
-            const SizedBox(height: 24),
-            if (widget.email.attachments.isNotEmpty) ...[
-              _AttachmentsSection(attachments: widget.email.attachments),
-              const SizedBox(height: 24),
-            ],
-            if (analysis != null) ...[
-              _AnalysisSection(
-                category: _getCategoryLabel(analysis.category),
-                categoryColor: _getCategoryColor(analysis.category),
-                priority: _getPriorityLabel(priority),
-                priorityColor: _getPriorityColor(priority),
-                confidence:
-                    '${(analysis.confidence * 100).toStringAsFixed(0)}%',
-                summary: analysis.summary,
-              ),
-              const SizedBox(height: 24),
-            ],
-            if (jury != null) ...[
-              _VerdictSection(
-                verdict: _getVerdictLabel(jury.verdict),
-                verdictColor: _getVerdictColor(jury.verdict),
-                reasoning: jury.reasoning,
-              ),
-              const SizedBox(height: 24),
-            ],
-            if (analysis != null &&
-                analysis.suggestedReply.trim().isNotEmpty) ...[
-              _SuggestedReplySection(suggestedReply: analysis.suggestedReply),
-              const SizedBox(height: 24),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }
 
-class _EmailHeader extends StatelessWidget {
-  const _EmailHeader({
-    required this.subject,
-    required this.senderName,
-    required this.senderEmail,
-    required this.date,
-    required this.category,
-    required this.priority,
-    required this.categoryColor,
-    required this.priorityColor,
-  });
-
-  final String subject;
-  final String senderName;
-  final String senderEmail;
-  final String date;
-  final EmailCategory? category;
-  final Priority priority;
-  final Color categoryColor;
-  final Color priorityColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Subject + Badges
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                subject.trim().isEmpty ? '(No subject)' : subject,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  height: 1.3,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: categoryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _categoryLabel(category),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: categoryColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: priorityColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    priority.name,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: priorityColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Sender Info
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: AppPalette.lavender.withValues(alpha: 0.2),
-              child: Text(
-                _initial(senderName, senderEmail),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppPalette.lavender,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    senderName.trim().isEmpty ? 'Unknown sender' : senderName,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    senderEmail.trim().isEmpty
-                        ? 'No sender address'
-                        : senderEmail,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // Date
-        Text(date, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-      ],
-    );
-  }
-
-  String _initial(String name, String email) {
-    final source = name.trim().isNotEmpty ? name.trim() : email.trim();
-    return source.isEmpty ? '?' : source[0].toUpperCase();
-  }
-
-  String _categoryLabel(EmailCategory? category) {
-    if (category == null) return 'INFO';
-    switch (category) {
-      case EmailCategory.RECLAMATION:
-        return 'RECLAMATION';
-      case EmailCategory.COMMERCIAL:
-        return 'COMMERCIAL';
-      case EmailCategory.SUPPORT:
-        return 'SUPPORT';
-      case EmailCategory.INFORMATION:
-        return 'INFO';
-    }
-  }
-}
-
-class _ContentSection extends StatelessWidget {
-  const _ContentSection({required this.title, required this.content});
-
-  final String title;
-  final String content;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: Text(
-            content,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.6,
-              color: Colors.grey[800],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AttachmentsSection extends StatelessWidget {
-  const _AttachmentsSection({required this.attachments});
-
-  final List<Attachment> attachments;
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Attachments (${attachments.length})',
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...attachments.map((attachment) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.attach_file, color: Colors.grey[600], size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          attachment.filename,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          _formatFileSize(attachment.size),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.download, color: Colors.grey[400], size: 20),
-                ],
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-}
-
-class _AnalysisSection extends StatelessWidget {
-  const _AnalysisSection({
-    required this.category,
-    required this.categoryColor,
-    required this.priority,
-    required this.priorityColor,
-    required this.confidence,
-    required this.summary,
-  });
-
-  final String category;
-  final Color categoryColor;
-  final String priority;
-  final Color priorityColor;
-  final String confidence;
-  final String summary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'AGENT ANALYSIS',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1,
-            color: Colors.grey[600],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue[200]!),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _AnalysisRow(
-                label: 'Category',
-                value: category,
-                color: categoryColor,
-              ),
-              const SizedBox(height: 12),
-              _AnalysisRow(
-                label: 'Priority',
-                value: priority,
-                color: priorityColor,
-              ),
-              const SizedBox(height: 12),
-              _AnalysisRow(
-                label: 'Confidence',
-                value: confidence,
-                color: Colors.green,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Summary',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey[700],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                summary.trim().isEmpty ? 'No summary available.' : summary,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.6,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AnalysisRow extends StatelessWidget {
-  const _AnalysisRow({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({required this.label, required this.color});
 
   final String label;
-  final String value;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          height: 1,
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _VerdictSection extends StatelessWidget {
-  const _VerdictSection({
-    required this.verdict,
-    required this.verdictColor,
-    required this.reasoning,
-  });
+String _senderName(Sender sender) {
+  final name = sender.name.trim();
+  if (name.isNotEmpty) return name;
+  final email = sender.email.trim();
+  return email.isEmpty ? 'Unknown sender' : email;
+}
 
-  final String verdict;
-  final Color verdictColor;
-  final String? reasoning;
+String _senderAddress(Sender sender) {
+  final email = sender.email.trim();
+  return email.isEmpty ? 'No sender address' : email;
+}
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'JURY VERDICT',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1,
-            color: Colors.grey[600],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: verdictColor.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: verdictColor.withValues(alpha: 0.2)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Verdict',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: verdictColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      verdict,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: verdictColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (reasoning != null && reasoning!.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Reasoning',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  reasoning!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.6,
-                    color: Colors.grey[800],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
+String _initial(Sender sender) {
+  final source = sender.name.trim().isNotEmpty ? sender.name : sender.email;
+  final trimmed = source.trim();
+  return trimmed.isEmpty ? '?' : trimmed.characters.first.toUpperCase();
+}
+
+String _formatDate(DateTime date) {
+  return '${date.day} ${_monthName(date.month)} ${date.year}\n${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+}
+
+String _monthName(int month) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return months[month - 1];
+}
+
+String _formatFileSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+String _statusLabel(Status status) {
+  switch (status) {
+    case Status.DONE:
+      return 'SENT';
+    case Status.PENDING_USER_REVIEW:
+      return 'REVIEW';
+    case Status.PENDING_JURY:
+      return 'CHECKING';
+    case Status.PENDING_ANALYSIS:
+      return 'DRAFTING';
   }
 }
 
-class _SuggestedReplySection extends StatelessWidget {
-  const _SuggestedReplySection({required this.suggestedReply});
+Color _statusColor(Status status) {
+  switch (status) {
+    case Status.DONE:
+      return AppPalette.teal;
+    case Status.PENDING_USER_REVIEW:
+      return AppPalette.clay;
+    case Status.PENDING_JURY:
+      return AppPalette.blue;
+    case Status.PENDING_ANALYSIS:
+      return AppPalette.amber;
+  }
+}
 
-  final String suggestedReply;
+String _priorityLabel(Priority priority) {
+  switch (priority) {
+    case Priority.URGENT:
+      return 'URGENT';
+    case Priority.NORMAL:
+      return 'NORMAL';
+    case Priority.LOW:
+      return 'LOW';
+  }
+}
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'SUGGESTED REPLY',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1,
-            color: Colors.grey[600],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.green[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.green[200]!),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.auto_awesome, color: Colors.green[600], size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Draft prepared by the agent',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.green[700],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                suggestedReply,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.6,
-                  color: Colors.grey[800],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+Color _priorityColor(Priority priority) {
+  switch (priority) {
+    case Priority.URGENT:
+      return AppPalette.clay;
+    case Priority.NORMAL:
+      return AppPalette.amber;
+    case Priority.LOW:
+      return AppPalette.deepTeal;
+  }
+}
+
+String _categoryLabel(EmailCategory category) {
+  switch (category) {
+    case EmailCategory.RECLAMATION:
+      return 'RECLAMATION';
+    case EmailCategory.INFORMATION:
+      return 'INFO';
+    case EmailCategory.SUPPORT:
+      return 'SUPPORT';
+    case EmailCategory.COMMERCIAL:
+      return 'COMMERCIAL';
+  }
+}
+
+Color _categoryColor(EmailCategory category) {
+  switch (category) {
+    case EmailCategory.RECLAMATION:
+      return AppPalette.clay;
+    case EmailCategory.INFORMATION:
+      return AppPalette.blue;
+    case EmailCategory.SUPPORT:
+      return AppPalette.amber;
+    case EmailCategory.COMMERCIAL:
+      return AppPalette.deepTeal;
+  }
+}
+
+String _verdictLabel(JuryVerdict verdict) {
+  switch (verdict) {
+    case JuryVerdict.APPROVED:
+      return 'VALIDATED';
+    case JuryVerdict.REJECTED:
+      return 'REJECTED';
+    case JuryVerdict.UNCERTAIN:
+      return 'NEEDS CHECK';
+  }
+}
+
+Color _verdictColor(JuryVerdict verdict) {
+  switch (verdict) {
+    case JuryVerdict.APPROVED:
+      return AppPalette.teal;
+    case JuryVerdict.REJECTED:
+      return AppPalette.clay;
+    case JuryVerdict.UNCERTAIN:
+      return AppPalette.amber;
   }
 }
