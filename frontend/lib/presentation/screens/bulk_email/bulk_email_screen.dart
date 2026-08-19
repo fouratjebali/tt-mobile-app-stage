@@ -5,6 +5,7 @@ import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/data/models/bulk_email.dart';
 import 'package:tt_mail_assistant/data/services/bulk_email_api_service.dart';
+import 'package:tt_mail_assistant/domain/usecases/settings_usecase.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 import 'package:tt_mail_assistant/presentation/widgets/app_bottom_navigation_bar.dart';
 
@@ -20,10 +21,14 @@ class BulkEmailScreen extends StatefulWidget {
 class _BulkEmailScreenState extends State<BulkEmailScreen> {
   late final BulkEmailController _controller;
   late final ReviewViewModel _reviewViewModel;
+  late final SettingsUseCase _settingsUseCase;
   final TextEditingController _campaignController = TextEditingController();
   final List<Map<String, String>> _recipients = [];
 
   bool _isGenerating = false;
+  _DraftTone _draftTone = _DraftTone.professional;
+  _DraftLength _draftLength = _DraftLength.short;
+  String _replyLanguage = 'English';
 
   static const _navItems = [
     AppNavigationItemData(
@@ -55,7 +60,9 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
       apiService: BulkEmailApiService(apiService: getIt<ApiService>()),
     );
     _reviewViewModel = getIt<ReviewViewModel>();
+    _settingsUseCase = getIt<SettingsUseCase>();
     _reviewViewModel.addListener(_onReviewChanged);
+    _loadDraftDefaults();
   }
 
   @override
@@ -67,6 +74,14 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
 
   void _onReviewChanged() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadDraftDefaults() async {
+    final language = await _settingsUseCase.getReplyLanguage();
+    if (!mounted) return;
+    setState(() {
+      _replyLanguage = _normalizeLanguage(language);
+    });
   }
 
   Future<void> _showAddRecipientDialog() async {
@@ -107,6 +122,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
       await _controller.generateEmails(
         recipients: _bulkRecipientsPayload(),
         topic: campaign,
+        instructions: _draftInstructions(),
       );
 
       if (!mounted) return;
@@ -177,6 +193,21 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
         .toList();
   }
 
+  String _draftInstructions() {
+    return [
+      'Write in $_replyLanguage.',
+      'Tone: ${_draftTone.instruction}.',
+      'Length: ${_draftLength.instruction}.',
+      'Personalize each draft using the recipient name, role, and context.',
+      'Keep the subject clear and specific.',
+      'Do not mention AI, automation, or internal tools.',
+    ].join(' ');
+  }
+
+  String _normalizeLanguage(String value) {
+    return value.toLowerCase() == 'french' ? 'French' : 'English';
+  }
+
   void _showPreviewDialog() {
     showDialog<void>(
       context: context,
@@ -218,6 +249,27 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
             _SectionLabel(text: 'Campaign'),
             const SizedBox(height: 8),
             _CampaignField(controller: _campaignController),
+            const SizedBox(height: 18),
+            _DraftQualityControls(
+              tone: _draftTone,
+              length: _draftLength,
+              language: _replyLanguage,
+              onToneChanged: (value) {
+                setState(() {
+                  _draftTone = value;
+                });
+              },
+              onLengthChanged: (value) {
+                setState(() {
+                  _draftLength = value;
+                });
+              },
+              onLanguageChanged: (value) {
+                setState(() {
+                  _replyLanguage = value;
+                });
+              },
+            ),
             const SizedBox(height: 18),
             Row(
               children: [
@@ -348,6 +400,214 @@ class _BulkTone {
           isDark
               ? AppPalette.white.withValues(alpha: 0.62)
               : AppPalette.pine.withValues(alpha: 0.68),
+    );
+  }
+}
+
+enum _DraftTone {
+  professional(
+    'Professional',
+    'polished, respectful, and business-appropriate',
+  ),
+  friendly('Friendly', 'warm, natural, and approachable'),
+  direct('Direct', 'clear, simple, and straight to the point');
+
+  const _DraftTone(this.label, this.instruction);
+
+  final String label;
+  final String instruction;
+}
+
+enum _DraftLength {
+  short('Short', 'keep it brief, around 3 to 5 sentences'),
+  detailed('Detailed', 'include helpful context while staying easy to scan');
+
+  const _DraftLength(this.label, this.instruction);
+
+  final String label;
+  final String instruction;
+}
+
+class _DraftQualityControls extends StatelessWidget {
+  const _DraftQualityControls({
+    required this.tone,
+    required this.length,
+    required this.language,
+    required this.onToneChanged,
+    required this.onLengthChanged,
+    required this.onLanguageChanged,
+  });
+
+  final _DraftTone tone;
+  final _DraftLength length;
+  final String language;
+  final ValueChanged<_DraftTone> onToneChanged;
+  final ValueChanged<_DraftLength> onLengthChanged;
+  final ValueChanged<String> onLanguageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final toneColors = _BulkTone.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: toneColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: toneColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                size: 18,
+                color:
+                    Theme.of(context).brightness == Brightness.dark
+                        ? AppPalette.lavender
+                        : AppPalette.deepTeal,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                'Draft style',
+                style: TextStyle(
+                  color: toneColors.text,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _ControlLabel(text: 'Tone'),
+          const SizedBox(height: 7),
+          _ChoiceWrap<_DraftTone>(
+            value: tone,
+            values: _DraftTone.values,
+            labelFor: (value) => value.label,
+            onChanged: onToneChanged,
+          ),
+          const SizedBox(height: 12),
+          _ControlLabel(text: 'Length'),
+          const SizedBox(height: 7),
+          _ChoiceWrap<_DraftLength>(
+            value: length,
+            values: _DraftLength.values,
+            labelFor: (value) => value.label,
+            onChanged: onLengthChanged,
+          ),
+          const SizedBox(height: 12),
+          _ControlLabel(text: 'Language'),
+          const SizedBox(height: 7),
+          _ChoiceWrap<String>(
+            value: language,
+            values: const ['English', 'French'],
+            labelFor: (value) => value,
+            onChanged: onLanguageChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ControlLabel extends StatelessWidget {
+  const _ControlLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _BulkTone.of(context);
+    return Text(
+      text,
+      style: TextStyle(
+        color: tone.muted,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+class _ChoiceWrap<T> extends StatelessWidget {
+  const _ChoiceWrap({
+    required this.value,
+    required this.values,
+    required this.labelFor,
+    required this.onChanged,
+  });
+
+  final T value;
+  final List<T> values;
+  final String Function(T value) labelFor;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children:
+          values.map((item) {
+            final selected = item == value;
+            return _ChoiceChipButton(
+              label: labelFor(item),
+              selected: selected,
+              onTap: () => onChanged(item),
+            );
+          }).toList(),
+    );
+  }
+}
+
+class _ChoiceChipButton extends StatelessWidget {
+  const _ChoiceChipButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _BulkTone.of(context);
+    final activeColor =
+        Theme.of(context).brightness == Brightness.dark
+            ? AppPalette.lavender
+            : AppPalette.deepTeal;
+
+    return Material(
+      color: selected ? activeColor.withValues(alpha: 0.14) : tone.softSurface,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color:
+                  selected ? activeColor.withValues(alpha: 0.36) : tone.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? activeColor : tone.text,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

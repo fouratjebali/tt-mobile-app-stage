@@ -36,6 +36,7 @@ async def generate_bulk(
         return _fallback_bulk_response(
             recipients=recipients,
             topic=request.topic,
+            instructions=request.instructions,
             raw_result=str(exc.detail),
         )
 
@@ -93,25 +94,24 @@ def _fallback_bulk_response(
     *,
     recipients: list[dict[str, Any]],
     topic: str,
+    instructions: str,
     raw_result: str,
 ) -> BulkResponse:
     details = []
+    language = _fallback_language(instructions)
+    short = "short" in instructions.lower() or "brief" in instructions.lower()
     for index, recipient in enumerate(recipients, start=1):
         name = str(recipient.get("name") or "there").strip()
         email = str(recipient.get("email") or "").strip()
         role = str(recipient.get("role") or "Recipient").strip()
+        body = _fallback_body(name=name, topic=topic, language=language, short=short)
         details.append(
             {
                 "id": f"draft-{index}",
                 "to": email,
                 "recipient": name,
                 "subject": topic,
-                "body": (
-                    f"Hello {name},\n\n"
-                    f"I am contacting you about {topic}.\n\n"
-                    "Please let me know if this works for you.\n\n"
-                    "Best regards,"
-                ),
+                "body": body,
                 "status": "draft",
                 "personalization_note": f"Fallback draft for {role}.",
             }
@@ -124,4 +124,41 @@ def _fallback_bulk_response(
         errors=0,
         details=details,
         raw_result=raw_result,
+    )
+
+
+def _fallback_language(instructions: str) -> str:
+    return "French" if "french" in instructions.lower() else "English"
+
+
+def _fallback_body(*, name: str, topic: str, language: str, short: bool) -> str:
+    if language == "French":
+        if short:
+            return (
+                f"Bonjour {name},\n\n"
+                f"Je vous contacte au sujet de {topic}.\n\n"
+                "Pouvez-vous me confirmer votre retour ?\n\n"
+                "Cordialement,"
+            )
+        return (
+            f"Bonjour {name},\n\n"
+            f"Je vous contacte au sujet de {topic}. "
+            "Je souhaitais partager ce message avec vous et recueillir votre retour.\n\n"
+            "N'hesitez pas a me dire si vous avez besoin de plus d'informations.\n\n"
+            "Cordialement,"
+        )
+
+    if short:
+        return (
+            f"Hello {name},\n\n"
+            f"I am contacting you about {topic}.\n\n"
+            "Please let me know if this works for you.\n\n"
+            "Best regards,"
+        )
+    return (
+        f"Hello {name},\n\n"
+        f"I am contacting you about {topic}. "
+        "I wanted to share this with you and hear your thoughts.\n\n"
+        "Please let me know if you need any additional details.\n\n"
+        "Best regards,"
     )
