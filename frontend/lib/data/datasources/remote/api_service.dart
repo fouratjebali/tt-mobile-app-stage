@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:tt_mail_assistant/core/errors/error_message.dart';
 import 'package:tt_mail_assistant/data/datasources/local/auth_secure_storage.dart';
 
 class ApiService {
@@ -122,7 +123,10 @@ class ApiService {
       return await request();
     } on DioException catch (error) {
       throw ApiException(
-        message: _messageForDioError(error),
+        message: ErrorMessage.fromApi(
+          statusCode: error.response?.statusCode ?? 0,
+          message: _messageForDioError(error),
+        ),
         statusCode: error.response?.statusCode ?? 0,
       );
     }
@@ -144,9 +148,9 @@ class ApiService {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return 'Backend is taking too long to respond. Check Docker and try again.';
+        return 'This is taking longer than expected. Please try again.';
       case DioExceptionType.connectionError:
-        return 'Cannot reach the backend. Make sure Docker is running.';
+        return 'The service is not reachable. Please check that it is running and try again.';
       default:
         return _backendErrorMessage(error.response?.data);
     }

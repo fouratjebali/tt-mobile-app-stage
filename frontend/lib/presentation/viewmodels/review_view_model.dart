@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:tt_mail_assistant/core/errors/error_message.dart';
 import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
@@ -157,13 +158,6 @@ class ReviewViewModel extends ChangeNotifier {
   }
 
   String _toUserMessage(Object error) {
-    final raw = error.toString().trim();
-    if (raw.isEmpty) {
-      return 'Please retry.';
-    }
-    if (raw.length > 200) {
-      return '${raw.substring(0, 200)}...';
-    }
-    return raw;
+    return ErrorMessage.fromException(error);
   }
 }

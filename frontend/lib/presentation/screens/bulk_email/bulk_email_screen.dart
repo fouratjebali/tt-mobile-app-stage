@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/errors/error_message.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/data/models/bulk_email.dart';
@@ -196,14 +197,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   }
 
   String _friendlyError(String message) {
-    final lower = message.toLowerCase();
-    if (lower.contains('agent') && lower.contains('unavailable')) {
-      return 'Draft service is not ready yet. Please check the backend services and try again.';
-    }
-    if (lower.contains('taking too long') || lower.contains('timeout')) {
-      return 'Draft preparation is taking longer than expected. Please try with fewer recipients or try again.';
-    }
-    return message.replaceFirst(RegExp(r'^Exception:\s*'), '');
+    return ErrorMessage.fromException(message);
   }
 
   @override
