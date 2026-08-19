@@ -13,6 +13,7 @@ class ReviewViewModel extends ChangeNotifier {
   LoadState state = LoadState.idle;
   String? errorMessage;
   String? actionErrorMessage;
+  String? actionSuccessMessage;
   bool isSubmittingAction = false;
   List<Email> emails = [];
   Future<void> Function()? _lastFailedAction;
@@ -77,6 +78,7 @@ class ReviewViewModel extends ChangeNotifier {
     final body = _resolveReplyBody(emailId);
     await _runActionWithRetry(
       actionLabel: 'send this reply',
+      successMessage: 'Reply sent.',
       completedEmailId: emailId,
       action: () => _emailUseCase.validateAndSend(emailId: emailId, body: body),
     );
@@ -91,6 +93,7 @@ class ReviewViewModel extends ChangeNotifier {
     }
     await _runActionWithRetry(
       actionLabel: 'send edited reply',
+      successMessage: 'Edited reply sent.',
       completedEmailId: emailId,
       action: () => _emailUseCase.editAndSend(emailId: emailId, body: body),
     );
@@ -99,9 +102,16 @@ class ReviewViewModel extends ChangeNotifier {
   Future<void> reject(String emailId) async {
     await _runActionWithRetry(
       actionLabel: 'mark this email as no response needed',
+      successMessage: 'Email skipped.',
       completedEmailId: emailId,
       action: () => _emailUseCase.reject(emailId: emailId),
     );
+  }
+
+  void clearActionMessages() {
+    actionErrorMessage = null;
+    actionSuccessMessage = null;
+    notifyListeners();
   }
 
   Future<void> retryLastAction() async {
@@ -112,21 +122,25 @@ class ReviewViewModel extends ChangeNotifier {
 
   Future<void> _runActionWithRetry({
     required String actionLabel,
+    required String successMessage,
     required String completedEmailId,
     required Future<void> Function() action,
   }) async {
     actionErrorMessage = null;
+    actionSuccessMessage = null;
     isSubmittingAction = true;
     notifyListeners();
     try {
       await action();
       _lastFailedAction = null;
       emails = emails.where((email) => email.id != completedEmailId).toList();
+      actionSuccessMessage = successMessage;
       await loadReviewEmails();
     } catch (error) {
       _lastFailedAction =
           () => _runActionWithRetry(
             actionLabel: actionLabel,
+            successMessage: successMessage,
             completedEmailId: completedEmailId,
             action: action,
           );

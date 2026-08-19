@@ -5,6 +5,8 @@ import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 
+enum _ReviewFilter { all, ready, urgent, needsEdit }
+
 class ReviewScreen extends StatefulWidget {
   const ReviewScreen({super.key});
 
@@ -14,6 +16,8 @@ class ReviewScreen extends StatefulWidget {
 
 class _ReviewScreenState extends State<ReviewScreen> {
   late final ReviewViewModel _viewModel;
+  _ReviewFilter _filter = _ReviewFilter.all;
+  bool _isShowingSuccess = false;
 
   @override
   void initState() {
@@ -34,7 +38,23 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   void _onChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+
+    final successMessage = _viewModel.actionSuccessMessage;
+    if (successMessage == null || _isShowingSuccess) return;
+    _isShowingSuccess = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(successMessage),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _viewModel.clearActionMessages();
+      _isShowingSuccess = false;
+    });
   }
 
   @override
@@ -42,7 +62,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
     final isLoading =
         _viewModel.state == LoadState.loading ||
         _viewModel.state == LoadState.idle;
-    final emails = _viewModel.sortedEmails;
+    final allEmails = _viewModel.sortedEmails;
+    final emails = _filteredEmails(allEmails);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -52,14 +73,16 @@ class _ReviewScreenState extends State<ReviewScreen> {
           children: [
             _ReviewHeader(
               pendingCount: _viewModel.pendingCount,
-              urgentCount:
-                  emails
-                      .where(
-                        (email) =>
-                            (email.analysis?.priority ?? Priority.NORMAL) ==
-                            Priority.URGENT,
-                      )
-                      .length,
+              readyCount: allEmails.where(_isReadyToSend).length,
+              urgentCount: allEmails.where(_isUrgent).length,
+            ),
+            _ReviewFilterRail(
+              selected: _filter,
+              allCount: allEmails.length,
+              readyCount: allEmails.where(_isReadyToSend).length,
+              urgentCount: allEmails.where(_isUrgent).length,
+              editCount: allEmails.where(_needsEdit).length,
+              onChanged: (value) => setState(() => _filter = value),
             ),
             if (_viewModel.state == LoadState.error)
               _InlineBanner(
@@ -77,7 +100,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : emails.isEmpty
-                      ? const _EmptyState()
+                      ? _EmptyState(filter: _filter)
                       : RefreshIndicator(
                         onRefresh: _viewModel.refresh,
                         child: ListView.builder(
@@ -131,6 +154,37 @@ class _ReviewScreenState extends State<ReviewScreen> {
       await _viewModel.reject(email.id);
     }
   }
+
+  List<Email> _filteredEmails(List<Email> emails) {
+    switch (_filter) {
+      case _ReviewFilter.all:
+        return emails;
+      case _ReviewFilter.ready:
+        return emails.where(_isReadyToSend).toList();
+      case _ReviewFilter.urgent:
+        return emails.where(_isUrgent).toList();
+      case _ReviewFilter.needsEdit:
+        return emails.where(_needsEdit).toList();
+    }
+  }
+
+  bool _isUrgent(Email email) {
+    return (email.analysis?.priority ?? Priority.NORMAL) == Priority.URGENT;
+  }
+
+  bool _isReadyToSend(Email email) {
+    final hasReply = email.analysis?.suggestedReply.trim().isNotEmpty == true;
+    return hasReply && email.jury?.verdict == JuryVerdict.APPROVED;
+  }
+
+  bool _needsEdit(Email email) {
+    final confidence = email.analysis?.confidence ?? 0;
+    final verdict = email.jury?.verdict;
+    return confidence < 0.8 ||
+        verdict == JuryVerdict.REJECTED ||
+        verdict == JuryVerdict.UNCERTAIN ||
+        email.analysis?.suggestedReply.trim().isNotEmpty != true;
+  }
 }
 
 class _ReviewTone {
@@ -168,9 +222,14 @@ class _ReviewTone {
 }
 
 class _ReviewHeader extends StatelessWidget {
-  const _ReviewHeader({required this.pendingCount, required this.urgentCount});
+  const _ReviewHeader({
+    required this.pendingCount,
+    required this.readyCount,
+    required this.urgentCount,
+  });
 
   final int pendingCount;
+  final int readyCount;
   final int urgentCount;
 
   @override
@@ -216,13 +275,133 @@ class _ReviewHeader extends StatelessWidget {
           ),
           if (urgentCount > 0) ...[
             const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _HeaderNotice(
+                  icon: Icons.priority_high_rounded,
+                  label: '$urgentCount urgent',
+                  color: AppPalette.clay,
+                ),
+                if (readyCount > 0)
+                  _HeaderNotice(
+                    icon: Icons.verified_outlined,
+                    label: '$readyCount ready',
+                    color: AppPalette.teal,
+                  ),
+              ],
+            ),
+          ] else if (readyCount > 0) ...[
+            const SizedBox(height: 10),
             _HeaderNotice(
-              icon: Icons.priority_high_rounded,
-              label: '$urgentCount urgent',
-              color: AppPalette.clay,
+              icon: Icons.verified_outlined,
+              label: '$readyCount ready to send',
+              color: AppPalette.teal,
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ReviewFilterRail extends StatelessWidget {
+  const _ReviewFilterRail({
+    required this.selected,
+    required this.allCount,
+    required this.readyCount,
+    required this.urgentCount,
+    required this.editCount,
+    required this.onChanged,
+  });
+
+  final _ReviewFilter selected;
+  final int allCount;
+  final int readyCount;
+  final int urgentCount;
+  final int editCount;
+  final ValueChanged<_ReviewFilter> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = [
+      _FilterOption(_ReviewFilter.all, 'All', allCount),
+      _FilterOption(_ReviewFilter.ready, 'Ready', readyCount),
+      _FilterOption(_ReviewFilter.urgent, 'Urgent', urgentCount),
+      _FilterOption(_ReviewFilter.needsEdit, 'Needs edit', editCount),
+    ];
+
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        scrollDirection: Axis.horizontal,
+        itemCount: options.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final option = options[index];
+          return _FilterChipButton(
+            label: '${option.label} ${option.count}',
+            selected: option.filter == selected,
+            onTap: () => onChanged(option.filter),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FilterOption {
+  const _FilterOption(this.filter, this.label, this.count);
+
+  final _ReviewFilter filter;
+  final String label;
+  final int count;
+}
+
+class _FilterChipButton extends StatelessWidget {
+  const _FilterChipButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _ReviewTone.of(context);
+    final active =
+        Theme.of(context).brightness == Brightness.dark
+            ? AppPalette.lavender
+            : AppPalette.deepTeal;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? active.withValues(alpha: 0.13) : tone.softSurface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? active.withValues(alpha: 0.34) : tone.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? active : tone.text,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -375,11 +554,47 @@ class _ReviewEmailCard extends StatelessWidget {
     return 'Review this draft before it is sent.';
   }
 
+  bool get _isReadyToSend {
+    final hasReply = email.analysis?.suggestedReply.trim().isNotEmpty == true;
+    return hasReply && email.jury?.verdict == JuryVerdict.APPROVED;
+  }
+
+  bool get _needsEdit {
+    final confidence = email.analysis?.confidence ?? 0;
+    final verdict = email.jury?.verdict;
+    return confidence < 0.8 ||
+        verdict == JuryVerdict.REJECTED ||
+        verdict == JuryVerdict.UNCERTAIN ||
+        email.analysis?.suggestedReply.trim().isNotEmpty != true;
+  }
+
+  String get _reviewStateLabel {
+    if (_isReadyToSend) return 'Ready to send';
+    if (_priority == Priority.URGENT) return 'Check urgently';
+    if (_needsEdit) return 'Needs edit';
+    return 'Review first';
+  }
+
+  IconData get _reviewStateIcon {
+    if (_isReadyToSend) return Icons.verified_outlined;
+    if (_priority == Priority.URGENT) return Icons.priority_high_rounded;
+    if (_needsEdit) return Icons.edit_note_rounded;
+    return Icons.rate_review_outlined;
+  }
+
+  Color get _reviewStateColor {
+    if (_isReadyToSend) return AppPalette.teal;
+    if (_priority == Priority.URGENT) return AppPalette.clay;
+    if (_needsEdit) return AppPalette.amber;
+    return AppPalette.blue;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tone = _ReviewTone.of(context);
     final priorityColor = _priorityColor(_priority);
     final categoryColor = _categoryColor(_category);
+    final stateColor = _reviewStateColor;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -401,7 +616,7 @@ class _ReviewEmailCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(height: 4, color: priorityColor),
+            Container(height: 4, color: stateColor),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               child: Column(
@@ -414,6 +629,12 @@ class _ReviewEmailCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            _ReviewStatePill(
+                              label: _reviewStateLabel,
+                              icon: _reviewStateIcon,
+                              color: stateColor,
+                            ),
+                            const SizedBox(height: 9),
                             Text(
                               email.subject.trim().isEmpty
                                   ? '(No subject)'
@@ -686,6 +907,45 @@ class _SkipButton extends StatelessWidget {
   }
 }
 
+class _ReviewStatePill extends StatelessWidget {
+  const _ReviewStatePill({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InfoPill extends StatelessWidget {
   const _InfoPill({required this.label, required this.color});
 
@@ -834,11 +1094,15 @@ class _SkipReplyDialog extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.filter});
+
+  final _ReviewFilter filter;
 
   @override
   Widget build(BuildContext context) {
     final tone = _ReviewTone.of(context);
+    final title = _emptyTitle(filter);
+    final subtitle = _emptySubtitle(filter);
 
     return Center(
       child: Padding(
@@ -861,7 +1125,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              'All caught up',
+              title,
               style: TextStyle(
                 color: tone.text,
                 fontSize: 20,
@@ -870,7 +1134,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'No suggested replies need your attention right now.',
+              subtitle,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: tone.muted,
@@ -883,6 +1147,32 @@ class _EmptyState extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+String _emptyTitle(_ReviewFilter filter) {
+  switch (filter) {
+    case _ReviewFilter.all:
+      return 'All caught up';
+    case _ReviewFilter.ready:
+      return 'No ready replies';
+    case _ReviewFilter.urgent:
+      return 'No urgent replies';
+    case _ReviewFilter.needsEdit:
+      return 'No drafts need editing';
+  }
+}
+
+String _emptySubtitle(_ReviewFilter filter) {
+  switch (filter) {
+    case _ReviewFilter.all:
+      return 'No suggested replies need your attention right now.';
+    case _ReviewFilter.ready:
+      return 'Validated drafts will appear here when they are ready to send.';
+    case _ReviewFilter.urgent:
+      return 'Urgent emails that need your approval will appear here.';
+    case _ReviewFilter.needsEdit:
+      return 'Drafts with low confidence or missing replies will appear here.';
   }
 }
 
