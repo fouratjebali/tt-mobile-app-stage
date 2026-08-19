@@ -5,6 +5,7 @@ import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/presentation/screens/bulk_email/bulk_email_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/notifications/notifications_screen.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -58,6 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         userName: _viewModel.userName,
                         userEmail: _viewModel.userEmail,
                         userPhotoUrl: _viewModel.userPhotoUrl,
+                        notificationCount: _viewModel.needReview,
+                        onNotificationsTap: _openNotifications,
                       ),
                       const SizedBox(height: 20),
                       _ReviewSummaryCard(count: _viewModel.needReview),
@@ -119,6 +122,16 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Future<void> _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+    );
+    if (mounted) {
+      _viewModel.refresh();
+    }
+  }
 }
 
 class _HomeTone {
@@ -160,11 +173,15 @@ class _GreetingHeader extends StatelessWidget {
     required this.userName,
     required this.userEmail,
     required this.userPhotoUrl,
+    required this.notificationCount,
+    required this.onNotificationsTap,
   });
 
   final String userName;
   final String? userEmail;
   final String? userPhotoUrl;
+  final int notificationCount;
+  final VoidCallback onNotificationsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -213,13 +230,18 @@ class _GreetingHeader extends StatelessWidget {
 
         const SizedBox(width: 12),
 
+        _NotificationIconButton(
+          count: notificationCount,
+          onTap: onNotificationsTap,
+        ),
+
+        const SizedBox(width: 10),
+
         CircleAvatar(
           radius: 25,
           backgroundColor: tone.softSurface,
-
           backgroundImage:
               userPhotoUrl == null ? null : NetworkImage(userPhotoUrl!),
-
           child:
               userPhotoUrl == null
                   ? Text(
@@ -277,6 +299,76 @@ class _GreetingHeader extends StatelessWidget {
 
     return '${weekdays[date.weekday - 1]}, '
         '${date.day} ${months[date.month - 1]}';
+  }
+}
+
+class _NotificationIconButton extends StatelessWidget {
+  const _NotificationIconButton({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _HomeTone.of(context);
+
+    return Tooltip(
+      message: 'Notifications',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: tone.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: tone.border),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  Icons.notifications_none_rounded,
+                  color: tone.text,
+                  size: 23,
+                ),
+                if (count > 0)
+                  Positioned(
+                    right: 7,
+                    top: 7,
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 17,
+                        minHeight: 17,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: AppPalette.clay,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: tone.surface, width: 2),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        count > 99 ? '99+' : '$count',
+                        style: const TextStyle(
+                          color: AppPalette.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

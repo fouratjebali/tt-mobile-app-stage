@@ -2,6 +2,7 @@ import 'package:tt_mail_assistant/domain/usecases/settings_usecase.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/activity_view_model.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/dashboard_view_model.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/notification_center_view_model.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
@@ -135,6 +136,10 @@ Future<void> init() async {
 
   getIt.registerFactory<DashboardViewModel>(
     () => DashboardViewModel(emailUseCase: getIt<EmailUseCase>()),
+  );
+
+  getIt.registerFactory<NotificationCenterViewModel>(
+    () => NotificationCenterViewModel(emailUseCase: getIt<EmailUseCase>()),
   );
 
   getIt.registerLazySingleton<ReviewViewModel>(
