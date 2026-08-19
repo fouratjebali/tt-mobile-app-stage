@@ -50,9 +50,23 @@ class _ReviewScreenState extends State<ReviewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _ReviewHeader(pendingCount: _viewModel.pendingCount),
+            _ReviewHeader(
+              pendingCount: _viewModel.pendingCount,
+              urgentCount:
+                  emails
+                      .where(
+                        (email) =>
+                            (email.analysis?.priority ?? Priority.NORMAL) ==
+                            Priority.URGENT,
+                      )
+                      .length,
+            ),
             if (_viewModel.state == LoadState.error)
-              _ErrorBanner(message: _viewModel.errorMessage ?? 'Error'),
+              _InlineBanner(
+                icon: Icons.cloud_off_outlined,
+                message: _viewModel.errorMessage ?? 'Unable to load emails.',
+                color: AppPalette.amber,
+              ),
             if (_viewModel.actionErrorMessage != null)
               _ActionErrorBanner(
                 message: _viewModel.actionErrorMessage!,
@@ -70,19 +84,15 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                           itemCount: emails.length,
                           itemBuilder: (context, index) {
+                            final email = emails[index];
                             return _ReviewEmailCard(
-                              email: emails[index],
+                              email: email,
                               isSubmitting: _viewModel.isSubmittingAction,
                               onSendReply:
-                                  () => _viewModel.validateAndSend(
-                                    emails[index].id,
-                                  ),
+                                  () => _viewModel.validateAndSend(email.id),
                               onEditFirst:
-                                  () => _showEditAndSendDialog(
-                                    context,
-                                    emails[index],
-                                  ),
-                              onReject: () => _confirmReject(emails[index]),
+                                  () => _showEditAndSendDialog(context, email),
+                              onReject: () => _confirmReject(email),
                             );
                           },
                         ),
@@ -101,53 +111,21 @@ class _ReviewScreenState extends State<ReviewScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder:
-          (ctx) => AlertDialog(
-            title: const Text('Edit & send'),
-            content: TextField(
-              controller: controller,
-              maxLines: 6,
-              decoration: const InputDecoration(
-                hintText: 'Write your reply…',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Send'),
-              ),
-            ],
-          ),
+          (ctx) =>
+              _EditReplyDialog(subject: email.subject, controller: controller),
     );
-    if (confirmed == true && controller.text.trim().isNotEmpty) {
-      await _viewModel.editAndSend(email.id, controller.text.trim());
+    final editedReply = controller.text.trim();
+    controller.dispose();
+
+    if (confirmed == true && editedReply.isNotEmpty) {
+      await _viewModel.editAndSend(email.id, editedReply);
     }
   }
 
   Future<void> _confirmReject(Email email) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Do not respond'),
-            content: const Text(
-              'Mark this email as handled without sending a reply?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Confirm'),
-              ),
-            ],
-          ),
+      builder: (ctx) => _SkipReplyDialog(subject: email.subject),
     );
     if (confirmed == true) {
       await _viewModel.reject(email.id);
@@ -155,69 +133,127 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Header
-// ─────────────────────────────────────────────────────────────────────────────
+class _ReviewTone {
+  const _ReviewTone({
+    required this.surface,
+    required this.softSurface,
+    required this.border,
+    required this.text,
+    required this.muted,
+  });
 
-class _ReviewHeader extends StatelessWidget {
-  const _ReviewHeader({required this.pendingCount});
-  final int pendingCount;
+  final Color surface;
+  final Color softSurface;
+  final Color border;
+  final Color text;
+  final Color muted;
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Text(
-                'Review',
-                style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(width: 10),
-              if (pendingCount > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '$pendingCount pending',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Emails that need your validation',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ),
+  static _ReviewTone of(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return _ReviewTone(
+      surface: isDark ? const Color(0xFF151C1A) : AppPalette.paper,
+      softSurface:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.07)
+              : AppPalette.sage.withValues(alpha: 0.62),
+      border:
+          isDark ? AppPalette.white.withValues(alpha: 0.08) : AppPalette.line,
+      text: isDark ? AppPalette.white : AppPalette.ink,
+      muted:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.62)
+              : AppPalette.pine.withValues(alpha: 0.68),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Email card
-// ─────────────────────────────────────────────────────────────────────────────
+class _ReviewHeader extends StatelessWidget {
+  const _ReviewHeader({required this.pendingCount, required this.urgentCount});
+
+  final int pendingCount;
+  final int urgentCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _ReviewTone.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: tone.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: tone.border),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppPalette.deepTeal,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.rate_review_outlined,
+                color: AppPalette.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Review replies',
+                    style: TextStyle(
+                      color: tone.text,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      height: 1.05,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Check the email and suggested reply before sending.',
+                    style: TextStyle(
+                      color: tone.muted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _InfoPill(
+                        label: '$pendingCount waiting',
+                        color:
+                            pendingCount > 0
+                                ? AppPalette.deepTeal
+                                : AppPalette.teal,
+                      ),
+                      if (urgentCount > 0)
+                        _InfoPill(
+                          label: '$urgentCount urgent',
+                          color: AppPalette.clay,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _ReviewEmailCard extends StatelessWidget {
   const _ReviewEmailCard({
@@ -236,54 +272,16 @@ class _ReviewEmailCard extends StatelessWidget {
 
   Priority get _priority => email.analysis?.priority ?? Priority.NORMAL;
 
-  Color get _priorityColor {
-    switch (_priority) {
-      case Priority.URGENT:
-        return const Color(0xFFE53935);
-      case Priority.NORMAL:
-        return const Color(0xFFF57C00);
-      case Priority.LOW:
-        return const Color(0xFF43A047);
-    }
-  }
-
-  String get _priorityLabel {
-    switch (_priority) {
-      case Priority.URGENT:
-        return 'URGENT';
-      case Priority.NORMAL:
-        return 'NORMAL';
-      case Priority.LOW:
-        return 'LOW';
-    }
-  }
-
-  String _formatRelativeTime(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
-  }
-
-  String _buildReason() {
-    final parts = <String>[];
-    if (_priority == Priority.URGENT) {
-      parts.add('Priority = URGENT');
-    }
-    final jury = email.jury;
-    if (jury != null && jury.reasoning != null && jury.reasoning!.isNotEmpty) {
-      parts.add(jury.reasoning!);
-    } else if (email.analysis != null) {
-      final conf = (email.analysis!.confidence * 100).toStringAsFixed(0);
-      parts.add('Jury confidence $conf% — below 80% threshold');
-    }
-    return parts.isEmpty ? 'Manual review required' : parts.join(' — ');
+  EmailCategory get _category {
+    return email.analysis?.category ?? EmailCategory.INFORMATION;
   }
 
   String get _emailPreview {
     final body = email.body.plain.trim();
     if (body.isNotEmpty) return body;
-    return 'No preview available.';
+    final summary = email.analysis?.summary.trim() ?? '';
+    if (summary.isNotEmpty) return summary;
+    return 'No email preview available.';
   }
 
   String get _suggestedReply {
@@ -292,127 +290,184 @@ class _ReviewEmailCard extends StatelessWidget {
     return 'No suggested reply was generated yet.';
   }
 
+  String get _senderName {
+    final name = email.from.name.trim();
+    if (name.isNotEmpty) return name;
+    return email.from.email.trim().isEmpty
+        ? 'Unknown sender'
+        : email.from.email;
+  }
+
+  String _buildReason() {
+    final juryReason = email.jury?.reasoning?.trim();
+    if (juryReason != null && juryReason.isNotEmpty) {
+      return juryReason;
+    }
+
+    final confidence = email.analysis?.confidence;
+    if (confidence != null && confidence < 0.8) {
+      return 'The draft needs a human check before sending.';
+    }
+
+    if (_priority == Priority.URGENT) {
+      return 'This email looks urgent, so it needs your approval.';
+    }
+
+    return 'Review this draft before it is sent.';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tone = _ReviewTone.of(context);
+    final priorityColor = _priorityColor(_priority);
+    final categoryColor = _categoryColor(_category);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border: Border(left: BorderSide(color: _priorityColor, width: 4)),
-        borderRadius: BorderRadius.circular(10),
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tone.border),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+          if (Theme.of(context).brightness != Brightness.dark)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _PriorityBadge(label: _priorityLabel, color: _priorityColor),
-                Text(
-                  '● ${_formatRelativeTime(email.date)}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              email.subject,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                height: 1.3,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              email.from.email,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Reason: ${_buildReason()}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 12),
-            _ReviewTextBlock(title: 'Email', text: _emailPreview, maxLines: 4),
-            const SizedBox(height: 10),
-            _ReviewTextBlock(
-              title: 'Suggested reply',
-              text: _suggestedReply,
-              maxLines: 5,
-              highlighted: true,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: isSubmitting ? null : onSendReply,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppPalette.lavender,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+            Container(height: 4, color: priorityColor),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              email.subject.trim().isEmpty
+                                  ? '(No subject)'
+                                  : email.subject,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: tone.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                height: 1.25,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _senderLine(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: tone.muted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(width: 10),
+                      Text(
+                        _formatRelativeTime(email.date),
+                        style: TextStyle(
+                          color: tone.muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    child: const Text('Send reply'),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: isSubmitting ? null : onEditFirst,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppPalette.lavender,
-                      side: BorderSide(
-                        color: AppPalette.lavender.withValues(alpha: 0.6),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _InfoPill(
+                        label: _priorityLabel(_priority),
+                        color: priorityColor,
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      _InfoPill(
+                        label: _categoryLabel(_category),
+                        color: categoryColor,
                       ),
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    child: const Text('Edit first'),
+                      if (email.analysis != null)
+                        _InfoPill(
+                          label:
+                              '${(email.analysis!.confidence * 100).clamp(0, 100).toStringAsFixed(0)}% confidence',
+                          color: AppPalette.blue,
+                        ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: isSubmitting ? null : onReject,
-                icon: const Icon(Icons.close, size: 16),
-                label: const Text("Don't respond"),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red[700],
-                  textStyle: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 12),
+                  _ReviewReason(text: _buildReason()),
+                  const SizedBox(height: 12),
+                  _ReviewTextBlock(
+                    title: 'Original email',
+                    text: _emailPreview,
+                    icon: Icons.mail_outline_rounded,
+                    maxLines: 5,
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  _ReviewTextBlock(
+                    title: 'Suggested reply',
+                    text: _suggestedReply,
+                    icon: Icons.edit_note_rounded,
+                    maxLines: 7,
+                    highlighted: true,
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: isSubmitting ? null : onSendReply,
+                          icon: const Icon(Icons.send_rounded, size: 18),
+                          label: const Text('Send'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: isSubmitting ? null : onEditFirst,
+                          icon: const Icon(Icons.edit_rounded, size: 18),
+                          label: const Text('Edit'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? AppPalette.lavender
+                                    : AppPalette.deepTeal,
+                            side: BorderSide(
+                              color: AppPalette.deepTeal.withValues(
+                                alpha: 0.34,
+                              ),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _SkipButton(enabled: !isSubmitting, onPressed: onReject),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -420,61 +475,123 @@ class _ReviewEmailCard extends StatelessWidget {
       ),
     );
   }
+
+  String _senderLine() {
+    final emailAddress = email.from.email.trim();
+    if (emailAddress.isEmpty || emailAddress == _senderName) {
+      return _senderName;
+    }
+    return '$_senderName <$emailAddress>';
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Priority badge chip
-// ─────────────────────────────────────────────────────────────────────────────
+class _ReviewReason extends StatelessWidget {
+  const _ReviewReason({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _ReviewTone.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppPalette.amber.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppPalette.amber.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: AppPalette.amber,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ReviewTextBlock extends StatelessWidget {
   const _ReviewTextBlock({
     required this.title,
     required this.text,
+    required this.icon,
     required this.maxLines,
     this.highlighted = false,
   });
 
   final String title;
   final String text;
+  final IconData icon;
   final int maxLines;
   final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
-    final borderColor =
-        highlighted
-            ? AppPalette.lavender.withValues(alpha: 0.3)
-            : Colors.grey.withValues(alpha: 0.18);
-    final background =
-        highlighted
-            ? AppPalette.lavender.withValues(alpha: 0.08)
-            : Colors.grey.withValues(alpha: 0.06);
+    final tone = _ReviewTone.of(context);
+    final accent = highlighted ? AppPalette.deepTeal : AppPalette.blue;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
+        color:
+            highlighted
+                ? AppPalette.teal.withValues(alpha: 0.10)
+                : tone.softSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color:
+              highlighted
+                  ? AppPalette.teal.withValues(alpha: 0.20)
+                  : tone.border,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: highlighted ? AppPalette.lavender : Colors.grey[700],
-            ),
+          Row(
+            children: [
+              Icon(icon, color: accent, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  color: highlighted ? accent : tone.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
+          const SizedBox(height: 8),
+          SelectableText(
             text,
             maxLines: maxLines,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, height: 1.35),
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 12,
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -482,63 +599,226 @@ class _ReviewTextBlock extends StatelessWidget {
   }
 }
 
-class _PriorityBadge extends StatelessWidget {
-  const _PriorityBadge({required this.label, required this.color});
+class _SkipButton extends StatelessWidget {
+  const _SkipButton({required this.enabled, required this.onPressed});
+
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _ReviewTone.of(context);
+
+    return Tooltip(
+      message: 'Skip this email',
+      child: IconButton(
+        onPressed: enabled ? onPressed : null,
+        style: IconButton.styleFrom(
+          backgroundColor: AppPalette.clay.withValues(alpha: 0.10),
+          foregroundColor: AppPalette.clay,
+          disabledForegroundColor: tone.muted.withValues(alpha: 0.4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: const Icon(Icons.close_rounded, size: 22),
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({required this.label, required this.color});
+
   final String label;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: color,
           fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.4,
+          fontWeight: FontWeight.w900,
+          height: 1,
         ),
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Empty state
-// ─────────────────────────────────────────────────────────────────────────────
+class _EditReplyDialog extends StatelessWidget {
+  const _EditReplyDialog({required this.subject, required this.controller});
+
+  final String subject;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _ReviewTone.of(context);
+
+    return AlertDialog(
+      backgroundColor: tone.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: tone.border),
+      ),
+      title: Text(
+        'Edit reply',
+        style: TextStyle(color: tone.text, fontWeight: FontWeight.w900),
+      ),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              subject.trim().isEmpty ? '(No subject)' : subject,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              minLines: 5,
+              maxLines: 9,
+              style: TextStyle(color: tone.text, height: 1.35),
+              decoration: InputDecoration(
+                hintText: 'Write your reply...',
+                hintStyle: TextStyle(color: tone.muted),
+                filled: true,
+                fillColor: tone.softSurface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: tone.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: tone.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: AppPalette.teal),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text('Cancel', style: TextStyle(color: tone.muted)),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Send'),
+        ),
+      ],
+    );
+  }
+}
+
+class _SkipReplyDialog extends StatelessWidget {
+  const _SkipReplyDialog({required this.subject});
+
+  final String subject;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _ReviewTone.of(context);
+
+    return AlertDialog(
+      backgroundColor: tone.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: tone.border),
+      ),
+      title: Text(
+        'Skip reply?',
+        style: TextStyle(color: tone.text, fontWeight: FontWeight.w900),
+      ),
+      content: Text(
+        'Mark "${subject.trim().isEmpty ? 'this email' : subject}" as handled without sending a reply.',
+        style: TextStyle(color: tone.muted, height: 1.35),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text('Cancel', style: TextStyle(color: tone.muted)),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: FilledButton.styleFrom(backgroundColor: AppPalette.clay),
+          child: const Text('Skip'),
+        ),
+      ],
+    );
+  }
+}
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ReviewTone.of(context);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.check_circle_outline,
-              size: 64,
-              color: AppPalette.teal.withValues(alpha: 0.5),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppPalette.teal.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(
+                Icons.check_circle_outline_rounded,
+                size: 36,
+                color: AppPalette.teal,
+              ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Tout est traité',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            const SizedBox(height: 18),
+            Text(
+              'All caught up',
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              'No emails need your attention right now.',
+              'No suggested replies need your attention right now.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
             ),
           ],
         ),
@@ -547,32 +827,41 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Error banner
-// ─────────────────────────────────────────────────────────────────────────────
+class _InlineBanner extends StatelessWidget {
+  const _InlineBanner({
+    required this.icon,
+    required this.message,
+    required this.color,
+  });
 
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
+  final IconData icon;
   final String message;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ReviewTone.of(context);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.cloud_off_outlined, color: Colors.orange, size: 18),
-          const SizedBox(width: 8),
+          Icon(icon, color: color, size: 19),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 13, color: Colors.orange),
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -583,6 +872,7 @@ class _ErrorBanner extends StatelessWidget {
 
 class _ActionErrorBanner extends StatelessWidget {
   const _ActionErrorBanner({required this.message, required this.onRetry});
+
   final String message;
   final Future<void> Function() onRetry;
 
@@ -590,25 +880,89 @@ class _ActionErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.25)),
+        color: AppPalette.clay.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppPalette.clay.withValues(alpha: 0.24)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 18),
-          const SizedBox(width: 8),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppPalette.clay,
+            size: 19,
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 13, color: Colors.red),
+              style: const TextStyle(
+                color: AppPalette.clay,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );
+  }
+}
+
+String _formatRelativeTime(DateTime date) {
+  final diff = DateTime.now().difference(date);
+  if (diff.inMinutes < 1) return 'now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+  if (diff.inHours < 24) return '${diff.inHours}h';
+  return '${diff.inDays}d';
+}
+
+String _priorityLabel(Priority priority) {
+  switch (priority) {
+    case Priority.URGENT:
+      return 'URGENT';
+    case Priority.NORMAL:
+      return 'NORMAL';
+    case Priority.LOW:
+      return 'LOW';
+  }
+}
+
+Color _priorityColor(Priority priority) {
+  switch (priority) {
+    case Priority.URGENT:
+      return AppPalette.clay;
+    case Priority.NORMAL:
+      return AppPalette.amber;
+    case Priority.LOW:
+      return AppPalette.deepTeal;
+  }
+}
+
+String _categoryLabel(EmailCategory category) {
+  switch (category) {
+    case EmailCategory.RECLAMATION:
+      return 'RECLAMATION';
+    case EmailCategory.INFORMATION:
+      return 'INFO';
+    case EmailCategory.SUPPORT:
+      return 'SUPPORT';
+    case EmailCategory.COMMERCIAL:
+      return 'COMMERCIAL';
+  }
+}
+
+Color _categoryColor(EmailCategory category) {
+  switch (category) {
+    case EmailCategory.RECLAMATION:
+      return AppPalette.clay;
+    case EmailCategory.INFORMATION:
+      return AppPalette.blue;
+    case EmailCategory.SUPPORT:
+      return AppPalette.amber;
+    case EmailCategory.COMMERCIAL:
+      return AppPalette.deepTeal;
   }
 }
