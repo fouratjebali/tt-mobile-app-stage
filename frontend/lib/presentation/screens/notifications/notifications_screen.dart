@@ -47,7 +47,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _NotificationsHeader(
-              totalCount: _viewModel.totalCount,
               urgentCount: _viewModel.urgentCount,
               readyCount: _viewModel.readyCount,
               editCount: _viewModel.editCount,
@@ -146,7 +145,6 @@ class _NotificationTone {
 
 class _NotificationsHeader extends StatelessWidget {
   const _NotificationsHeader({
-    required this.totalCount,
     required this.urgentCount,
     required this.readyCount,
     required this.editCount,
@@ -154,7 +152,6 @@ class _NotificationsHeader extends StatelessWidget {
     required this.onBack,
   });
 
-  final int totalCount;
   final int urgentCount;
   final int readyCount;
   final int editCount;
@@ -189,7 +186,6 @@ class _NotificationsHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              _HeaderCountBadge(count: totalCount),
             ],
           ),
           Padding(
@@ -228,50 +224,6 @@ class _NotificationsHeader extends StatelessWidget {
                   icon: Icons.edit_note_rounded,
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderCountBadge extends StatelessWidget {
-  const _HeaderCountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = count > 0 ? AppPalette.deepTeal : AppPalette.teal;
-
-    return Container(
-      constraints: const BoxConstraints(minWidth: 58),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '$count',
-            style: TextStyle(
-              color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            count == 1 ? 'item' : 'items',
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              height: 1,
             ),
           ),
         ],

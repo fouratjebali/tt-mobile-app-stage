@@ -75,7 +75,6 @@ class _TodayActivityScreenState extends State<TodayActivityScreen> {
           children: [
             _TodayHeader(
               selectedDate: _viewModel.selectedDate,
-              processedCount: _viewModel.allEmails.length,
               reviewCount: _countStatus(Status.PENDING_USER_REVIEW),
               onPickDate: () => _selectDate(context),
               onPreviousDay: _viewModel.loadPreviousDay,
@@ -176,7 +175,6 @@ class _TodayTone {
 class _TodayHeader extends StatelessWidget {
   const _TodayHeader({
     required this.selectedDate,
-    required this.processedCount,
     required this.reviewCount,
     required this.onPickDate,
     required this.onPreviousDay,
@@ -184,7 +182,6 @@ class _TodayHeader extends StatelessWidget {
   });
 
   final DateTime selectedDate;
-  final int processedCount;
   final int reviewCount;
   final VoidCallback onPickDate;
   final VoidCallback onPreviousDay;
@@ -199,26 +196,14 @@ class _TodayHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  'Today',
-                  style: TextStyle(
-                    color: tone.text,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    height: 1.05,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              _HeaderMetric(
-                value: '$processedCount',
-                label: processedCount == 1 ? 'event' : 'events',
-              ),
-            ],
+          Text(
+            'Today',
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              height: 1.05,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -257,54 +242,6 @@ class _TodayHeader extends StatelessWidget {
             const SizedBox(height: 10),
             _HeaderNotice(label: '$reviewCount waiting for review'),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderMetric extends StatelessWidget {
-  const _HeaderMetric({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-        Theme.of(context).brightness == Brightness.dark
-            ? AppPalette.lavender
-            : AppPalette.deepTeal;
-
-    return Container(
-      constraints: const BoxConstraints(minWidth: 62),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
         ],
       ),
     );

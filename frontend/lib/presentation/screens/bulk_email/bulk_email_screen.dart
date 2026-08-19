@@ -241,10 +241,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
           children: [
-            _BulkHeader(
-              recipientsCount: _recipients.length,
-              draftsCount: _controller.generatedEmails.length,
-            ),
+            _BulkHeader(draftsCount: _controller.generatedEmails.length),
             const SizedBox(height: 20),
             _SectionLabel(text: 'Campaign'),
             const SizedBox(height: 8),
@@ -696,9 +693,8 @@ class _AddRecipientDialogState extends State<_AddRecipientDialog> {
 }
 
 class _BulkHeader extends StatelessWidget {
-  const _BulkHeader({required this.recipientsCount, required this.draftsCount});
+  const _BulkHeader({required this.draftsCount});
 
-  final int recipientsCount;
   final int draftsCount;
 
   @override
@@ -710,26 +706,14 @@ class _BulkHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  'Group drafts',
-                  style: TextStyle(
-                    color: tone.text,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    height: 1.05,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              _HeaderMetric(
-                value: '$recipientsCount',
-                label: recipientsCount == 1 ? 'recipient' : 'recipients',
-              ),
-            ],
+          Text(
+            'Group drafts',
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              height: 1.05,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -745,54 +729,6 @@ class _BulkHeader extends StatelessWidget {
             const SizedBox(height: 10),
             _HeaderStatus(label: '$draftsCount drafts ready'),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderMetric extends StatelessWidget {
-  const _HeaderMetric({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = isDark ? AppPalette.lavender : AppPalette.deepTeal;
-
-    return Container(
-      constraints: const BoxConstraints(minWidth: 72),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
         ],
       ),
     );

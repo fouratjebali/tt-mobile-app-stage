@@ -72,7 +72,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _ReviewHeader(
-              pendingCount: _viewModel.pendingCount,
               readyCount: allEmails.where(_isReadyToSend).length,
               urgentCount: allEmails.where(_isUrgent).length,
             ),
@@ -222,13 +221,8 @@ class _ReviewTone {
 }
 
 class _ReviewHeader extends StatelessWidget {
-  const _ReviewHeader({
-    required this.pendingCount,
-    required this.readyCount,
-    required this.urgentCount,
-  });
+  const _ReviewHeader({required this.readyCount, required this.urgentCount});
 
-  final int pendingCount;
   final int readyCount;
   final int urgentCount;
 
@@ -241,27 +235,14 @@ class _ReviewHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  'Review replies',
-                  style: TextStyle(
-                    color: tone.text,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    height: 1.05,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              _HeaderCountBadge(
-                label: '$pendingCount',
-                caption: pendingCount == 1 ? 'waiting' : 'waiting',
-                color: pendingCount > 0 ? AppPalette.deepTeal : AppPalette.teal,
-              ),
-            ],
+          Text(
+            'Review replies',
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              height: 1.05,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -402,54 +383,6 @@ class _FilterChipButton extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _HeaderCountBadge extends StatelessWidget {
-  const _HeaderCountBadge({
-    required this.label,
-    required this.caption,
-    required this.color,
-  });
-
-  final String label;
-  final String caption;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 58),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            caption,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
-        ],
       ),
     );
   }
