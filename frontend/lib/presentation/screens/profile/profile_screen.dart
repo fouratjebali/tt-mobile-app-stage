@@ -26,8 +26,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool notifications = true;
   bool darkMode = false;
   bool dailySummary = true;
-  double confidenceThreshold = 80.0;
-  double urgencyThreshold = 7.0;
   String replyLanguage = 'English';
 
   bool isLoading = true;
@@ -47,8 +45,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final notif = await _settingsRepository.getNotifications();
       final darkM = await _settingsRepository.getDarkMode();
       final dailySumm = await _settingsRepository.getDailySummary();
-      final confThresh = await _settingsRepository.getConfidenceThreshold();
-      final urgThresh = await _settingsRepository.getUrgencyThreshold();
       final language = await _settingsRepository.getReplyLanguage();
       final currentUser = await _authRepository.getCurrentUser();
 
@@ -58,8 +54,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           notifications = notif;
           darkMode = darkM;
           dailySummary = dailySumm;
-          confidenceThreshold = confThresh;
-          urgencyThreshold = urgThresh;
           replyLanguage = _normalizedLanguage(language);
 
           // Set user info
@@ -108,20 +102,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       dailySummary = value;
     });
     await _settingsRepository.setDailySummary(value);
-  }
-
-  Future<void> _updateConfidenceThreshold(double value) async {
-    setState(() {
-      confidenceThreshold = value;
-    });
-    await _settingsRepository.setConfidenceThreshold(value);
-  }
-
-  Future<void> _updateUrgencyThreshold(double value) async {
-    setState(() {
-      urgencyThreshold = value;
-    });
-    await _settingsRepository.setUrgencyThreshold(value);
   }
 
   Future<void> _updateReplyLanguage(String value) async {
@@ -219,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile & Settings')),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -227,116 +207,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final tone = _ProfileTone.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile & Settings'),
-        elevation: 0,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        children: [
-          // ACCOUNT SECTION
-          _SectionHeader(title: 'Account'),
-          const SizedBox(height: 12),
-          _AccountCard(
-            userName: userName ?? 'User',
-            userEmail: userEmail ?? 'user@email.com',
-            userPhotoUrl: userPhotoUrl,
-          ),
-          const SizedBox(height: 32),
-
-          // EMAIL ASSISTANT SECTION
-          _SectionHeader(title: 'Email assistant'),
-          const SizedBox(height: 12),
-          _AssistantControlPanel(
-            isActive: autoProcessing,
-            onChanged: _updateAutoProcessing,
-          ),
-          const SizedBox(height: 12),
-          _AdvancedAssistantSettings(
-            urgencyThreshold: urgencyThreshold,
-            confidenceThreshold: confidenceThreshold,
-            onUrgencyChanged: _updateUrgencyThreshold,
-            onConfidenceChanged: _updateConfidenceThreshold,
-          ),
-          const SizedBox(height: 32),
-
-          // APP PREFERENCES SECTION
-          _SectionHeader(title: 'App preferences'),
-          const SizedBox(height: 12),
-          _PreferenceToggle(
-            title: 'Push notifications',
-            value: notifications,
-            onChanged: _updateNotifications,
-          ),
-          const SizedBox(height: 12),
-          _PreferenceToggle(
-            title: 'Daily summary',
-            value: dailySummary,
-            onChanged: _updateDailySummary,
-          ),
-          const SizedBox(height: 12),
-          _PreferenceToggle(
-            title: 'Dark mode',
-            value: darkMode,
-            onChanged: _updateDarkMode,
-          ),
-          const SizedBox(height: 12),
-          _SettingCard(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+          children: [
+            Text(
+              'Settings',
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                height: 1.05,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Manage your account and email preferences.',
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _AccountCard(
+              userName: userName ?? 'User',
+              userEmail: userEmail ?? 'user@email.com',
+              userPhotoUrl: userPhotoUrl,
+            ),
+            const SizedBox(height: 24),
+            const _SectionHeader(title: 'Email handling'),
+            const SizedBox(height: 10),
+            _AssistantControlPanel(
+              isActive: autoProcessing,
+              onChanged: _updateAutoProcessing,
+            ),
+            const SizedBox(height: 12),
+            _LanguageTile(
+              language: replyLanguage,
               onTap: _showReplyLanguagePicker,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 16,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Reply language',
-                          style: TextStyle(
-                            color: tone.text,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          replyLanguage,
-                          style: TextStyle(fontSize: 14, color: tone.muted),
-                        ),
-                      ],
-                    ),
-                    Icon(Icons.arrow_forward_ios, size: 16, color: tone.muted),
-                  ],
-                ),
-              ),
             ),
-          ),
-          const SizedBox(height: 40),
-
-          // LOGOUT BUTTON
-          ElevatedButton.icon(
-            onPressed: _signOut,
-            icon: const Icon(Icons.logout),
-            label: const Text('Sign Out'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+            const SizedBox(height: 24),
+            const _SectionHeader(title: 'Preferences'),
+            const SizedBox(height: 10),
+            _PreferenceToggle(
+              icon: Icons.notifications_none_rounded,
+              title: 'Notifications',
+              subtitle: 'Get alerts when a reply is ready to review.',
+              value: notifications,
+              onChanged: _updateNotifications,
             ),
-          ),
-          const SizedBox(height: 20),
-        ],
+            const SizedBox(height: 10),
+            _PreferenceToggle(
+              icon: Icons.summarize_outlined,
+              title: 'Daily summary',
+              subtitle: 'Receive a short recap of handled emails.',
+              value: dailySummary,
+              onChanged: _updateDailySummary,
+            ),
+            const SizedBox(height: 10),
+            _PreferenceToggle(
+              icon: Icons.dark_mode_outlined,
+              title: 'Dark mode',
+              subtitle: 'Use the app with a darker appearance.',
+              value: darkMode,
+              onChanged: _updateDarkMode,
+            ),
+            const SizedBox(height: 28),
+            _SignOutButton(onPressed: _signOut),
+          ],
+        ),
       ),
     );
   }
@@ -388,7 +330,7 @@ class _SectionHeader extends StatelessWidget {
         color: tone.text,
         fontSize: 16,
         fontWeight: FontWeight.w700,
-        letterSpacing: 0.5,
+        letterSpacing: 0,
       ),
     );
   }
@@ -530,7 +472,7 @@ class _AssistantControlPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Handle new emails',
+                  'Prepare replies automatically',
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 16,
@@ -540,8 +482,8 @@ class _AssistantControlPanel extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   isActive
-                      ? 'Unread emails are checked and prepared for your review.'
-                      : 'New emails will wait until you turn this back on.',
+                      ? 'New unread emails are turned into drafts for review.'
+                      : 'New emails will wait until this is turned back on.',
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 13,
@@ -560,6 +502,71 @@ class _AssistantControlPanel extends StatelessWidget {
   }
 }
 
+class _LanguageTile extends StatelessWidget {
+  const _LanguageTile({required this.language, required this.onTap});
+
+  final String language;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
+    return _SettingCard(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppPalette.blue.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.language_rounded,
+                  color: AppPalette.blue,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Reply language',
+                      style: TextStyle(
+                        color: tone.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      language,
+                      style: TextStyle(
+                        color: tone.muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: tone.muted, size: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SettingCard extends StatelessWidget {
   const _SettingCard({required this.child});
 
@@ -572,7 +579,7 @@ class _SettingCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: tone.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: tone.border),
       ),
       child: child,
@@ -580,66 +587,72 @@ class _SettingCard extends StatelessWidget {
   }
 }
 
-class _AdvancedAssistantSettings extends StatelessWidget {
-  const _AdvancedAssistantSettings({
-    required this.urgencyThreshold,
-    required this.confidenceThreshold,
-    required this.onUrgencyChanged,
-    required this.onConfidenceChanged,
+class _PreferenceToggle extends StatelessWidget {
+  const _PreferenceToggle({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
   });
 
-  final double urgencyThreshold;
-  final double confidenceThreshold;
-  final ValueChanged<double> onUrgencyChanged;
-  final ValueChanged<double> onConfidenceChanged;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final Function(bool) onChanged;
 
   @override
   Widget build(BuildContext context) {
     final tone = _ProfileTone.of(context);
+    final color = value ? AppPalette.deepTeal : tone.muted;
 
     return _SettingCard(
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-          iconColor: tone.muted,
-          collapsedIconColor: tone.muted,
-          title: Text(
-            'Advanced tuning',
-            style: TextStyle(
-              color: tone.text,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          subtitle: Text(
-            'Only change this if the team asks you to.',
-            style: TextStyle(
-              color: tone.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
           children: [
-            _AdvancedSlider(
-              title: 'Urgent email sensitivity',
-              valueLabel: urgencyThreshold.toStringAsFixed(1),
-              value: urgencyThreshold,
-              min: 1,
-              max: 10,
-              divisions: 9,
-              onChanged: onUrgencyChanged,
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: color, size: 21),
             ),
-            const SizedBox(height: 8),
-            _AdvancedSlider(
-              title: 'Review strictness',
-              valueLabel: '${confidenceThreshold.toStringAsFixed(0)}%',
-              value: confidenceThreshold,
-              min: 0,
-              max: 100,
-              divisions: 10,
-              onChanged: onConfidenceChanged,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: tone.text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: tone.muted,
+                      fontSize: 12.5,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Switch(
+              value: value,
+              onChanged: (newValue) async {
+                await onChanged(newValue);
+              },
             ),
           ],
         ),
@@ -648,106 +661,22 @@ class _AdvancedAssistantSettings extends StatelessWidget {
   }
 }
 
-class _AdvancedSlider extends StatelessWidget {
-  const _AdvancedSlider({
-    required this.title,
-    required this.valueLabel,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
+class _SignOutButton extends StatelessWidget {
+  const _SignOutButton({required this.onPressed});
 
-  final String title;
-  final String valueLabel;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final tone = _ProfileTone.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: tone.text,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Text(
-              valueLabel,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: AppPalette.teal,
-              ),
-            ),
-          ],
-        ),
-        Slider(
-          value: value.clamp(min, max),
-          onChanged: onChanged,
-          min: min,
-          max: max,
-          divisions: divisions,
-          activeColor: AppPalette.lavender,
-        ),
-      ],
-    );
-  }
-}
-
-class _PreferenceToggle extends StatelessWidget {
-  const _PreferenceToggle({
-    required this.title,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String title;
-  final bool value;
-  final Function(bool) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final tone = _ProfileTone.of(context);
-
-    return _SettingCard(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: tone.text,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Switch(
-              value: value,
-              onChanged: (newValue) async {
-                await onChanged(newValue);
-              },
-              activeColor: AppPalette.lavender,
-            ),
-          ],
-        ),
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.logout_rounded, size: 19),
+      label: const Text('Sign out'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppPalette.clay,
+        side: BorderSide(color: AppPalette.clay.withValues(alpha: 0.38)),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
