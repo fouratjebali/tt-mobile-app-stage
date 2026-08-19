@@ -557,11 +557,6 @@ class _AnalysisCard extends StatelessWidget {
                 label: _priorityLabel(priority),
                 color: _priorityColor(priority),
               ),
-              _InfoPill(
-                label:
-                    '${(analysis.confidence * 100).clamp(0, 100).toStringAsFixed(0)}% confidence',
-                color: AppPalette.blue,
-              ),
             ],
           ),
           const SizedBox(height: 12),

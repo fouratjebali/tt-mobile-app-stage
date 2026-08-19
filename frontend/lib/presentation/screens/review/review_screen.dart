@@ -619,12 +619,6 @@ class _ReviewEmailCard extends StatelessWidget {
                         label: _categoryLabel(_category),
                         color: categoryColor,
                       ),
-                      if (email.analysis != null)
-                        _InfoPill(
-                          label:
-                              '${(email.analysis!.confidence * 100).clamp(0, 100).toStringAsFixed(0)}% confidence',
-                          color: AppPalette.blue,
-                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1105,7 +1099,7 @@ String _emptySubtitle(_ReviewFilter filter) {
     case _ReviewFilter.urgent:
       return 'Urgent emails that need your approval will appear here.';
     case _ReviewFilter.needsEdit:
-      return 'Drafts with low confidence or missing replies will appear here.';
+      return 'Drafts that need a closer look will appear here.';
   }
 }
 
