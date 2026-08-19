@@ -37,13 +37,18 @@ class HomeViewModel extends ChangeNotifier {
 
     try {
       final user = await _authUseCase.getCurrentUser();
-      final emails = await _emailUseCase.getEmails();
-      final stats = await _emailUseCase.getDashboardStats(period: '7d');
+      final todayEmails = await _emailUseCase.getEmails();
+      final reviewEmails = await _emailUseCase.getReviewList();
       final autoProcessing = await _settingsUseCase.getAutoProcessing();
 
-      final processed = _asInt(stats['processed_count']);
-      final sent = _asInt(stats['sent_count']);
-      final review = _asInt(stats['review_count']);
+      final sortedTodayEmails = List<Email>.from(todayEmails)
+        ..sort((a, b) => b.date.compareTo(a.date));
+      final processed = sortedTodayEmails.length;
+      final sent =
+          sortedTodayEmails
+              .where((email) => email.status == Status.DONE)
+              .length;
+      final review = reviewEmails.length;
       final accuracy = processed == 0 ? 0.0 : (sent / processed) * 100;
 
       userName =
@@ -57,7 +62,7 @@ class HomeViewModel extends ChangeNotifier {
       autoSent = sent;
       needReview = review;
       accuracyRate = accuracy;
-      recentEmails = emails.take(3).toList(growable: false);
+      recentEmails = sortedTodayEmails.take(3).toList(growable: false);
 
       state = LoadState.success;
       errorMessage = null;
@@ -79,11 +84,5 @@ class HomeViewModel extends ChangeNotifier {
   String? _cleanPhotoUrl(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
-  }
-
-  int _asInt(Object? value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }
