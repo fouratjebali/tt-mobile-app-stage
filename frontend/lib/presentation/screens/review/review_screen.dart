@@ -178,78 +178,137 @@ class _ReviewHeader extends StatelessWidget {
     final tone = _ReviewTone.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: tone.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: tone.border),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppPalette.deepTeal,
-                borderRadius: BorderRadius.circular(16),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  'Review replies',
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                  ),
+                ),
               ),
-              child: const Icon(
-                Icons.rate_review_outlined,
-                color: AppPalette.white,
-                size: 26,
+              const SizedBox(width: 12),
+              _HeaderCountBadge(
+                label: '$pendingCount',
+                caption: pendingCount == 1 ? 'waiting' : 'waiting',
+                color: pendingCount > 0 ? AppPalette.deepTeal : AppPalette.teal,
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Check suggested replies before they are sent.',
+            style: TextStyle(
+              color: tone.muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Review replies',
-                    style: TextStyle(
-                      color: tone.text,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Check the email and suggested reply before sending.',
-                    style: TextStyle(
-                      color: tone.muted,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _InfoPill(
-                        label: '$pendingCount waiting',
-                        color:
-                            pendingCount > 0
-                                ? AppPalette.deepTeal
-                                : AppPalette.teal,
-                      ),
-                      if (urgentCount > 0)
-                        _InfoPill(
-                          label: '$urgentCount urgent',
-                          color: AppPalette.clay,
-                        ),
-                    ],
-                  ),
-                ],
-              ),
+          ),
+          if (urgentCount > 0) ...[
+            const SizedBox(height: 10),
+            _HeaderNotice(
+              icon: Icons.priority_high_rounded,
+              label: '$urgentCount urgent',
+              color: AppPalette.clay,
             ),
           ],
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderCountBadge extends StatelessWidget {
+  const _HeaderCountBadge({
+    required this.label,
+    required this.caption,
+    required this.color,
+  });
+
+  final String label;
+  final String caption;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            caption,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderNotice extends StatelessWidget {
+  const _HeaderNotice({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
