@@ -3,6 +3,7 @@ import logging
 from contextlib import suppress
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -27,8 +28,18 @@ class EmailBackgroundPipeline:
     async def run_once_for_all_users(self) -> dict[str, int]:
         totals = {"users": 0, "synced": 0, "treated": 0, "notified": 0}
         for user in self._repository.list_users():
-            result = await self.run_once_for_user(user=user)
             totals["users"] += 1
+            try:
+                result = await self.run_once_for_user(user=user)
+            except HTTPException as error:
+                if error.status_code == 401:
+                    logger.info(
+                        "Skipping email pipeline for user %s: %s",
+                        user.id,
+                        error.detail,
+                    )
+                    continue
+                raise
             totals["synced"] += result["synced"]
             totals["treated"] += result["treated"]
             totals["notified"] += result["notified"]
