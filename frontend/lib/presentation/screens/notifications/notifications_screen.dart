@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
@@ -161,6 +162,7 @@ class _NotificationsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _NotificationTone.of(context);
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 20, 12),
@@ -170,14 +172,14 @@ class _NotificationsHeader extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                tooltip: 'Back',
+                tooltip: l10n.t('common.back'),
                 onPressed: onBack,
                 icon: const Icon(Icons.arrow_back_rounded),
                 color: tone.text,
               ),
               Expanded(
                 child: Text(
-                  'Notifications',
+                  l10n.t('notifications.title'),
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 28,
@@ -192,8 +194,8 @@ class _NotificationsHeader extends StatelessWidget {
             padding: const EdgeInsets.only(left: 12),
             child: Text(
               lastUpdated == null
-                  ? 'Your review queue and recent email activity.'
-                  : 'Updated ${_formatShortTime(lastUpdated!)}',
+                  ? l10n.t('notifications.subtitle')
+                  : '${l10n.t('notifications.updated')} ${_formatShortTime(lastUpdated!)}',
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 13,
@@ -209,17 +211,17 @@ class _NotificationsHeader extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _HeaderPill(
-                  label: '$urgentCount urgent',
+                  label: '$urgentCount ${l10n.t('review.urgent')}',
                   color: AppPalette.clay,
                   icon: Icons.priority_high_rounded,
                 ),
                 _HeaderPill(
-                  label: '$readyCount ready',
+                  label: '$readyCount ${l10n.t('review.ready')}',
                   color: AppPalette.teal,
                   icon: Icons.verified_outlined,
                 ),
                 _HeaderPill(
-                  label: '$editCount needs edit',
+                  label: '$editCount ${l10n.t('notifications.needsEdit')}',
                   color: AppPalette.amber,
                   icon: Icons.edit_note_rounded,
                 ),
@@ -484,7 +486,7 @@ class _EmptyNotifications extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         Text(
-          'Nothing needs attention',
+          context.l10n.t('notifications.emptyTitle'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: tone.text,
@@ -494,7 +496,7 @@ class _EmptyNotifications extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Replies ready for review, urgent emails, and recent sent activity will appear here.',
+          context.l10n.t('notifications.emptySubtitle'),
           textAlign: TextAlign.center,
           style: TextStyle(
             color: tone.muted,

@@ -75,4 +75,15 @@ class SettingsRepositoryImpl implements SettingsRepository {
   Future<void> setReplyLanguage(String value) async {
     await prefs.setString('replyLanguage', value);
   }
+
+  @override
+  Future<String> getAppLanguage() async {
+    return prefs.getString('appLanguage') ?? 'en';
+  }
+
+  @override
+  Future<void> setAppLanguage(String value) async {
+    await prefs.setString('appLanguage', value);
+    await prefs.setBool('appLanguageSelected', true);
+  }
 }

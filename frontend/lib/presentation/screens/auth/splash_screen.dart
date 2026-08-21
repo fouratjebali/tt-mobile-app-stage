@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_language_controller.dart';
 import 'package:tt_mail_assistant/core/services/launch_preferences.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
+import 'package:tt_mail_assistant/presentation/screens/auth/language_selection_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/auth/login_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/auth/onboarding_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/navigation/main_navigation_screen.dart';
@@ -45,7 +47,9 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     final Widget nextScreen;
-    if (user != null) {
+    if (!getIt<AppLanguageController>().hasSelectedLanguage) {
+      nextScreen = const LanguageSelectionScreen();
+    } else if (user != null) {
       nextScreen = const MainNavigationScreen();
     } else if (hasSeenOnboarding) {
       nextScreen = const LoginScreen();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/errors/error_message.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/data/models/bulk_email.dart';
@@ -29,29 +30,6 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   _DraftTone _draftTone = _DraftTone.professional;
   _DraftLength _draftLength = _DraftLength.short;
   String _replyLanguage = 'English';
-
-  static const _navItems = [
-    AppNavigationItemData(
-      label: 'Home',
-      icon: Icons.home_outlined,
-      activeIcon: Icons.home_rounded,
-    ),
-    AppNavigationItemData(
-      label: 'Today',
-      icon: Icons.calendar_today_outlined,
-      activeIcon: Icons.calendar_today_rounded,
-    ),
-    AppNavigationItemData(
-      label: 'Review',
-      icon: Icons.mark_email_unread_outlined,
-      activeIcon: Icons.mark_email_unread_rounded,
-    ),
-    AppNavigationItemData(
-      label: 'Profile',
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
-    ),
-  ];
 
   @override
   void initState() {
@@ -234,6 +212,29 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   @override
   Widget build(BuildContext context) {
     final tone = _BulkTone.of(context);
+    final l10n = context.l10n;
+    final navItems = [
+      AppNavigationItemData(
+        label: l10n.t('nav.home'),
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home_rounded,
+      ),
+      AppNavigationItemData(
+        label: l10n.t('nav.today'),
+        icon: Icons.calendar_today_outlined,
+        activeIcon: Icons.calendar_today_rounded,
+      ),
+      AppNavigationItemData(
+        label: l10n.t('nav.review'),
+        icon: Icons.mark_email_unread_outlined,
+        activeIcon: Icons.mark_email_unread_rounded,
+      ),
+      AppNavigationItemData(
+        label: l10n.t('nav.profile'),
+        icon: Icons.person_outline_rounded,
+        activeIcon: Icons.person_rounded,
+      ),
+    ];
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -243,7 +244,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
           children: [
             _BulkHeader(draftsCount: _controller.generatedEmails.length),
             const SizedBox(height: 20),
-            _SectionLabel(text: 'Campaign'),
+            _SectionLabel(text: l10n.t('bulk.campaign')),
             const SizedBox(height: 8),
             _CampaignField(controller: _campaignController),
             const SizedBox(height: 18),
@@ -270,8 +271,10 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
             const SizedBox(height: 18),
             Row(
               children: [
-                const Expanded(child: _SectionLabel(text: 'Recipients')),
-                _CountPill(label: '${_recipients.length} added'),
+                Expanded(child: _SectionLabel(text: l10n.t('bulk.recipients'))),
+                _CountPill(
+                  label: '${_recipients.length} ${l10n.t('bulk.added')}',
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -325,8 +328,8 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                               : const Icon(Icons.auto_awesome_rounded),
                       label: Text(
                         _isGenerating
-                            ? 'Preparing your drafts'
-                            : 'Generate drafts',
+                            ? l10n.t('bulk.preparing')
+                            : l10n.t('bulk.generate'),
                       ),
                     ),
                   ),
@@ -337,7 +340,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _isGenerating ? null : _previewAndSend,
                       icon: const Icon(Icons.edit_note_rounded, size: 20),
-                      label: const Text('Preview and edit'),
+                      label: Text(l10n.t('bulk.previewEdit')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppPalette.deepTeal,
                         side: BorderSide(
@@ -359,7 +362,7 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
       bottomNavigationBar: AppBottomNavigationBar(
         selectedIndex: -1,
         reviewCount: _reviewViewModel.pendingCount,
-        items: _navItems,
+        items: navItems,
         showAssistantSpace: false,
         onItemSelected: (index) => Navigator.pop(context, index),
       ),

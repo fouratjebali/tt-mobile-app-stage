@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/services/launch_preferences.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/presentation/screens/auth/login_screen.dart';
@@ -18,30 +19,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const List<_OnboardingPageData> _pages = [
     _OnboardingPageData(
       icon: HugeIcons.strokeRoundedAiMail,
-      accentLabel: 'Outlook connected',
-      metricOne: '12 primary',
-      metricTwo: '5 priority',
-      title: 'Connect your inbox',
-      description:
-          'Let TT Mail Assistant classify, prioritize, and draft replies before email noise reaches you.',
+      accentLabelKey: 'onboarding.connected',
+      metricOneKey: 'onboarding.primary',
+      metricTwoKey: 'onboarding.priority',
+      titleKey: 'onboarding.connectTitle',
+      descriptionKey: 'onboarding.connectDescription',
     ),
     _OnboardingPageData(
       icon: HugeIcons.strokeRoundedAiLock,
-      accentLabel: 'Review protected',
-      metricOne: 'Urgent held',
-      metricTwo: 'Draft checked',
-      title: 'Keep control',
-      description:
-          'Urgent or uncertain replies wait for your review, while safe routine emails move quietly.',
+      accentLabelKey: 'onboarding.reviewProtected',
+      metricOneKey: 'onboarding.urgentHeld',
+      metricTwoKey: 'onboarding.draftChecked',
+      titleKey: 'onboarding.controlTitle',
+      descriptionKey: 'onboarding.controlDescription',
     ),
     _OnboardingPageData(
       icon: HugeIcons.strokeRoundedAiChat01,
-      accentLabel: 'Replies ready',
-      metricOne: '3 drafts',
-      metricTwo: '1 tap approve',
-      title: 'Answer faster',
-      description:
-          'Approve, edit, or ignore AI drafts from one calm mobile workspace built for daily triage.',
+      accentLabelKey: 'onboarding.repliesReady',
+      metricOneKey: 'onboarding.drafts',
+      metricTwoKey: 'onboarding.approve',
+      titleKey: 'onboarding.answerTitle',
+      descriptionKey: 'onboarding.answerDescription',
     ),
   ];
 
@@ -76,6 +74,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final isCompact = media.size.height < 720;
+    final l10n = context.l10n;
 
     return Scaffold(
       body: DecoratedBox(
@@ -112,8 +111,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _PrimaryActionButton(
                   label:
                       _currentPage == _pages.length - 1
-                          ? 'Open assistant'
-                          : 'Get started',
+                          ? l10n.t('onboarding.openAssistant')
+                          : l10n.t('onboarding.getStarted'),
                   onPressed: _next,
                 ),
               ],
@@ -132,6 +131,7 @@ class _OnboardingHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Row(
       children: [
         Image.asset(
@@ -157,7 +157,7 @@ class _OnboardingHeader extends StatelessWidget {
             foregroundColor: AppPalette.pine,
             textStyle: const TextStyle(fontWeight: FontWeight.w700),
           ),
-          child: const Text('Skip'),
+          child: Text(l10n.t('onboarding.skip')),
         ),
       ],
     );
@@ -172,6 +172,7 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return LayoutBuilder(
       builder: (context, constraints) {
         final imageHeight = constraints.maxHeight * (isCompact ? 0.42 : 0.56);
@@ -191,7 +192,7 @@ class _OnboardingPage extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    data.title,
+                    l10n.t(data.titleKey),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: AppPalette.ink,
@@ -201,7 +202,7 @@ class _OnboardingPage extends StatelessWidget {
                   ),
                   SizedBox(height: isCompact ? 8 : 14),
                   Text(
-                    data.description,
+                    l10n.t(data.descriptionKey),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: AppPalette.pine,
@@ -327,7 +328,7 @@ class _HeroVisual extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            data.accentLabel,
+                            context.l10n.t(data.accentLabelKey),
                             style: const TextStyle(
                               color: AppPalette.mist,
                               fontSize: 15,
@@ -359,7 +360,7 @@ class _HeroVisual extends StatelessWidget {
               right: 2,
               child: _FloatingBadge(
                 icon: HugeIcons.strokeRoundedAiMagic,
-                label: data.metricOne,
+                label: context.l10n.t(data.metricOneKey),
                 color: AppPalette.lavender,
               ),
             ),
@@ -368,7 +369,7 @@ class _HeroVisual extends StatelessWidget {
               bottom: 18,
               child: _FloatingBadge(
                 icon: HugeIcons.strokeRoundedCheckmarkBadge02,
-                label: data.metricTwo,
+                label: context.l10n.t(data.metricTwoKey),
                 color: AppPalette.teal,
               ),
             ),
@@ -531,17 +532,17 @@ class _AccentSpark extends StatelessWidget {
 class _OnboardingPageData {
   const _OnboardingPageData({
     required this.icon,
-    required this.accentLabel,
-    required this.metricOne,
-    required this.metricTwo,
-    required this.title,
-    required this.description,
+    required this.accentLabelKey,
+    required this.metricOneKey,
+    required this.metricTwoKey,
+    required this.titleKey,
+    required this.descriptionKey,
   });
 
   final List<List<dynamic>> icon;
-  final String accentLabel;
-  final String metricOne;
-  final String metricTwo;
-  final String title;
-  final String description;
+  final String accentLabelKey;
+  final String metricOneKey;
+  final String metricTwoKey;
+  final String titleKey;
+  final String descriptionKey;
 }

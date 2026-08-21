@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tt_mail_assistant/core/config/api_config.dart';
+import 'package:tt_mail_assistant/core/localization/app_language_controller.dart';
 import 'package:tt_mail_assistant/core/theme/theme_controller.dart';
 import 'package:tt_mail_assistant/data/datasources/local/auth_secure_storage.dart';
 import 'package:tt_mail_assistant/data/datasources/local/database_helper.dart';
@@ -46,6 +47,9 @@ Future<void> init() async {
   getIt.registerSingleton<SharedPreferences>(prefs);
   getIt.registerSingleton<ThemeController>(
     ThemeController(getIt<SharedPreferences>()),
+  );
+  getIt.registerSingleton<AppLanguageController>(
+    AppLanguageController(getIt<SharedPreferences>()),
   );
 
   getIt.registerLazySingleton<FlutterSecureStorage>(

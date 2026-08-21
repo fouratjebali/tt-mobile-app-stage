@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
 import 'package:tt_mail_assistant/presentation/screens/navigation/main_navigation_screen.dart';
@@ -116,12 +117,13 @@ class _LoginHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 28),
-        const Text(
-          'Sign in to your intelligent inbox',
+        Text(
+          l10n.t('auth.signInTitle'),
           style: TextStyle(
             color: AppPalette.mist,
             fontSize: 42,
@@ -131,7 +133,7 @@ class _LoginHero extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         Text(
-          'Connect Outlook to classify messages, prepare safe drafts, and keep every action under your control.',
+          l10n.t('auth.signInSubtitle'),
           style: TextStyle(
             color: AppPalette.mist.withValues(alpha: 0.78),
             fontSize: 16,
@@ -152,6 +154,7 @@ class _OutlookButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return SizedBox(
       width: double.infinity,
       height: 58,
@@ -174,7 +177,9 @@ class _OutlookButton extends StatelessWidget {
                 )
                 : const Icon(Icons.mail_outline_rounded, size: 22),
         label: Text(
-          isLoading ? 'Connecting...' : 'Continue with Outlook',
+          isLoading
+              ? l10n.t('auth.connecting')
+              : l10n.t('auth.continueOutlook'),
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
       ),

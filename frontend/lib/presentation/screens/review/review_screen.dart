@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
@@ -229,6 +230,7 @@ class _ReviewHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _ReviewTone.of(context);
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
@@ -236,7 +238,7 @@ class _ReviewHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Review replies',
+            l10n.t('review.title'),
             style: TextStyle(
               color: tone.text,
               fontSize: 28,
@@ -246,7 +248,7 @@ class _ReviewHeader extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Check suggested replies before they are sent.',
+            l10n.t('review.subtitle'),
             style: TextStyle(
               color: tone.muted,
               fontSize: 13,
@@ -262,13 +264,13 @@ class _ReviewHeader extends StatelessWidget {
               children: [
                 _HeaderNotice(
                   icon: Icons.priority_high_rounded,
-                  label: '$urgentCount urgent',
+                  label: '$urgentCount ${l10n.t('review.urgent')}',
                   color: AppPalette.clay,
                 ),
                 if (readyCount > 0)
                   _HeaderNotice(
                     icon: Icons.verified_outlined,
-                    label: '$readyCount ready',
+                    label: '$readyCount ${l10n.t('review.ready')}',
                     color: AppPalette.teal,
                   ),
               ],
@@ -277,7 +279,7 @@ class _ReviewHeader extends StatelessWidget {
             const SizedBox(height: 10),
             _HeaderNotice(
               icon: Icons.verified_outlined,
-              label: '$readyCount ready to send',
+              label: '$readyCount ${l10n.t('review.readyToSend')}',
               color: AppPalette.teal,
             ),
           ],
@@ -306,11 +308,16 @@ class _ReviewFilterRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final options = [
-      _FilterOption(_ReviewFilter.all, 'All', allCount),
-      _FilterOption(_ReviewFilter.ready, 'Ready', readyCount),
-      _FilterOption(_ReviewFilter.urgent, 'Urgent', urgentCount),
-      _FilterOption(_ReviewFilter.needsEdit, 'Needs edit', editCount),
+      _FilterOption(_ReviewFilter.all, l10n.t('filter.all'), allCount),
+      _FilterOption(_ReviewFilter.ready, l10n.t('filter.ready'), readyCount),
+      _FilterOption(_ReviewFilter.urgent, l10n.t('filter.urgent'), urgentCount),
+      _FilterOption(
+        _ReviewFilter.needsEdit,
+        l10n.t('filter.needsEdit'),
+        editCount,
+      ),
     ];
 
     return SizedBox(

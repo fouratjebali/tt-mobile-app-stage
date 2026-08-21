@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_language_controller.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/core/utils/avatar_image_provider.dart';
 import 'package:tt_mail_assistant/core/theme/theme_controller.dart';
@@ -27,6 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool notifications = true;
   bool darkMode = false;
   bool dailySummary = true;
+  AppLanguage appLanguage = AppLanguage.english;
   String replyLanguage = 'English';
 
   bool isLoading = true;
@@ -46,6 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final notif = await _settingsRepository.getNotifications();
       final darkM = await _settingsRepository.getDarkMode();
       final dailySumm = await _settingsRepository.getDailySummary();
+      final appLang = getIt<AppLanguageController>().language;
       final language = await _settingsRepository.getReplyLanguage();
       final currentUser = await _authRepository.getCurrentUser();
 
@@ -55,11 +59,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           notifications = notif;
           darkMode = darkM;
           dailySummary = dailySumm;
+          appLanguage = appLang;
           replyLanguage = _normalizedLanguage(language);
 
           // Set user info
           if (currentUser != null) {
-            userName = currentUser.displayName ?? 'User';
+            userName =
+                currentUser.displayName ?? context.l10n.t('settings.user');
             userEmail = currentUser.email;
             userPhotoUrl = _cleanPhotoUrl(currentUser.photoUrl);
           }
@@ -113,6 +119,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await _settingsRepository.setReplyLanguage(language);
   }
 
+  Future<void> _updateAppLanguage(AppLanguage language) async {
+    setState(() {
+      appLanguage = language;
+      replyLanguage = language.replyLanguage;
+    });
+    await getIt<AppLanguageController>().setLanguage(language);
+    await _settingsRepository.setAppLanguage(language.code);
+    await _settingsRepository.setReplyLanguage(language.replyLanguage);
+  }
+
   String _normalizedLanguage(String value) {
     return value.toLowerCase() == 'french' ? 'French' : 'English';
   }
@@ -123,6 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _showReplyLanguagePicker() async {
+    final l10n = context.l10n;
     final selected = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -134,8 +151,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Reply language',
+                Text(
+                  l10n.t('settings.replyLanguage'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 12),
@@ -162,23 +179,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _showAppLanguagePicker() async {
+    final l10n = context.l10n;
+    final selected = await showModalBottomSheet<AppLanguage>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.t('settings.appLanguage'),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _LanguageOption(
+                  label: l10n.t('language.english'),
+                  selected: appLanguage == AppLanguage.english,
+                  onTap: () => Navigator.pop(context, AppLanguage.english),
+                ),
+                const SizedBox(height: 8),
+                _LanguageOption(
+                  label: l10n.t('language.french'),
+                  selected: appLanguage == AppLanguage.french,
+                  onTap: () => Navigator.pop(context, AppLanguage.french),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null) {
+      await _updateAppLanguage(selected);
+    }
+  }
+
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
+        final l10n = context.l10n;
         return AlertDialog(
-          title: const Text('Sign out?'),
-          content: const Text(
-            'You will need to connect your Outlook account again.',
-          ),
+          title: Text(l10n.t('settings.signOutTitle')),
+          content: Text(l10n.t('settings.signOutMessage')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+              child: Text(l10n.t('settings.cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Sign Out'),
+              child: Text(l10n.t('settings.signOutAction')),
             ),
           ],
         );
@@ -206,6 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final tone = _ProfileTone.of(context);
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -214,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
           children: [
             Text(
-              'Settings',
+              l10n.t('settings.title'),
               style: TextStyle(
                 color: tone.text,
                 fontSize: 28,
@@ -224,7 +285,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Manage your account and email preferences.',
+              l10n.t('settings.subtitle'),
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 13,
@@ -234,50 +295,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 18),
             _AccountCard(
-              userName: userName ?? 'User',
+              userName: userName ?? l10n.t('settings.user'),
               userEmail: userEmail ?? 'user@email.com',
               userPhotoUrl: userPhotoUrl,
             ),
             const SizedBox(height: 24),
-            const _SectionHeader(title: 'Email handling'),
+            _SectionHeader(title: l10n.t('settings.emailHandling')),
             const SizedBox(height: 10),
             _AssistantControlPanel(
               isActive: autoProcessing,
+              title: l10n.t('settings.prepareReplies'),
+              activeSubtitle: l10n.t('settings.prepareRepliesOn'),
+              inactiveSubtitle: l10n.t('settings.prepareRepliesOff'),
               onChanged: _updateAutoProcessing,
             ),
             const SizedBox(height: 12),
             _LanguageTile(
+              title: l10n.t('settings.appLanguage'),
+              subtitle: l10n.languageName(appLanguage),
+              color: AppPalette.teal,
+              onTap: _showAppLanguagePicker,
+            ),
+            const SizedBox(height: 12),
+            _LanguageTile(
+              title: l10n.t('settings.replyLanguage'),
               language: replyLanguage,
+              subtitle: l10n.t('settings.replyLanguageSubtitle'),
+              color: AppPalette.blue,
               onTap: _showReplyLanguagePicker,
             ),
             const SizedBox(height: 24),
-            const _SectionHeader(title: 'Preferences'),
+            _SectionHeader(title: l10n.t('settings.preferences')),
             const SizedBox(height: 10),
             _PreferenceToggle(
               icon: Icons.notifications_none_rounded,
-              title: 'Notifications',
-              subtitle: 'Get alerts when a reply is ready to review.',
+              title: l10n.t('settings.notifications'),
+              subtitle: l10n.t('settings.notificationsSubtitle'),
               value: notifications,
               onChanged: _updateNotifications,
             ),
             const SizedBox(height: 10),
             _PreferenceToggle(
               icon: Icons.summarize_outlined,
-              title: 'Daily summary',
-              subtitle: 'Receive a short recap of handled emails.',
+              title: l10n.t('settings.dailySummary'),
+              subtitle: l10n.t('settings.dailySummarySubtitle'),
               value: dailySummary,
               onChanged: _updateDailySummary,
             ),
             const SizedBox(height: 10),
             _PreferenceToggle(
               icon: Icons.dark_mode_outlined,
-              title: 'Dark mode',
-              subtitle: 'Use the app with a darker appearance.',
+              title: l10n.t('settings.darkMode'),
+              subtitle: l10n.t('settings.darkModeSubtitle'),
               value: darkMode,
               onChanged: _updateDarkMode,
             ),
             const SizedBox(height: 28),
-            _SignOutButton(onPressed: _signOut),
+            _SignOutButton(
+              label: l10n.t('settings.signOut'),
+              onPressed: _signOut,
+            ),
           ],
         ),
       ),
@@ -351,6 +428,7 @@ class _AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _ProfileTone.of(context);
+    final l10n = context.l10n;
     final avatarImage = avatarImageProvider(userPhotoUrl);
 
     return _SettingCard(
@@ -404,7 +482,7 @@ class _AccountCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Outlook connected',
+                      l10n.t('settings.outlookConnected'),
                       style: TextStyle(
                         fontSize: 12,
                         color: AppPalette.deepTeal,
@@ -433,10 +511,16 @@ class _AccountCard extends StatelessWidget {
 class _AssistantControlPanel extends StatelessWidget {
   const _AssistantControlPanel({
     required this.isActive,
+    required this.title,
+    required this.activeSubtitle,
+    required this.inactiveSubtitle,
     required this.onChanged,
   });
 
   final bool isActive;
+  final String title;
+  final String activeSubtitle;
+  final String inactiveSubtitle;
   final ValueChanged<bool> onChanged;
 
   @override
@@ -473,7 +557,7 @@ class _AssistantControlPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Prepare replies automatically',
+                  title,
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 16,
@@ -482,9 +566,7 @@ class _AssistantControlPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isActive
-                      ? 'New unread emails are turned into drafts for review.'
-                      : 'New emails will wait until this is turned back on.',
+                  isActive ? activeSubtitle : inactiveSubtitle,
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 13,
@@ -504,9 +586,18 @@ class _AssistantControlPanel extends StatelessWidget {
 }
 
 class _LanguageTile extends StatelessWidget {
-  const _LanguageTile({required this.language, required this.onTap});
+  const _LanguageTile({
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+    this.language,
+  });
 
-  final String language;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final String? language;
   final VoidCallback onTap;
 
   @override
@@ -525,14 +616,10 @@ class _LanguageTile extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppPalette.blue.withValues(alpha: 0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: const Icon(
-                  Icons.language_rounded,
-                  color: AppPalette.blue,
-                  size: 21,
-                ),
+                child: Icon(Icons.language_rounded, color: color, size: 21),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -540,7 +627,7 @@ class _LanguageTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Reply language',
+                      title,
                       style: TextStyle(
                         color: tone.text,
                         fontSize: 15,
@@ -549,7 +636,7 @@ class _LanguageTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      language,
+                      language == null ? subtitle : '$language - $subtitle',
                       style: TextStyle(
                         color: tone.muted,
                         fontSize: 13,
@@ -663,8 +750,9 @@ class _PreferenceToggle extends StatelessWidget {
 }
 
 class _SignOutButton extends StatelessWidget {
-  const _SignOutButton({required this.onPressed});
+  const _SignOutButton({required this.label, required this.onPressed});
 
+  final String label;
   final VoidCallback onPressed;
 
   @override
@@ -672,7 +760,7 @@ class _SignOutButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: const Icon(Icons.logout_rounded, size: 19),
-      label: const Text('Sign out'),
+      label: Text(label),
       style: OutlinedButton.styleFrom(
         foregroundColor: AppPalette.clay,
         side: BorderSide(color: AppPalette.clay.withValues(alpha: 0.38)),

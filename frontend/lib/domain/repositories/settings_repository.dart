@@ -26,4 +26,8 @@ abstract class SettingsRepository {
   Future<String> getReplyLanguage();
 
   Future<void> setReplyLanguage(String value);
+
+  Future<String> getAppLanguage();
+
+  Future<void> setAppLanguage(String value);
 }

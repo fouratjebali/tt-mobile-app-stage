@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/usecases/agent_usecase.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
@@ -21,29 +22,6 @@ class _PromptScreenState extends State<PromptScreen> {
 
   bool _showConfirmation = false;
   bool _isThinking = false;
-
-  static const _navItems = [
-    AppNavigationItemData(
-      label: 'Home',
-      icon: Icons.home_outlined,
-      activeIcon: Icons.home_rounded,
-    ),
-    AppNavigationItemData(
-      label: 'Today',
-      icon: Icons.calendar_today_outlined,
-      activeIcon: Icons.calendar_today_rounded,
-    ),
-    AppNavigationItemData(
-      label: 'Review',
-      icon: Icons.mark_email_unread_outlined,
-      activeIcon: Icons.mark_email_unread_rounded,
-    ),
-    AppNavigationItemData(
-      label: 'Profile',
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
-    ),
-  ];
 
   @override
   void initState() {
@@ -88,9 +66,7 @@ class _PromptScreenState extends State<PromptScreen> {
       setState(() {
         _isThinking = false;
         _messages.add(
-          _ChatMessage.assistant(
-            'I could not reach the assistant. Check the backend services and try again.',
-          ),
+          _ChatMessage.assistant(context.l10n.t('assistant.unreachable')),
         );
       });
     }
@@ -100,7 +76,9 @@ class _PromptScreenState extends State<PromptScreen> {
   void _confirmAction() {
     setState(() {
       _showConfirmation = false;
-      _messages.add(_ChatMessage.assistant('Action confirmed successfully.'));
+      _messages.add(
+        _ChatMessage.assistant(context.l10n.t('assistant.confirmed')),
+      );
     });
     _scrollToBottom();
   }
@@ -108,7 +86,9 @@ class _PromptScreenState extends State<PromptScreen> {
   void _cancelAction() {
     setState(() {
       _showConfirmation = false;
-      _messages.add(_ChatMessage.assistant('Action cancelled.'));
+      _messages.add(
+        _ChatMessage.assistant(context.l10n.t('assistant.cancelled')),
+      );
     });
     _scrollToBottom();
   }
@@ -135,6 +115,29 @@ class _PromptScreenState extends State<PromptScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = context.l10n;
+    final navItems = [
+      AppNavigationItemData(
+        label: l10n.t('nav.home'),
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home_rounded,
+      ),
+      AppNavigationItemData(
+        label: l10n.t('nav.today'),
+        icon: Icons.calendar_today_outlined,
+        activeIcon: Icons.calendar_today_rounded,
+      ),
+      AppNavigationItemData(
+        label: l10n.t('nav.review'),
+        icon: Icons.mark_email_unread_outlined,
+        activeIcon: Icons.mark_email_unread_rounded,
+      ),
+      AppNavigationItemData(
+        label: l10n.t('nav.profile'),
+        icon: Icons.person_outline_rounded,
+        activeIcon: Icons.person_rounded,
+      ),
+    ];
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF101614) : AppPalette.mist,
@@ -170,7 +173,7 @@ class _PromptScreenState extends State<PromptScreen> {
       bottomNavigationBar: AppBottomNavigationBar(
         selectedIndex: -1,
         reviewCount: _reviewViewModel.pendingCount,
-        items: _navItems,
+        items: navItems,
         showAssistantSpace: false,
         onItemSelected: (index) => Navigator.pop(context, index),
       ),
@@ -188,6 +191,7 @@ class _AssistantHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? AppPalette.white : AppPalette.ink;
+    final l10n = context.l10n;
     final subColor =
         isDark
             ? Colors.white.withValues(alpha: 0.62)
@@ -223,7 +227,7 @@ class _AssistantHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Ask the assistant',
+                  l10n.t('assistant.title'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -248,8 +252,8 @@ class _AssistantHeader extends StatelessWidget {
                     Expanded(
                       child: Text(
                         isThinking
-                            ? 'Working on your request'
-                            : 'Ready for email tasks',
+                            ? l10n.t('assistant.working')
+                            : l10n.t('assistant.ready'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -292,15 +296,15 @@ class _QuickPromptRail extends StatelessWidget {
 
   final ValueChanged<String> onPromptSelected;
 
-  static const prompts = [
-    ('Unread summary', 'Read and summarize my latest unread email'),
-    ('Urgent emails', 'Show me my urgent emails'),
-    ('Classify inbox', 'Classify my inbox'),
-    ('Review queue', 'What emails are ready for review?'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final prompts = [
+      (l10n.t('assistant.unreadSummary'), l10n.t('assistant.promptUnread')),
+      (l10n.t('assistant.urgentEmails'), l10n.t('assistant.promptUrgent')),
+      (l10n.t('assistant.classifyInbox'), l10n.t('assistant.promptClassify')),
+      (l10n.t('assistant.reviewQueue'), l10n.t('assistant.promptReview')),
+    ];
     return SizedBox(
       height: 42,
       child: ListView.separated(
@@ -541,7 +545,7 @@ class _ThinkingBubble extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  'Thinking',
+                  context.l10n.t('assistant.thinking'),
                   style: TextStyle(
                     color:
                         isDark
@@ -610,7 +614,7 @@ class _PromptComposer extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Ask about your emails...',
+                  hintText: context.l10n.t('assistant.inputHint'),
                   hintStyle: TextStyle(
                     color:
                         isDark
@@ -677,6 +681,7 @@ class _EmptyConversation extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final titleColor = isDark ? AppPalette.white : AppPalette.ink;
+    final l10n = context.l10n;
     final subColor =
         isDark
             ? Colors.white.withValues(alpha: 0.58)
@@ -710,7 +715,7 @@ class _EmptyConversation extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              'What should we handle?',
+              l10n.t('assistant.emptyTitle'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: titleColor,
@@ -721,7 +726,7 @@ class _EmptyConversation extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Ask for summaries, priorities, draft replies, or review queue updates.',
+              l10n.t('assistant.emptySubtitle'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: subColor,
@@ -737,13 +742,13 @@ class _EmptyConversation extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _SuggestionButton(
-                  label: 'Summarize latest',
-                  prompt: 'Read and summarize my latest unread email',
+                  label: l10n.t('assistant.summarizeLatest'),
+                  prompt: l10n.t('assistant.promptUnread'),
                   onPromptSelected: onPromptSelected,
                 ),
                 _SuggestionButton(
-                  label: 'Find urgent',
-                  prompt: 'Show me my urgent emails',
+                  label: l10n.t('assistant.findUrgent'),
+                  prompt: l10n.t('assistant.promptUrgent'),
                   onPromptSelected: onPromptSelected,
                 ),
               ],
@@ -800,8 +805,8 @@ class _ConfirmationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Confirm action',
+          Text(
+            context.l10n.t('assistant.confirmAction'),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w900,
@@ -821,7 +826,7 @@ class _ConfirmationCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Text('Confirm'),
+                  child: Text(context.l10n.t('assistant.confirm')),
                 ),
               ),
               const SizedBox(width: 8),
@@ -835,7 +840,7 @@ class _ConfirmationCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Text('Cancel'),
+                  child: Text(context.l10n.t('settings.cancel')),
                 ),
               ),
             ],

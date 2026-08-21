@@ -25,4 +25,8 @@ class SettingsUseCase {
   Future<String> getReplyLanguage() => _repository.getReplyLanguage();
   Future<void> setReplyLanguage(String value) =>
       _repository.setReplyLanguage(value);
+
+  Future<String> getAppLanguage() => _repository.getAppLanguage();
+  Future<void> setAppLanguage(String value) =>
+      _repository.setAppLanguage(value);
 }

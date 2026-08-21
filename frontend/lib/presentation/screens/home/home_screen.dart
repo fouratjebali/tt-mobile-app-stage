@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/core/utils/avatar_image_provider.dart';
@@ -44,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final isLoading =
         _viewModel.state == LoadState.loading ||
         _viewModel.state == LoadState.idle;
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -76,21 +78,22 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 16),
                         _InlineNotice(
                           icon: Icons.cloud_off_outlined,
-                          message: _viewModel.errorMessage ?? 'Error',
+                          message:
+                              _viewModel.errorMessage ?? l10n.t('home.error'),
                           color: Colors.orange,
                         ),
                       ],
                       const SizedBox(height: 28),
-                      const _SectionTitle(
-                        title: 'Recent activity',
-                        actionLabel: 'Today',
+                      _SectionTitle(
+                        title: l10n.t('home.recentActivity'),
+                        actionLabel: l10n.t('nav.today'),
                       ),
                       const SizedBox(height: 12),
                       if (_viewModel.recentEmails.isEmpty)
-                        const _EmptyPanel(
+                        _EmptyPanel(
                           icon: Icons.inbox_outlined,
-                          title: 'No recent activity',
-                          subtitle: 'Processed emails will appear here.',
+                          title: l10n.t('home.noRecentActivity'),
+                          subtitle: l10n.t('home.processedAppear'),
                         )
                       else
                         ..._viewModel.recentEmails.map(
@@ -108,9 +111,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       const SizedBox(height: 28),
-                      const _SectionTitle(
-                        title: 'Shortcuts',
-                        actionLabel: 'Tools',
+                      _SectionTitle(
+                        title: l10n.t('home.shortcuts'),
+                        actionLabel: l10n.t('home.tools'),
                       ),
                       const SizedBox(height: 12),
                       _ShortcutsRow(
@@ -189,14 +192,15 @@ class _GreetingHeader extends StatelessWidget {
     final now = DateTime.now();
     final theme = Theme.of(context);
     final tone = _HomeTone.of(context);
+    final l10n = context.l10n;
     final avatarImage = avatarImageProvider(userPhotoUrl);
 
     final greeting =
         now.hour < 12
-            ? 'Good morning'
+            ? l10n.t('home.goodMorning')
             : now.hour < 18
-            ? 'Good afternoon'
-            : 'Good evening';
+            ? l10n.t('home.goodAfternoon')
+            : l10n.t('home.goodEvening');
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -219,7 +223,7 @@ class _GreetingHeader extends StatelessWidget {
               const SizedBox(height: 6),
 
               Text(
-                _formatDate(now),
+                _formatDate(context, now),
                 style: TextStyle(
                   fontSize: 14,
                   color: tone.muted,
@@ -272,30 +276,31 @@ class _GreetingHeader extends StatelessWidget {
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
-  String _formatDate(DateTime date) {
-    const weekdays = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
+  String _formatDate(BuildContext context, DateTime date) {
+    final l10n = context.l10n;
+    final weekdays = [
+      l10n.t('date.monday'),
+      l10n.t('date.tuesday'),
+      l10n.t('date.wednesday'),
+      l10n.t('date.thursday'),
+      l10n.t('date.friday'),
+      l10n.t('date.saturday'),
+      l10n.t('date.sunday'),
     ];
 
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+    final months = [
+      l10n.t('date.jan'),
+      l10n.t('date.feb'),
+      l10n.t('date.mar'),
+      l10n.t('date.apr'),
+      l10n.t('date.may'),
+      l10n.t('date.jun'),
+      l10n.t('date.jul'),
+      l10n.t('date.aug'),
+      l10n.t('date.sep'),
+      l10n.t('date.oct'),
+      l10n.t('date.nov'),
+      l10n.t('date.dec'),
     ];
 
     return '${weekdays[date.weekday - 1]}, '
@@ -314,7 +319,7 @@ class _NotificationIconButton extends StatelessWidget {
     final tone = _HomeTone.of(context);
 
     return Tooltip(
-      message: 'Notifications',
+      message: context.l10n.t('home.notifications'),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -383,6 +388,7 @@ class _ReviewSummaryCard extends StatelessWidget {
     final hasReview = count > 0;
     final accent = hasReview ? AppPalette.clay : AppPalette.deepTeal;
     final tone = _HomeTone.of(context);
+    final l10n = context.l10n;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -415,8 +421,8 @@ class _ReviewSummaryCard extends StatelessWidget {
               children: [
                 Text(
                   hasReview
-                      ? '$count replies need review'
-                      : 'Inbox is under control',
+                      ? '$count ${l10n.t('home.repliesNeedReview')}'
+                      : l10n.t('home.inboxUnderControl'),
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 17,
@@ -427,8 +433,8 @@ class _ReviewSummaryCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   hasReview
-                      ? 'Open Review to check drafts before sending.'
-                      : 'New unread emails will appear here after the agents process them.',
+                      ? l10n.t('home.openReview')
+                      : l10n.t('home.newUnreadAppear'),
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 13,
@@ -460,6 +466,7 @@ class _KPIGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return GridView.count(
       crossAxisCount: 2,
       crossAxisSpacing: 10,
@@ -470,28 +477,28 @@ class _KPIGrid extends StatelessWidget {
 
       children: [
         _KPICard(
-          title: 'Processed today',
+          title: l10n.t('home.processedToday'),
           value: processedToday.toString(),
           color: AppPalette.deepTeal,
           icon: Icons.check_circle_outline,
         ),
 
         _KPICard(
-          title: 'Sent',
+          title: l10n.t('home.sent'),
           value: autoSent.toString(),
           color: AppPalette.blue,
           icon: Icons.send_outlined,
         ),
 
         _KPICard(
-          title: 'Need review',
+          title: l10n.t('home.needReview'),
           value: needReview.toString(),
           color: AppPalette.clay,
           icon: Icons.rate_review_outlined,
         ),
 
         _KPICard(
-          title: 'Completion',
+          title: l10n.t('home.completion'),
           value: '${accuracyRate.toStringAsFixed(0)}%',
           color: AppPalette.amber,
           icon: Icons.trending_up,
@@ -653,7 +660,7 @@ class _ActivityCard extends StatelessWidget {
                         children: [
                           Text(
                             email.subject.isEmpty
-                                ? '(No subject)'
+                                ? context.l10n.t('home.noSubject')
                                 : email.subject,
 
                             maxLines: 2,
@@ -671,7 +678,7 @@ class _ActivityCard extends StatelessWidget {
                           const SizedBox(height: 6),
 
                           Text(
-                            _senderLabel(email.from),
+                            _senderLabel(context, email.from),
 
                             maxLines: 1,
 
@@ -722,7 +729,7 @@ class _ActivityCard extends StatelessWidget {
     );
   }
 
-  String _senderLabel(Sender sender) {
+  String _senderLabel(BuildContext context, Sender sender) {
     if (sender.name.trim().isNotEmpty) {
       return sender.name;
     }
@@ -731,7 +738,7 @@ class _ActivityCard extends StatelessWidget {
       return sender.email;
     }
 
-    return 'Unknown sender';
+    return context.l10n.t('home.unknownSender');
   }
 }
 
@@ -748,7 +755,7 @@ class _ShortcutsRow extends StatelessWidget {
         Expanded(
           child: _ShortcutButton(
             icon: Icons.rate_review_outlined,
-            label: 'Review replies',
+            label: context.l10n.t('home.reviewReplies'),
             onTap: onReviewTap,
           ),
         ),
@@ -758,7 +765,7 @@ class _ShortcutsRow extends StatelessWidget {
         Expanded(
           child: _ShortcutButton(
             icon: Icons.mail_outline,
-            label: 'Group drafts',
+            label: context.l10n.t('home.groupDrafts'),
 
             // =================================================
             // BULK EMAIL S10

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
@@ -190,6 +191,7 @@ class _TodayHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _TodayTone.of(context);
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
@@ -197,7 +199,7 @@ class _TodayHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Today',
+            l10n.t('today.title'),
             style: TextStyle(
               color: tone.text,
               fontSize: 28,
@@ -207,7 +209,7 @@ class _TodayHeader extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Follow what happened with your emails today.',
+            l10n.t('today.subtitle'),
             style: TextStyle(
               color: tone.muted,
               fontSize: 13,
@@ -220,19 +222,19 @@ class _TodayHeader extends StatelessWidget {
             children: [
               Expanded(
                 child: _DateButton(
-                  label: _formatDate(selectedDate),
+                  label: _formatDate(context, selectedDate),
                   onTap: onPickDate,
                 ),
               ),
               const SizedBox(width: 8),
               _IconAction(
-                tooltip: 'Previous day',
+                tooltip: l10n.t('today.previousDay'),
                 icon: Icons.chevron_left_rounded,
                 onTap: onPreviousDay,
               ),
               const SizedBox(width: 8),
               _IconAction(
-                tooltip: 'Today',
+                tooltip: l10n.t('today.title'),
                 icon: Icons.today_rounded,
                 onTap: onToday,
               ),
@@ -240,7 +242,9 @@ class _TodayHeader extends StatelessWidget {
           ),
           if (reviewCount > 0) ...[
             const SizedBox(height: 10),
-            _HeaderNotice(label: '$reviewCount waiting for review'),
+            _HeaderNotice(
+              label: '$reviewCount ${l10n.t('today.waitingReview')}',
+            ),
           ],
         ],
       ),
@@ -395,11 +399,16 @@ class _FilterRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final filters = [
-      _FilterOption(ActivityFilter.all, 'All', allCount),
-      _FilterOption(ActivityFilter.autoSent, 'Sent', sentCount),
-      _FilterOption(ActivityFilter.review, 'Review', reviewCount),
-      _FilterOption(ActivityFilter.low, 'Low', lowCount),
+      _FilterOption(ActivityFilter.all, l10n.t('filter.all'), allCount),
+      _FilterOption(ActivityFilter.autoSent, l10n.t('filter.sent'), sentCount),
+      _FilterOption(
+        ActivityFilter.review,
+        l10n.t('filter.review'),
+        reviewCount,
+      ),
+      _FilterOption(ActivityFilter.low, l10n.t('filter.low'), lowCount),
     ];
 
     return SizedBox(
@@ -777,7 +786,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              _emptyTitle(filter),
+              _emptyTitle(context, filter),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: tone.text,
@@ -787,7 +796,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Pull down to refresh the activity timeline.',
+              context.l10n.t('today.refreshHint'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: tone.muted,
@@ -803,12 +812,13 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-String _formatDate(DateTime date) {
+String _formatDate(BuildContext context, DateTime date) {
+  final l10n = context.l10n;
   final now = DateTime.now();
-  if (_isSameDay(date, now)) return 'Today';
+  if (_isSameDay(date, now)) return l10n.t('today.title');
   final yesterday = now.subtract(const Duration(days: 1));
-  if (_isSameDay(date, yesterday)) return 'Yesterday';
-  return '${date.day} ${_monthName(date.month)} ${date.year}';
+  if (_isSameDay(date, yesterday)) return l10n.t('today.yesterday');
+  return '${date.day} ${_monthName(context, date.month)} ${date.year}';
 }
 
 String _formatTime(DateTime date) {
@@ -819,20 +829,21 @@ bool _isSameDay(DateTime a, DateTime b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
-String _monthName(int month) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
+String _monthName(BuildContext context, int month) {
+  final l10n = context.l10n;
+  final months = [
+    l10n.t('date.jan'),
+    l10n.t('date.feb'),
+    l10n.t('date.mar'),
+    l10n.t('date.apr'),
+    l10n.t('date.may'),
+    l10n.t('date.jun'),
+    l10n.t('date.jul'),
+    l10n.t('date.aug'),
+    l10n.t('date.sep'),
+    l10n.t('date.oct'),
+    l10n.t('date.nov'),
+    l10n.t('date.dec'),
   ];
   return months[month - 1];
 }
@@ -932,16 +943,17 @@ Color _categoryColor(EmailCategory category) {
   }
 }
 
-String _emptyTitle(ActivityFilter filter) {
+String _emptyTitle(BuildContext context, ActivityFilter filter) {
+  final l10n = context.l10n;
   switch (filter) {
     case ActivityFilter.all:
-      return 'No activity for this day';
+      return l10n.t('today.emptyAll');
     case ActivityFilter.autoSent:
-      return 'No sent replies';
+      return l10n.t('today.emptySent');
     case ActivityFilter.review:
-      return 'Nothing waiting for review';
+      return l10n.t('today.emptyReview');
     case ActivityFilter.low:
-      return 'No low-priority emails';
+      return l10n.t('today.emptyLow');
   }
 }
 

@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_language_controller.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/outlook_auth_data_source.dart';
 import 'package:tt_mail_assistant/domain/entities/app_user.dart';
@@ -62,7 +64,11 @@ class AuthViewModel extends ChangeNotifier {
       notifyListeners();
       return null;
     } catch (_) {
-      errorMessage = 'Unable to sign in with Outlook. Please try again.';
+      final isFrench = getIt<AppLanguageController>().isFrench;
+      errorMessage =
+          isFrench
+              ? 'Impossible de se connecter avec Outlook. Veuillez réessayer.'
+              : 'Unable to sign in with Outlook. Please try again.';
       status = AuthStatus.error;
       notifyListeners();
       return null;

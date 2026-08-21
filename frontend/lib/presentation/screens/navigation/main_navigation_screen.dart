@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/presentation/screens/home/home_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/profile/profile_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/prompt/prompt_screen.dart';
@@ -25,33 +26,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late final ReviewViewModel _reviewViewModel;
   Timer? _reviewRefreshTimer;
 
-  static const List<AppNavigationItemData> _items = [
-    AppNavigationItemData(
-      label: 'Home',
-      icon: Icons.home_outlined,
-      activeIcon: Icons.home_rounded,
-    ),
-    AppNavigationItemData(
-      label: 'Today',
-      icon: Icons.calendar_today_outlined,
-      activeIcon: Icons.calendar_today_rounded,
-    ),
-    AppNavigationItemData(
-      label: 'Review',
-      icon: Icons.mark_email_unread_outlined,
-      activeIcon: Icons.mark_email_unread_rounded,
-    ),
-    AppNavigationItemData(
-      label: 'Profile',
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex.clamp(0, _items.length - 1).toInt();
+    _selectedIndex = widget.initialIndex.clamp(0, 3).toInt();
     _reviewViewModel = getIt<ReviewViewModel>();
     _reviewViewModel.addListener(_onReviewChanged);
     _reviewViewModel.loadReviewEmails();
@@ -73,6 +51,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final items = [
+      AppNavigationItemData(
+        label: l10n.t('nav.home'),
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home_rounded,
+      ),
+      AppNavigationItemData(
+        label: l10n.t('nav.today'),
+        icon: Icons.calendar_today_outlined,
+        activeIcon: Icons.calendar_today_rounded,
+      ),
+      AppNavigationItemData(
+        label: l10n.t('nav.review'),
+        icon: Icons.mark_email_unread_outlined,
+        activeIcon: Icons.mark_email_unread_rounded,
+      ),
+      AppNavigationItemData(
+        label: l10n.t('nav.profile'),
+        icon: Icons.person_outline_rounded,
+        activeIcon: Icons.person_rounded,
+      ),
+    ];
     final reviewCount = _reviewViewModel.pendingCount;
     final screens = [
       HomeScreen(onSelectTab: _selectTab),
@@ -88,7 +89,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       bottomNavigationBar: AppBottomNavigationBar(
         selectedIndex: _selectedIndex,
         reviewCount: reviewCount,
-        items: _items,
+        items: items,
         onItemSelected: _selectTab,
       ),
     );
