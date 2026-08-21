@@ -1,5 +1,6 @@
 param(
     [string]$DeviceId = "emulator-5554",
+    [string]$TargetPlatform = "android-x64",
     [switch]$Profile
 )
 
@@ -59,6 +60,7 @@ Push-Location $frontendPath
 try {
     flutter run @modeArgs `
         -d $DeviceId `
+        --target-platform=$TargetPlatform `
         --dart-define="MICROSOFT_CLIENT_ID=$microsoftClientId" `
         --dart-define="MICROSOFT_TENANT_ID=$microsoftTenantId" `
         --dart-define="MICROSOFT_REDIRECT_URI=$microsoftRedirectUri" `
