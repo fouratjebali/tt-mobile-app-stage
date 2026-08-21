@@ -9,6 +9,13 @@ class GoogleAuthRequest(BaseModel):
     refresh_token: str | None = None
 
 
+class MicrosoftAuthRequest(BaseModel):
+    access_token: str
+    id_token: str | None = None
+    refresh_token: str | None = None
+    expires_at: datetime | None = None
+
+
 class UserResponse(BaseModel):
     id: str = "user-id"
     email: str = "user@example.com"

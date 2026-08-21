@@ -16,7 +16,7 @@ import 'package:tt_mail_assistant/data/datasources/local/email_local_datasource_
 import 'package:tt_mail_assistant/data/datasources/remote/agent_remote_data_source.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/backend_auth_data_source.dart';
-import 'package:tt_mail_assistant/data/datasources/remote/google_auth_data_source.dart';
+import 'package:tt_mail_assistant/data/datasources/remote/outlook_auth_data_source.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/jury_remote_data_source.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/sentiment_remote_data_source.dart';
 import 'package:tt_mail_assistant/data/repositories/agent_repository_impl.dart';
@@ -64,7 +64,7 @@ Future<void> init() async {
   getIt.registerLazySingleton<EmailLocalDataSource>(
     () => EmailLocalDataSourceImpl(databaseHelper: getIt<DatabaseHelper>()),
   );
-  getIt.registerLazySingleton<GoogleAuthDataSource>(GoogleAuthDataSource.new);
+  getIt.registerLazySingleton<OutlookAuthDataSource>(OutlookAuthDataSource.new);
   getIt.registerLazySingleton<BackendAuthDataSource>(
     () => BackendAuthDataSource(getIt<ApiService>()),
   );
@@ -81,7 +81,7 @@ Future<void> init() async {
   getIt.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       secureStorage: getIt<AuthSecureStorage>(),
-      googleAuthDataSource: getIt<GoogleAuthDataSource>(),
+      outlookAuthDataSource: getIt<OutlookAuthDataSource>(),
       backendAuthDataSource: getIt<BackendAuthDataSource>(),
     ),
   );

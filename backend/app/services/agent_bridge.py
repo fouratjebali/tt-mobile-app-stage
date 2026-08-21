@@ -84,6 +84,14 @@ class AgentBridge:
             params=None,
         )
 
+    async def analyze_email(self, email: dict[str, Any]) -> AgentBridgeResult:
+        payload = await self._post(
+            service_name="Email Agent",
+            url=f"{self._agent_url}/emails/analyze",
+            json=email,
+        )
+        return AgentBridgeResult(payload=payload, raw_result="")
+
     async def send_email_reply(self, email_id: str, body: str) -> AgentBridgeResult:
         payload = await self._post(
             service_name="Email Agent",

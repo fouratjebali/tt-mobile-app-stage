@@ -18,8 +18,8 @@ class ErrorMessage {
       if (_mentionsAgentUnavailable(lower)) {
         return 'The draft service is not ready yet. Please try again in a moment.';
       }
-      if (lower.contains('gmail')) {
-        return 'Gmail could not complete this action. Please try again.';
+      if (lower.contains('gmail') || lower.contains('outlook')) {
+        return 'Your mailbox could not complete this action. Please try again.';
       }
       return 'One of the services is not ready. Please try again in a moment.';
     }

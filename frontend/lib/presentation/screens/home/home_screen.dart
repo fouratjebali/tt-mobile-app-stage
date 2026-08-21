@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
+import 'package:tt_mail_assistant/core/utils/avatar_image_provider.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/presentation/screens/bulk_email/bulk_email_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
@@ -188,6 +189,7 @@ class _GreetingHeader extends StatelessWidget {
     final now = DateTime.now();
     final theme = Theme.of(context);
     final tone = _HomeTone.of(context);
+    final avatarImage = avatarImageProvider(userPhotoUrl);
 
     final greeting =
         now.hour < 12
@@ -240,10 +242,9 @@ class _GreetingHeader extends StatelessWidget {
         CircleAvatar(
           radius: 25,
           backgroundColor: tone.softSurface,
-          backgroundImage:
-              userPhotoUrl == null ? null : NetworkImage(userPhotoUrl!),
+          backgroundImage: avatarImage,
           child:
-              userPhotoUrl == null
+              avatarImage == null
                   ? Text(
                     _initials(userName, userEmail),
                     style: TextStyle(

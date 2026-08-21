@@ -29,6 +29,17 @@ class SendReplyRequest(BaseModel):
     body: str = Field(min_length=1)
 
 
+class EmailPayload(BaseModel):
+    id: str = Field(min_length=1)
+    subject: str = ""
+    sender: str = ""
+    body: str = ""
+    body_preview: str = ""
+    date: str = ""
+    received_at: str | None = None
+    is_read: bool = False
+
+
 class BulkDraft(BaseModel):
     recipient: str = ""
     to: str = ""
@@ -88,6 +99,11 @@ def email_detail(email_id: str) -> dict[str, Any]:
     if email is None:
         return {"status": "not_found", "email": None}
     return _email_detail_response(email)
+
+
+@app.post("/emails/analyze")
+def analyze_email(request: EmailPayload) -> dict[str, Any]:
+    return _email_detail_response(_email_from_payload(request))
 
 
 @app.post("/emails/{email_id}/send")
@@ -427,6 +443,18 @@ def _email_detail_response(email: Email) -> dict[str, Any]:
         "reply_subject": reply.reply_subject,
         "tone": reply.tone,
     }
+
+
+def _email_from_payload(payload: EmailPayload) -> Email:
+    body = payload.body.strip() or payload.body_preview.strip()
+    return Email(
+        id=payload.id,
+        subject=payload.subject or "(no subject)",
+        sender=payload.sender,
+        body=body,
+        date=payload.date or payload.received_at or "",
+        is_read=payload.is_read,
+    )
 
 
 def _reply_subject(subject: str) -> str:

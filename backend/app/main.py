@@ -14,7 +14,7 @@ def create_app() -> FastAPI:
         version=settings.APP_VERSION,
         description=(
             "REST API for TT Mail Assistant. It connects the Flutter mobile app "
-            "to Google OAuth, PostgreSQL, Redis, the email AI agent, the jury "
+            "to Microsoft Outlook, PostgreSQL, Redis, the email AI agent, the jury "
             "agent, and the social sentiment agent."
         ),
         openapi_tags=[
@@ -24,7 +24,7 @@ def create_app() -> FastAPI:
             },
             {
                 "name": "auth",
-                "description": "Google OAuth 2.0 login, session validation, refresh and logout.",
+                "description": "Microsoft OAuth login, session validation, refresh and logout.",
             },
             {
                 "name": "email",

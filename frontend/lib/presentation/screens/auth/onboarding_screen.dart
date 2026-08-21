@@ -18,7 +18,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const List<_OnboardingPageData> _pages = [
     _OnboardingPageData(
       icon: HugeIcons.strokeRoundedAiMail,
-      accentLabel: 'Gmail connected',
+      accentLabel: 'Outlook connected',
       metricOne: '12 primary',
       metricTwo: '5 priority',
       title: 'Connect your inbox',

@@ -15,13 +15,14 @@ from app.schemas.email import (
     EmailPreview,
 )
 from app.services.agent_bridge import AgentBridge
-from app.utils.json_tools import list_from_payload
+from app.services.outlook_graph_service import OutlookGraphService
 
 
 class EmailCacheService:
     def __init__(self, db: Session, bridge: AgentBridge | None = None) -> None:
         self._repository = EmailWorkflowRepository(db)
         self._bridge = bridge or AgentBridge()
+        self._outlook = OutlookGraphService(db)
 
     async def today_emails(
         self,
@@ -87,8 +88,22 @@ class EmailCacheService:
         response = self._repository.get_latest_response(email) if email else None
 
         if refresh or email is None or analysis is None or response is None:
-            agent_result = await self._bridge.get_email_detail(email_id)
-            email = self.store_agent_payload(user=user, payload=agent_result.payload)
+            payload = None
+            if email is None or refresh:
+                payload = await self._outlook.get_message(user=user, message_id=email_id)
+            elif email is not None:
+                payload = self._email_payload(email)
+
+            if payload is not None:
+                email = self.store_agent_payload(user=user, payload=payload)
+                try:
+                    agent_result = await self._bridge.analyze_email(payload)
+                    email = self.store_agent_payload(
+                        user=user,
+                        payload=agent_result.payload,
+                    )
+                except Exception:
+                    pass
 
         if email is None:
             return EmailDetailResponse(status="not_found", email=None, analysis=None)
@@ -175,7 +190,12 @@ class EmailCacheService:
                 )
             return "\n".join(lines)
 
-        if not wants_unread and not wants_latest and not wants_classify and not wants_summary:
+        if (
+            not wants_unread
+            and not wants_latest
+            and not wants_classify
+            and not wants_summary
+        ):
             return None
 
         today = await self.today_emails(
@@ -183,7 +203,7 @@ class EmailCacheService:
             max_results=1 if wants_single_latest or wants_summary else 5,
         )
         if not today.emails:
-            return "I did not find unread emails in your Gmail inbox."
+            return "I did not find unread emails in your Outlook inbox."
 
         if wants_summary or wants_single_latest:
             email = today.emails[0]
@@ -204,15 +224,21 @@ class EmailCacheService:
 
         lines = ["Here are your latest unread emails:"]
         for email in today.emails:
-            lines.append(
-                _format_chat_email_line(email)
-            )
+            lines.append(_format_chat_email_line(email))
         return "\n".join(lines)
 
     async def sync_unread(self, *, user: User, max_results: int) -> None:
-        result = await self._bridge.read_today_emails(max_results=max_results)
-        for payload in list_from_payload(result.payload, "emails", "items", "results"):
+        messages = await self._outlook.list_unread_messages(
+            user=user,
+            max_results=max_results,
+        )
+        for payload in messages:
             self.store_agent_payload(user=user, payload=payload)
+            try:
+                agent_result = await self._bridge.analyze_email(payload)
+                self.store_agent_payload(user=user, payload=agent_result.payload)
+            except Exception:
+                continue
 
     def store_agent_payload(
         self,
@@ -274,6 +300,21 @@ class EmailCacheService:
             analysis=analysis_payload,
             raw_result=None,
         )
+
+    def _email_payload(self, email: Email) -> dict[str, Any]:
+        return {
+            "id": email.gmail_message_id,
+            "thread_id": email.thread_id,
+            "subject": email.subject,
+            "sender": email.sender,
+            "body_preview": email.body_preview,
+            "body": email.body,
+            "date": email.received_at.isoformat() if email.received_at else "",
+            "received_at": (
+                email.received_at.isoformat() if email.received_at else None
+            ),
+            "is_read": email.is_read,
+        }
 
     def _to_preview(self, email: Email, *, include_body: bool = False) -> EmailPreview:
         analysis = self._repository.get_latest_analysis(email)

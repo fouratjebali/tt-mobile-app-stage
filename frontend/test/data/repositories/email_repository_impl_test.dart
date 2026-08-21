@@ -16,6 +16,7 @@ class FakeApiService implements ApiService {
     bool authenticated = true,
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
+    Duration? timeout,
   }) async {
     if (throwError) {
       throw Exception();
@@ -30,6 +31,7 @@ class FakeApiService implements ApiService {
     Object? body,
     bool authenticated = true,
     Map<String, String>? headers,
+    Duration? timeout,
   }) async {
     return postResponse ?? {};
   }
@@ -39,6 +41,7 @@ class FakeApiService implements ApiService {
     String path, {
     bool authenticated = true,
     Map<String, String>? headers,
+    Duration? timeout,
   }) async {
     return {};
   }
@@ -200,7 +203,7 @@ void main() {
     expect(true, true);
   });
 
-  test('validateAndSend accepts confirmed Gmail send', () async {
+  test('validateAndSend accepts confirmed mailbox send', () async {
     api.postResponse = {'status': 'sent', 'message_id': 'gmail-sent-1'};
 
     await repository.validateAndSend(emailId: '1', body: 'Reply body');

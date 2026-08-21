@@ -24,7 +24,7 @@ router = APIRouter()
     response_model=EmailListResponse,
     summary="Get today's emails",
     description=(
-        "Reads recent Gmail messages through the email agent and returns a "
+        "Reads recent Outlook messages and returns a "
         "mobile-friendly list of email previews."
     ),
 )
@@ -69,7 +69,7 @@ async def review_emails(
     summary="Get email details and AI analysis",
     description=(
         "Runs classification, prioritization, summarization and reply "
-        "suggestion through the email agent for a single Gmail message."
+        "suggestion through the email agent for a single Outlook message."
     ),
 )
 async def email_detail(
@@ -90,8 +90,7 @@ async def email_detail(
     response_model=SendEmailResponse,
     summary="Send a reply for an email",
     description=(
-        "Confirms and sends a reply for the selected Gmail message through "
-        "the email agent."
+        "Confirms and sends a reply for the selected Outlook message."
     ),
 )
 async def send_reply(
@@ -113,7 +112,7 @@ async def send_reply(
     summary="Reject an email reply",
     description=(
         "Marks an email as ignored so it is removed from the review queue "
-        "without sending a Gmail reply."
+        "without sending a mailbox reply."
     ),
 )
 async def reject_email(
@@ -131,7 +130,7 @@ async def reject_email(
     "/pipeline/run",
     summary="Run email treatment pipeline now",
     description=(
-        "Syncs unread Gmail messages, stores Agent 1 draft suggestions, sends "
+        "Syncs unread Outlook messages, stores Agent 1 draft suggestions, sends "
         "them through the jury agent, and moves treated emails to user review."
     ),
 )

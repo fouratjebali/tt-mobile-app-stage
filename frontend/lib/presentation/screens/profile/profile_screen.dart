@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
+import 'package:tt_mail_assistant/core/utils/avatar_image_provider.dart';
 import 'package:tt_mail_assistant/core/theme/theme_controller.dart';
 import 'package:tt_mail_assistant/domain/repositories/auth_repository.dart';
 import 'package:tt_mail_assistant/domain/repositories/settings_repository.dart';
@@ -168,7 +169,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return AlertDialog(
           title: const Text('Sign out?'),
           content: const Text(
-            'You will need to connect your Gmail account again.',
+            'You will need to connect your Outlook account again.',
           ),
           actions: [
             TextButton(
@@ -350,6 +351,7 @@ class _AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _ProfileTone.of(context);
+    final avatarImage = avatarImageProvider(userPhotoUrl);
 
     return _SettingCard(
       child: Padding(
@@ -359,10 +361,9 @@ class _AccountCard extends StatelessWidget {
             CircleAvatar(
               radius: 32,
               backgroundColor: tone.softSurface,
-              backgroundImage:
-                  userPhotoUrl != null ? NetworkImage(userPhotoUrl!) : null,
+              backgroundImage: avatarImage,
               child:
-                  userPhotoUrl == null
+                  avatarImage == null
                       ? Text(
                         _initials(userName, userEmail),
                         style: TextStyle(
@@ -403,7 +404,7 @@ class _AccountCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Gmail connected',
+                      'Outlook connected',
                       style: TextStyle(
                         fontSize: 12,
                         color: AppPalette.deepTeal,

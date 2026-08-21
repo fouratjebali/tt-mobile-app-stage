@@ -10,6 +10,7 @@ from app.schemas.auth import (
     AuthResponse,
     GmailAuthUrlResponse,
     GoogleAuthRequest,
+    MicrosoftAuthRequest,
     UserResponse,
 )
 from app.services.auth_service import AuthService
@@ -36,6 +37,24 @@ def sign_in_with_google(
     return AuthResponse(session_token=session_token, user=_to_user_response(user))
 
 
+@router.post(
+    "/microsoft",
+    response_model=AuthResponse,
+    summary="Sign in with Microsoft tokens",
+    description=(
+        "Receives Microsoft OAuth tokens from the mobile app, verifies the "
+        "access token with Microsoft Graph, upserts the user, creates a "
+        "backend session and returns a Bearer session token."
+    ),
+)
+def sign_in_with_microsoft(
+    request: MicrosoftAuthRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    user, session_token = AuthService(db).sign_in_with_microsoft(request)
+    return AuthResponse(session_token=session_token, user=_to_user_response(user))
+
+
 @router.get(
     "/gmail/url",
     response_model=GmailAuthUrlResponse,
@@ -48,11 +67,11 @@ def sign_in_with_google(
 )
 def gmail_auth_url() -> GmailAuthUrlResponse:
     return GmailAuthUrlResponse(
-        flow="mobile_google_sign_in",
+        flow="mobile_microsoft_sign_in",
         auth_url=None,
         message=(
-            "Android uses native Google Sign-In. Send the Google tokens to "
-            "POST /api/v1/auth/google or /api/v1/auth/gmail/callback."
+            "Android uses Microsoft OAuth through AppAuth. Send the Microsoft "
+            "tokens to POST /api/v1/auth/microsoft."
         ),
     )
 

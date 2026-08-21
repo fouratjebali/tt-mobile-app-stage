@@ -24,9 +24,19 @@ Get-Content $envPath | ForEach-Object {
     $values[$key.Trim()] = $value.Trim().Trim('"').Trim("'")
 }
 
-$serverClientId = $values["GOOGLE_OAUTH_SERVER_CLIENT_ID"]
-if ([string]::IsNullOrWhiteSpace($serverClientId)) {
-    throw "GOOGLE_OAUTH_SERVER_CLIENT_ID is missing in .env"
+$microsoftClientId = $values["MICROSOFT_CLIENT_ID"]
+if ([string]::IsNullOrWhiteSpace($microsoftClientId)) {
+    throw "MICROSOFT_CLIENT_ID is missing in .env"
+}
+
+$microsoftTenantId = $values["MICROSOFT_TENANT_ID"]
+if ([string]::IsNullOrWhiteSpace($microsoftTenantId)) {
+    $microsoftTenantId = "common"
+}
+
+$microsoftRedirectUri = $values["MICROSOFT_REDIRECT_URI"]
+if ([string]::IsNullOrWhiteSpace($microsoftRedirectUri)) {
+    throw "MICROSOFT_REDIRECT_URI is missing in .env"
 }
 
 $apiBaseUrl = $values["ANDROID_API_BASE_URL"]
@@ -49,7 +59,9 @@ Push-Location $frontendPath
 try {
     flutter run @modeArgs `
         -d $DeviceId `
-        --dart-define="GOOGLE_OAUTH_SERVER_CLIENT_ID=$serverClientId" `
+        --dart-define="MICROSOFT_CLIENT_ID=$microsoftClientId" `
+        --dart-define="MICROSOFT_TENANT_ID=$microsoftTenantId" `
+        --dart-define="MICROSOFT_REDIRECT_URI=$microsoftRedirectUri" `
         --dart-define="API_BASE_URL=$apiBaseUrl"
 }
 finally {

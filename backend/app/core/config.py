@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = Field(default="http://host.docker.internal:11434")
     GOOGLE_OAUTH_CLIENT_ID: str = ""
     GOOGLE_OAUTH_SERVER_CLIENT_ID: str = ""
+    MICROSOFT_CLIENT_ID: str = ""
+    MICROSOFT_TENANT_ID: str = "common"
 
     HTTP_TIMEOUT_SECONDS: float = 120.0
     HEALTHCHECK_TIMEOUT_SECONDS: float = 4.0

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app.models.auth import AuthSession, User
@@ -21,8 +21,12 @@ class AuthRepository:
         user = self._db.scalar(select(User).where(User.google_sub == google_sub))
 
         if user is None:
-            user = User(google_sub=google_sub, email=email)
-            self._db.add(user)
+            user = self._db.scalar(select(User).where(User.email == email))
+            if user is None:
+                user = User(google_sub=google_sub, email=email)
+                self._db.add(user)
+            else:
+                user.google_sub = google_sub
 
         user.email = email
         user.display_name = display_name
@@ -61,6 +65,13 @@ class AuthRepository:
             )
         )
         return session.user if session is not None else None
+
+    def get_latest_session_for_user(self, user: User) -> AuthSession | None:
+        return self._db.scalar(
+            select(AuthSession)
+            .where(AuthSession.user_id == user.id)
+            .order_by(desc(AuthSession.created_at))
+        )
 
     def delete_session(self, session_token_hash: str) -> None:
         session = self._db.scalar(

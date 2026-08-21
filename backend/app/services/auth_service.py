@@ -1,3 +1,4 @@
+from base64 import b64encode
 from datetime import UTC, datetime
 from hashlib import sha256
 from secrets import token_urlsafe
@@ -5,12 +6,13 @@ from secrets import token_urlsafe
 from fastapi import HTTPException, status
 from google.auth.transport import requests
 from google.oauth2 import id_token
+import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.auth import User
 from app.repositories.auth_repository import AuthRepository
-from app.schemas.auth import GoogleAuthRequest
+from app.schemas.auth import GoogleAuthRequest, MicrosoftAuthRequest
 
 
 class AuthService:
@@ -34,6 +36,39 @@ class AuthService:
             google_id_token=request.id_token,
             google_refresh_token=request.refresh_token,
             expires_at=self._parse_expiry(profile.get("exp")),
+        )
+        return user, session_token
+
+    def sign_in_with_microsoft(
+        self,
+        request: MicrosoftAuthRequest,
+    ) -> tuple[User, str]:
+        profile = self._fetch_microsoft_profile(request.access_token)
+        microsoft_id = str(profile.get("id") or "").strip()
+        email = str(
+            profile.get("mail") or profile.get("userPrincipalName") or ""
+        ).strip()
+        if not microsoft_id or not email:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Microsoft profile is incomplete.",
+            )
+
+        user = self._repository.upsert_user(
+            google_sub=f"microsoft:{microsoft_id}",
+            email=email,
+            display_name=profile.get("displayName"),
+            photo_url=self._fetch_microsoft_photo_data_uri(request.access_token),
+        )
+
+        session_token = token_urlsafe(48)
+        self._repository.create_session(
+            user=user,
+            session_token_hash=self._hash_token(session_token),
+            google_access_token=request.access_token,
+            google_id_token=request.id_token,
+            google_refresh_token=request.refresh_token,
+            expires_at=request.expires_at,
         )
         return user, session_token
 
@@ -89,6 +124,59 @@ class AuthService:
             )
 
         return profile
+
+    def _fetch_microsoft_profile(self, access_token: str) -> dict[str, object]:
+        if not access_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing Microsoft access token.",
+            )
+
+        try:
+            with httpx.Client(timeout=settings.HEALTHCHECK_TIMEOUT_SECONDS) as client:
+                response = client.get(
+                    "https://graph.microsoft.com/v1.0/me",
+                    params={
+                        "$select": "id,displayName,mail,userPrincipalName",
+                    },
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                response.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Microsoft sign-in token is invalid or expired.",
+            ) from error
+        except httpx.HTTPError as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Microsoft sign-in is temporarily unavailable.",
+            ) from error
+
+        profile = response.json()
+        if not isinstance(profile, dict):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Microsoft returned an invalid profile response.",
+            )
+        return profile
+
+    def _fetch_microsoft_photo_data_uri(self, access_token: str) -> str | None:
+        try:
+            with httpx.Client(timeout=settings.HEALTHCHECK_TIMEOUT_SECONDS) as client:
+                response = client.get(
+                    "https://graph.microsoft.com/v1.0/me/photo/$value",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                if response.status_code == status.HTTP_404_NOT_FOUND:
+                    return None
+                response.raise_for_status()
+        except httpx.HTTPError:
+            return None
+
+        content_type = response.headers.get("content-type", "image/jpeg")
+        encoded = b64encode(response.content).decode("ascii")
+        return f"data:{content_type};base64,{encoded}"
 
     def _hash_token(self, token: str) -> str:
         return sha256(token.encode("utf-8")).hexdigest()

@@ -10,7 +10,7 @@ class AuthUseCase {
 
   Future<AppUser?> getCurrentUser() => _repository.getCurrentUser();
 
-  Future<AppUser> signIn() => _repository.signInWithGoogle();
+  Future<AppUser> signIn() => _repository.signIn();
 
   Future<void> signOut() => _repository.signOut();
 }
