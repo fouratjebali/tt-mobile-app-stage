@@ -4,6 +4,8 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app.models.auth import AuthSession, User
+from app.models.email import Email, Stat
+from app.models.notification import UserNotification
 
 
 class AuthRepository:
@@ -34,6 +36,9 @@ class AuthRepository:
         self._db.commit()
         self._db.refresh(user)
         return user
+
+    def get_user_by_email(self, email: str) -> User | None:
+        return self._db.scalar(select(User).where(User.email == email))
 
     def create_session(
         self,
@@ -72,6 +77,27 @@ class AuthRepository:
             .where(AuthSession.user_id == user.id)
             .order_by(desc(AuthSession.created_at))
         )
+
+    def delete_sessions_for_user(self, user: User) -> None:
+        sessions = list(
+            self._db.scalars(select(AuthSession).where(AuthSession.user_id == user.id))
+        )
+        for session in sessions:
+            self._db.delete(session)
+        self._db.commit()
+
+    def clear_mailbox_cache(self, user: User) -> None:
+        self._db.query(UserNotification).filter(
+            UserNotification.user_id == user.id
+        ).delete(synchronize_session=False)
+        self._db.query(Stat).filter(Stat.user_id == user.id).delete(
+            synchronize_session=False
+        )
+
+        emails = list(self._db.scalars(select(Email).where(Email.user_id == user.id)))
+        for email in emails:
+            self._db.delete(email)
+        self._db.commit()
 
     def delete_session(self, session_token_hash: str) -> None:
         session = self._db.scalar(

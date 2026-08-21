@@ -54,14 +54,19 @@ class AuthService:
                 detail="Microsoft profile is incomplete.",
             )
 
+        existing_user = self._repository.get_user_by_email(email)
+        should_reset_mailbox_cache = existing_user is not None
         user = self._repository.upsert_user(
             google_sub=f"microsoft:{microsoft_id}",
             email=email,
             display_name=profile.get("displayName"),
             photo_url=self._fetch_microsoft_photo_data_uri(request.access_token),
         )
+        if should_reset_mailbox_cache:
+            self._repository.clear_mailbox_cache(user)
 
         session_token = token_urlsafe(48)
+        self._repository.delete_sessions_for_user(user)
         self._repository.create_session(
             user=user,
             session_token_hash=self._hash_token(session_token),
@@ -80,6 +85,11 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired session.",
+            )
+        if not _is_microsoft_user(user):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Please connect your Outlook account.",
             )
         return user
 
@@ -186,3 +196,7 @@ class AuthService:
             return None
 
         return datetime.fromtimestamp(expiry, tz=UTC)
+
+
+def _is_microsoft_user(user: User) -> bool:
+    return str(user.google_sub or "").startswith("microsoft:")

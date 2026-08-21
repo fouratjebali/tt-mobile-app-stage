@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_bearer_token, get_current_user
@@ -9,7 +9,6 @@ from app.models.auth import User
 from app.schemas.auth import (
     AuthResponse,
     GmailAuthUrlResponse,
-    GoogleAuthRequest,
     MicrosoftAuthRequest,
     UserResponse,
 )
@@ -22,19 +21,17 @@ router = APIRouter()
 @router.post(
     "/google",
     response_model=AuthResponse,
-    summary="Sign in with Google tokens",
+    summary="Legacy Google sign-in",
     description=(
-        "Receives Google Sign-In tokens from the Android app, verifies the "
-        "Google ID token, upserts the user, creates a backend session and "
-        "returns a Bearer session token."
+        "Legacy endpoint kept for compatibility. Google/Gmail login is "
+        "disabled while the app uses Microsoft Outlook."
     ),
 )
-def sign_in_with_google(
-    request: GoogleAuthRequest,
-    db: Session = Depends(get_db),
-) -> AuthResponse:
-    user, session_token = AuthService(db).sign_in_with_google(request)
-    return AuthResponse(session_token=session_token, user=_to_user_response(user))
+def sign_in_with_google() -> AuthResponse:
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Google/Gmail login is disabled. Please connect with Outlook.",
+    )
 
 
 @router.post(
@@ -81,16 +78,15 @@ def gmail_auth_url() -> GmailAuthUrlResponse:
     response_model=AuthResponse,
     summary="Complete Gmail OAuth callback",
     description=(
-        "Compatibility endpoint for the OAuth callback naming used in the "
-        "Sprint 4 backlog. It accepts the same payload as /auth/google."
+        "Legacy Gmail callback. Gmail login is disabled while the app uses "
+        "Microsoft Outlook."
     ),
 )
-def gmail_callback(
-    request: GoogleAuthRequest,
-    db: Session = Depends(get_db),
-) -> AuthResponse:
-    user, session_token = AuthService(db).sign_in_with_google(request)
-    return AuthResponse(session_token=session_token, user=_to_user_response(user))
+def gmail_callback() -> AuthResponse:
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Google/Gmail login is disabled. Please connect with Outlook.",
+    )
 
 
 @router.get(
@@ -123,7 +119,7 @@ def session(
     summary="Refresh current session",
     description=(
         "Validates the current backend session. A future iteration can extend "
-        "this endpoint to rotate session tokens or refresh Google tokens."
+        "this endpoint to rotate session tokens or refresh Microsoft tokens."
     ),
 )
 def refresh_session(

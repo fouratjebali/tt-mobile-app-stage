@@ -1,4 +1,5 @@
 import 'package:tt_mail_assistant/data/datasources/local/auth_secure_storage.dart';
+import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/backend_auth_data_source.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/outlook_auth_data_source.dart';
 import 'package:tt_mail_assistant/domain/entities/app_user.dart';
@@ -21,7 +22,20 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> prepareSignIn() => _outlookAuthDataSource.prepareSignIn();
 
   @override
-  Future<AppUser?> getCurrentUser() => _secureStorage.readUser();
+  Future<AppUser?> getCurrentUser() async {
+    final localUser = await _secureStorage.readUser();
+    if (localUser == null) return null;
+
+    try {
+      return await _backendAuthDataSource.currentUser();
+    } on ApiException catch (error) {
+      if (error.statusCode == 401 || error.statusCode == 410) {
+        await _secureStorage.clear();
+        return null;
+      }
+      return localUser;
+    }
+  }
 
   @override
   Future<AppUser> signIn() async {

@@ -7,6 +7,11 @@ class BackendAuthDataSource {
 
   final ApiService _apiService;
 
+  Future<AppUser> currentUser() async {
+    final payload = await _apiService.get('/auth/me');
+    return _userFromPayload(payload);
+  }
+
   Future<AuthSession> signInWithMicrosoft(AuthSession microsoftSession) async {
     final payload = await _apiService.post(
       '/auth/microsoft',
@@ -21,12 +26,7 @@ class BackendAuthDataSource {
     final userPayload = payload['user'] as Map<String, dynamic>;
 
     return AuthSession(
-      user: AppUser(
-        id: userPayload['id'] as String,
-        email: userPayload['email'] as String,
-        displayName: userPayload['display_name'] as String?,
-        photoUrl: userPayload['photo_url'] as String?,
-      ),
+      user: _userFromPayload(userPayload),
       accessToken: microsoftSession.accessToken,
       backendToken: payload['session_token'] as String,
       idToken: microsoftSession.idToken,
@@ -35,6 +35,15 @@ class BackendAuthDataSource {
           payload['expires_at'] == null
               ? null
               : DateTime.parse(payload['expires_at'] as String),
+    );
+  }
+
+  AppUser _userFromPayload(Map<String, dynamic> payload) {
+    return AppUser(
+      id: payload['id'] as String,
+      email: payload['email'] as String,
+      displayName: payload['display_name'] as String?,
+      photoUrl: payload['photo_url'] as String?,
     );
   }
 }

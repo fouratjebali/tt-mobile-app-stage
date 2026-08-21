@@ -12,13 +12,16 @@ class AuthSecureStorage {
   static const _idTokenKey = 'id_token';
   static const _refreshTokenKey = 'refresh_token';
   static const _expiresAtKey = 'token_expires_at';
+  static const _providerKey = 'auth_provider';
   static const _userIdKey = 'user_id';
   static const _userEmailKey = 'user_email';
   static const _userNameKey = 'user_display_name';
   static const _userPhotoKey = 'user_photo_url';
+  static const _outlookProvider = 'microsoft';
 
   Future<void> saveSession(AuthSession session) async {
     await Future.wait([
+      _storage.write(key: _providerKey, value: _outlookProvider),
       _storage.write(key: _accessTokenKey, value: session.accessToken),
       if (session.backendToken != null)
         _storage.write(key: _backendTokenKey, value: session.backendToken),
@@ -45,10 +48,12 @@ class AuthSecureStorage {
     final token = values[_accessTokenKey];
     final id = values[_userIdKey];
     final email = values[_userEmailKey];
+    final provider = values[_providerKey];
 
     final backendToken = values[_backendTokenKey];
 
-    if (token == null ||
+    if (provider != _outlookProvider ||
+        token == null ||
         token.isEmpty ||
         backendToken == null ||
         backendToken.isEmpty ||
