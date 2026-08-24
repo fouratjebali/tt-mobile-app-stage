@@ -15,6 +15,7 @@ class FormationsViewModel extends ChangeNotifier {
   List<PlanningImportSummary> imports = const [];
   List<TrainingDraft> drafts = const [];
   List<MissingPlanningContact> missingContacts = const [];
+  Map<String, dynamic>? lastAutomation;
 
   int get sessions => activeImport?.totalSessions ?? 0;
   int get participants => activeImport?.totalParticipants ?? 0;
@@ -61,6 +62,14 @@ class FormationsViewModel extends ChangeNotifier {
         activeImport!,
         ...imports.where((item) => item.importId != activeImport!.importId),
       ];
+      lastAutomation = await _planningApiService.runAutomation(
+        importId: activeImport!.importId,
+      );
+      imports = await _planningApiService.listImports();
+      activeImport = imports.firstWhere(
+        (item) => item.importId == activeImport!.importId,
+        orElse: () => activeImport!,
+      );
       await _loadDetails();
       state = LoadState.success;
     } catch (error) {
@@ -82,6 +91,31 @@ class FormationsViewModel extends ChangeNotifier {
         emailType: emailType,
       );
       drafts = await _planningApiService.listDrafts(importId: importId);
+      state = LoadState.success;
+    } catch (error) {
+      errorMessage = error.toString();
+      state = LoadState.error;
+    }
+    notifyListeners();
+  }
+
+  Future<void> runAutomation({String emailType = 'auto'}) async {
+    final importId = activeImport?.importId;
+    if (importId == null || importId.isEmpty) return;
+    state = LoadState.loading;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      lastAutomation = await _planningApiService.runAutomation(
+        importId: importId,
+        emailType: emailType,
+      );
+      imports = await _planningApiService.listImports();
+      activeImport = imports.firstWhere(
+        (item) => item.importId == importId,
+        orElse: () => activeImport!,
+      );
+      await _loadDetails();
       state = LoadState.success;
     } catch (error) {
       errorMessage = error.toString();

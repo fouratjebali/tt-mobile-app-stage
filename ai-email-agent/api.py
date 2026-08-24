@@ -89,6 +89,13 @@ class GenerateTrainingDraftsRequest(BaseModel):
     limit: int = Field(default=100, ge=1, le=500)
 
 
+class RunPlanningAutomationRequest(BaseModel):
+    import_id: str | None = None
+    email_type: str = "auto"
+    include_population: bool = True
+    limit: int = Field(default=500, ge=1, le=1000)
+
+
 class UpdateTrainingDraftRequest(BaseModel):
     subject: str | None = None
     body: str | None = None
@@ -454,6 +461,22 @@ def generate_training_drafts(request: GenerateTrainingDraftsRequest) -> dict[str
         return planning_import_service.generate_training_drafts(
             import_id=request.import_id,
             session_key=request.session_key,
+            email_type=request.email_type,
+            include_population=request.include_population,
+            limit=request.limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/planning/automation/run")
+def run_planning_automation(request: RunPlanningAutomationRequest) -> dict[str, Any]:
+    try:
+        return planning_import_service.run_training_automation(
+            import_id=request.import_id,
             email_type=request.email_type,
             include_population=request.include_population,
             limit=request.limit,

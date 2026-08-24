@@ -73,10 +73,10 @@ class _FormationsScreenState extends State<FormationsScreen> {
   }
 
   Future<void> _generateDrafts() async {
-    await _viewModel.generateDrafts();
+    await _viewModel.runAutomation();
     if (!mounted) return;
     if (_viewModel.errorMessage == null) {
-      _showMessage(context.l10n.t('formations.draftsDone'));
+      _showMessage(context.l10n.t('formations.automationDone'));
     }
   }
 
@@ -529,7 +529,7 @@ class _ActionPanel extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: hasImport ? onGenerate : null,
               icon: const Icon(Icons.auto_awesome_rounded),
-              label: Text(l10n.t('formations.generateDrafts')),
+              label: Text(l10n.t('formations.runAutomation')),
               style: FilledButton.styleFrom(
                 backgroundColor: AppPalette.deepTeal,
                 foregroundColor: AppPalette.white,

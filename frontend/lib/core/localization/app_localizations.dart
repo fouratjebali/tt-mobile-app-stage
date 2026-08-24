@@ -128,6 +128,8 @@ const Map<String, String> _english = {
   'formations.uploadLimit': 'Only the first 5 planning files were selected.',
   'formations.importDone': 'Planning imported successfully.',
   'formations.draftsDone': 'Drafts are ready for review.',
+  'formations.automationDone':
+      'Automation completed. Drafts are ready for review.',
   'formations.monthPlan': 'Month overview',
   'formations.sessions': 'Sessions',
   'formations.participants': 'Participants',
@@ -137,6 +139,7 @@ const Map<String, String> _english = {
   'formations.reviewBeforeSendHint':
       'Generated training emails stay blocked until you review, edit, and approve them.',
   'formations.generateDrafts': 'Generate training drafts',
+  'formations.runAutomation': 'Run automation',
   'formations.importReady': 'ready',
   'formations.waitingImport': 'waiting',
   'formations.waitingReview': 'Review',
@@ -357,6 +360,8 @@ const Map<String, String> _french = {
   'formations.uploadLimit': 'Seuls les 5 premiers fichiers ont ete retenus.',
   'formations.importDone': 'Planning importe avec succes.',
   'formations.draftsDone': 'Brouillons prets pour verification.',
+  'formations.automationDone':
+      'Automatisation terminee. Brouillons prets pour verification.',
   'formations.monthPlan': 'Vue du mois',
   'formations.sessions': 'Sessions',
   'formations.participants': 'Participants',
@@ -366,6 +371,7 @@ const Map<String, String> _french = {
   'formations.reviewBeforeSendHint':
       'Les emails de formation restent bloques jusqu a verification, modification et validation.',
   'formations.generateDrafts': 'Generer les brouillons',
+  'formations.runAutomation': 'Lancer l automatisation',
   'formations.importReady': 'pret',
   'formations.waitingImport': 'en attente',
   'formations.waitingReview': 'Revue',

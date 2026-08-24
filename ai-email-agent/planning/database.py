@@ -702,6 +702,26 @@ class PlanningDatabase:
             ).fetchone()
             return self._draft_row(row) if row is not None else None
 
+    def has_training_draft_for_session(
+        self,
+        *,
+        import_id: str,
+        session_key: str,
+    ) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT id
+                FROM training_email_drafts
+                WHERE import_id = ?
+                  AND session_key = ?
+                  AND status != 'REJECTED'
+                LIMIT 1
+                """,
+                (import_id, session_key),
+            ).fetchone()
+            return row is not None
+
     def update_training_draft(
         self,
         draft_id: int,

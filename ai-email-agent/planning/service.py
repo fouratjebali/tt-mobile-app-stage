@@ -127,6 +127,7 @@ class PlanningImportService:
         email_type: str = "auto",
         include_population: bool = True,
         limit: int = 100,
+        skip_existing: bool = False,
     ) -> dict[str, Any]:
         safe_import_id = sanitize_import_id(import_id) if import_id else None
         if session_key:
@@ -151,8 +152,19 @@ class PlanningImportService:
             ]
 
         drafts = []
+        skipped = 0
         errors = []
         for session in sessions:
+            if (
+                skip_existing
+                and safe_import_id
+                and self.database.has_training_draft_for_session(
+                    import_id=safe_import_id,
+                    session_key=session["session_key"],
+                )
+            ):
+                skipped += 1
+                continue
             try:
                 draft = self.training_agent.generate_draft(
                     session,
@@ -171,8 +183,55 @@ class PlanningImportService:
         return {
             "status": "ok" if not errors else "partial",
             "generated": len(drafts),
+            "skipped_existing": skipped,
             "errors": errors,
             "drafts": drafts,
+        }
+
+    def run_training_automation(
+        self,
+        *,
+        import_id: str | None = None,
+        email_type: str = "auto",
+        include_population: bool = True,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        if safe_import_id is None:
+            imports = self.database.list_imports()
+            safe_import_id = imports[0]["import_id"] if imports else None
+        if not safe_import_id:
+            return {
+                "status": "empty",
+                "import_id": "",
+                "mapped": 0,
+                "unmatched": 0,
+                "generated": 0,
+                "skipped_existing": 0,
+                "errors": [],
+                "drafts": [],
+            }
+
+        mapping = self.database.apply_contact_mapping(import_id=safe_import_id)
+        generated = self.generate_training_drafts(
+            import_id=safe_import_id,
+            email_type=email_type,
+            include_population=include_population,
+            limit=limit,
+            skip_existing=True,
+        )
+        status = "ok"
+        if generated["errors"]:
+            status = "partial"
+        return {
+            "status": status,
+            "import_id": safe_import_id,
+            "mapped": mapping["mapped"],
+            "unmatched": mapping["unmatched"],
+            "generated": generated["generated"],
+            "skipped_existing": generated["skipped_existing"],
+            "errors": generated["errors"],
+            "drafts": generated["drafts"],
         }
 
     def list_training_drafts(

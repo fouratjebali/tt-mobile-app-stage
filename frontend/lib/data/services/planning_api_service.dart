@@ -87,6 +87,22 @@ class PlanningApiService {
     return drafts.map((item) => TrainingDraft.fromJson(_map(item))).toList();
   }
 
+  Future<Map<String, dynamic>> runAutomation({
+    required String importId,
+    String emailType = 'auto',
+  }) async {
+    final data = await _apiService.post(
+      '/planning/automation/run',
+      body: {
+        'import_id': importId,
+        'email_type': emailType,
+        'include_population': true,
+      },
+      timeout: _planningTimeout,
+    );
+    return _map(data);
+  }
+
   Future<TrainingDraft> updateDraft({
     required int draftId,
     String? subject,
