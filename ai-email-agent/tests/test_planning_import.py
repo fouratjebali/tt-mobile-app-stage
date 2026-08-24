@@ -422,8 +422,16 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
     assert draft["subject"] == "Confirmation de présence formation Exploitation des IPMSAN Nokia"
     assert "Bonjour," in draft["body"]
     assert "Thème de la formation : Exploitation des IPMSAN Nokia" in draft["body"]
-    assert "Merci de nous confirmer votre présence" in draft["body"]
+    assert "Durée du cours : du 01/09/2026 au 02/09/2026" in draft["body"]
+    assert "Cabinet de Formation : Maher ben Hassine" in draft["body"]
+    assert "Matricule | Nom et prénom" in draft["body"]
+    assert "75266 | BOUNEB Zied" in draft["body"]
+    assert "Prière de nous confirmer votre présence" in draft["body"]
+    assert "<table" in draft["html_body"]
+    assert "Matricule</th>" in draft["html_body"]
+    assert "color: #19a8d8" in draft["html_body"]
     assert draft["metadata"]["language"] == "fr"
+    assert draft["metadata"]["has_html_body"] is True
 
     list_response = client.get(
         "/planning/drafts",
@@ -491,3 +499,4 @@ def test_french_training_agent_marks_draft_as_needing_contacts(tmp_path):
     assert draft["metadata"]["missing_recipient_count"] == 1
     assert "Population cible" in draft["body"]
     assert "BEN SALEM Amira" in draft["body"]
+    assert "Sensibilisation à participer à la formation" in draft["subject"]

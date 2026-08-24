@@ -156,6 +156,7 @@ class PlanningDatabase:
                     email_type TEXT NOT NULL,
                     subject TEXT NOT NULL DEFAULT '',
                     body TEXT NOT NULL DEFAULT '',
+                    html_body TEXT NOT NULL DEFAULT '',
                     recipients_json TEXT NOT NULL DEFAULT '[]',
                     cc_json TEXT NOT NULL DEFAULT '[]',
                     status TEXT NOT NULL DEFAULT 'DRAFTED',
@@ -194,6 +195,7 @@ class PlanningDatabase:
             self._ensure_column(connection, "employee_contacts", "normalized_name", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "employee_contacts", "source_file", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "employee_contacts", "source_row", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "training_email_drafts", "html_body", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "training_email_drafts", "metadata_json", "TEXT NOT NULL DEFAULT '{}'")
             connection.execute(
                 """
@@ -622,6 +624,7 @@ class PlanningDatabase:
                     email_type,
                     subject,
                     body,
+                    html_body,
                     recipients_json,
                     cc_json,
                     status,
@@ -629,7 +632,7 @@ class PlanningDatabase:
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """,
                 (
                     draft.import_id,
@@ -637,6 +640,7 @@ class PlanningDatabase:
                     draft.email_type,
                     draft.subject,
                     draft.body,
+                    draft.html_body,
                     _json(draft.recipients),
                     _json(draft.cc),
                     draft.status,
@@ -1063,6 +1067,7 @@ class PlanningDatabase:
             "email_type": row["email_type"],
             "subject": row["subject"],
             "body": row["body"],
+            "html_body": row["html_body"],
             "recipients": _loads(row["recipients_json"]),
             "cc": _loads(row["cc_json"]),
             "status": row["status"],
