@@ -7,6 +7,7 @@ import 'package:tt_mail_assistant/core/utils/avatar_image_provider.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/presentation/screens/bulk_email/bulk_email_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/formations/formations_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/notifications/notifications_screen.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
 
@@ -750,38 +751,54 @@ class _ShortcutsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _ShortcutButton(
-            icon: Icons.rate_review_outlined,
-            label: context.l10n.t('home.reviewReplies'),
-            onTap: onReviewTap,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _ShortcutButton(
+                icon: Icons.rate_review_outlined,
+                label: context.l10n.t('home.reviewReplies'),
+                onTap: onReviewTap,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ShortcutButton(
+                icon: Icons.mail_outline,
+                label: context.l10n.t('home.groupDrafts'),
+
+                // =================================================
+                // BULK EMAIL S10
+                // =================================================
+                onTap: () async {
+                  final selectedTab = await Navigator.push<int>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const BulkEmailScreen(),
+                    ),
+                  );
+                  if (selectedTab != null && context.mounted) {
+                    onSelectTab?.call(selectedTab);
+                  }
+                },
+              ),
+            ),
+          ],
         ),
-
-        const SizedBox(width: 12),
-
-        Expanded(
-          child: _ShortcutButton(
-            icon: Icons.mail_outline,
-            label: context.l10n.t('home.groupDrafts'),
-
-            // =================================================
-            // BULK EMAIL S10
-            // =================================================
-            onTap: () async {
-              final selectedTab = await Navigator.push<int>(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const BulkEmailScreen(),
-                ),
-              );
-              if (selectedTab != null && context.mounted) {
-                onSelectTab?.call(selectedTab);
-              }
-            },
-          ),
+        const SizedBox(height: 12),
+        _ShortcutButton(
+          icon: Icons.school_outlined,
+          label: context.l10n.t('home.formations'),
+          onTap: () async {
+            final selectedTab = await Navigator.push<int>(
+              context,
+              MaterialPageRoute(builder: (context) => const FormationsScreen()),
+            );
+            if (selectedTab != null && context.mounted) {
+              onSelectTab?.call(selectedTab);
+            }
+          },
         ),
       ],
     );
