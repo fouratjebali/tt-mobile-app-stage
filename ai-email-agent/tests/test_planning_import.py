@@ -354,3 +354,140 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
     participant = payload["files"][0]["sessions"][0]["participants"][0]
     assert participant["email"] == "jawher.jabri@tunisietelecom.tn"
     assert "email" not in participant["missing_fields"]
+
+
+def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Cabinet",
+                "Formateur",
+                "Date Debut",
+                "Date Fin",
+                "Horaire",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Email",
+                "Grande residence",
+            ],
+            [
+                "S4",
+                "Exploitation des IPMSAN Nokia",
+                "Formateur interne",
+                "Maher ben Hassine",
+                "2026-09-01",
+                "2026-09-02",
+                "de 08h30 a 14h30",
+                "Salle1 DCSI pole El Ghazela",
+                "75266",
+                "BOUNEB Zied",
+                "zied.bouneb@tunisietelecom.tn",
+                "Direction Centrale des Reseaux",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert import_response.status_code == 200
+    import_id = import_response.json()["import_id"]
+
+    generate_response = client.post(
+        "/planning/drafts/generate",
+        json={
+            "import_id": import_id,
+            "email_type": "confirmation_presence",
+        },
+    )
+    assert generate_response.status_code == 200
+    generated = generate_response.json()
+    assert generated["generated"] == 1
+    draft = generated["drafts"][0]
+    assert draft["status"] == "WAITING_REVIEW"
+    assert draft["recipients"] == ["zied.bouneb@tunisietelecom.tn"]
+    assert draft["subject"] == "Confirmation de présence formation Exploitation des IPMSAN Nokia"
+    assert "Bonjour," in draft["body"]
+    assert "Thème de la formation : Exploitation des IPMSAN Nokia" in draft["body"]
+    assert "Merci de nous confirmer votre présence" in draft["body"]
+    assert draft["metadata"]["language"] == "fr"
+
+    list_response = client.get(
+        "/planning/drafts",
+        params={"import_id": import_id},
+    )
+    assert list_response.status_code == 200
+    assert list_response.json()["drafts"][0]["id"] == draft["id"]
+
+    detail_response = client.get(f"/planning/drafts/{draft['id']}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["draft"]["body"] == draft["body"]
+
+
+def test_french_training_agent_marks_draft_as_needing_contacts(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+            ],
+            [
+                "S5",
+                "Sécurité des échanges",
+                "2026-09-04",
+                "2026-09-05",
+                "Tunis",
+                "99999",
+                "BEN SALEM Amira",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    import_id = import_response.json()["import_id"]
+
+    generate_response = client.post(
+        "/planning/drafts/generate",
+        json={
+            "import_id": import_id,
+            "email_type": "sensibilisation",
+        },
+    )
+
+    assert generate_response.status_code == 200
+    draft = generate_response.json()["drafts"][0]
+    assert draft["status"] == "NEEDS_CONTACTS"
+    assert draft["recipients"] == []
+    assert draft["metadata"]["missing_recipient_count"] == 1
+    assert "Population cible" in draft["body"]
+    assert "BEN SALEM Amira" in draft["body"]

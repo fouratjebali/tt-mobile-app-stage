@@ -10,6 +10,7 @@ from typing import Any
 
 from planning.contact_parser import EmployeeContact, normalize_name
 from planning.models import PlanningImportResult, TrainingSession
+from planning.training_agent import TrainingDraft
 
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "tt_mail_assistant.db"
@@ -158,6 +159,7 @@ class PlanningDatabase:
                     recipients_json TEXT NOT NULL DEFAULT '[]',
                     cc_json TEXT NOT NULL DEFAULT '[]',
                     status TEXT NOT NULL DEFAULT 'DRAFTED',
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (import_id)
@@ -192,6 +194,7 @@ class PlanningDatabase:
             self._ensure_column(connection, "employee_contacts", "normalized_name", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "employee_contacts", "source_file", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "employee_contacts", "source_row", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "training_email_drafts", "metadata_json", "TEXT NOT NULL DEFAULT '{}'")
             connection.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_employee_contacts_normalized_name
@@ -609,6 +612,90 @@ class PlanningDatabase:
             "import_id": import_id or "",
         }
 
+    def save_training_draft(self, draft: TrainingDraft) -> dict[str, Any]:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO training_email_drafts (
+                    import_id,
+                    session_key,
+                    email_type,
+                    subject,
+                    body,
+                    recipients_json,
+                    cc_json,
+                    status,
+                    metadata_json,
+                    created_at,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                (
+                    draft.import_id,
+                    draft.session_key,
+                    draft.email_type,
+                    draft.subject,
+                    draft.body,
+                    _json(draft.recipients),
+                    _json(draft.cc),
+                    draft.status,
+                    _json(draft.metadata),
+                ),
+            )
+            connection.commit()
+            draft_id = int(cursor.lastrowid)
+        stored = self.get_training_draft(draft_id)
+        return stored or {"id": draft_id, **draft.to_dict()}
+
+    def list_training_drafts(
+        self,
+        *,
+        import_id: str | None = None,
+        session_key: str | None = None,
+        status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if import_id:
+            clauses.append("import_id = ?")
+            params.append(import_id)
+        if session_key:
+            clauses.append("session_key = ?")
+            params.append(session_key)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.extend([limit, offset])
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT *
+                FROM training_email_drafts
+                {where}
+                ORDER BY created_at DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                params,
+            ).fetchall()
+            return [self._draft_row(row) for row in rows]
+
+    def get_training_draft(self, draft_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM training_email_drafts
+                WHERE id = ?
+                """,
+                (draft_id,),
+            ).fetchone()
+            return self._draft_row(row) if row is not None else None
+
     def _insert_session(
         self,
         connection: sqlite3.Connection,
@@ -932,6 +1019,7 @@ class PlanningDatabase:
 
     def _session_base_dict(self, row: sqlite3.Row) -> dict[str, Any]:
         return {
+            "import_id": row["import_id"],
             "session_key": row["session_key"],
             "code_session": row["code_session"],
             "lms_session_number": row["lms_session_number"],
@@ -965,6 +1053,22 @@ class PlanningDatabase:
             "source_sheet": row["source_sheet"],
             "source_rows": _loads(row["source_rows_json"]),
             "missing_fields": _loads(row["missing_fields_json"]),
+        }
+
+    def _draft_row(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "import_id": row["import_id"] or "",
+            "session_key": row["session_key"],
+            "email_type": row["email_type"],
+            "subject": row["subject"],
+            "body": row["body"],
+            "recipients": _loads(row["recipients_json"]),
+            "cc": _loads(row["cc_json"]),
+            "status": row["status"],
+            "metadata": _loads(row["metadata_json"]) or {},
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
         }
 
 

@@ -8,6 +8,7 @@ from planning.contact_parser import ContactDirectoryParser
 from planning.database import PlanningDatabase, sanitize_import_id
 from planning.models import PlanningImportResult
 from planning.parser import PlanningExcelParser
+from planning.training_agent import FrenchTrainingAgent
 
 
 class PlanningImportService:
@@ -16,11 +17,13 @@ class PlanningImportService:
         *,
         parser: PlanningExcelParser | None = None,
         contact_parser: ContactDirectoryParser | None = None,
+        training_agent: FrenchTrainingAgent | None = None,
         database: PlanningDatabase | None = None,
         db_path: Path | str | None = None,
     ) -> None:
         self.parser = parser or PlanningExcelParser()
         self.contact_parser = contact_parser or ContactDirectoryParser()
+        self.training_agent = training_agent or FrenchTrainingAgent()
         self.database = database or PlanningDatabase(db_path)
 
     def import_files(self, files: list[tuple[str, bytes]]) -> PlanningImportResult:
@@ -115,3 +118,80 @@ class PlanningImportService:
     def apply_contact_mapping(self, *, import_id: str | None = None) -> dict[str, Any]:
         safe_import_id = sanitize_import_id(import_id) if import_id else None
         return self.database.apply_contact_mapping(import_id=safe_import_id)
+
+    def generate_training_drafts(
+        self,
+        *,
+        import_id: str | None = None,
+        session_key: str | None = None,
+        email_type: str = "auto",
+        include_population: bool = True,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        if session_key:
+            session = self.database.get_session(session_key, import_id=safe_import_id)
+            sessions = [session] if session is not None else []
+        else:
+            summaries = self.database.list_sessions(
+                import_id=safe_import_id,
+                limit=limit,
+                offset=0,
+            )
+            sessions = [
+                full_session
+                for summary in summaries
+                if (
+                    full_session := self.database.get_session(
+                        summary["session_key"],
+                        import_id=safe_import_id,
+                    )
+                )
+                is not None
+            ]
+
+        drafts = []
+        errors = []
+        for session in sessions:
+            try:
+                draft = self.training_agent.generate_draft(
+                    session,
+                    email_type=email_type,
+                    include_population=include_population,
+                )
+                drafts.append(self.database.save_training_draft(draft))
+            except ValueError as exc:
+                errors.append(
+                    {
+                        "session_key": session.get("session_key", ""),
+                        "error": str(exc),
+                    }
+                )
+
+        return {
+            "status": "ok" if not errors else "partial",
+            "generated": len(drafts),
+            "errors": errors,
+            "drafts": drafts,
+        }
+
+    def list_training_drafts(
+        self,
+        *,
+        import_id: str | None = None,
+        session_key: str | None = None,
+        status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        return self.database.list_training_drafts(
+            import_id=safe_import_id,
+            session_key=session_key,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+
+    def get_training_draft(self, draft_id: int) -> dict[str, Any] | None:
+        return self.database.get_training_draft(draft_id)

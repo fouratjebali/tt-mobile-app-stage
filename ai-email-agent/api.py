@@ -66,6 +66,14 @@ class PlanningImportSummary(BaseModel):
     files: list[dict[str, Any]]
 
 
+class GenerateTrainingDraftsRequest(BaseModel):
+    import_id: str | None = None
+    session_key: str | None = None
+    email_type: str = "auto"
+    include_population: bool = True
+    limit: int = Field(default=100, ge=1, le=500)
+
+
 @lru_cache(maxsize=1)
 def get_agent() -> EmailAgent:
     return EmailAgent()
@@ -369,6 +377,59 @@ def apply_employee_contact_mapping(
     return {
         "status": "ok",
         **result,
+    }
+
+
+@app.post("/planning/drafts/generate")
+def generate_training_drafts(request: GenerateTrainingDraftsRequest) -> dict[str, Any]:
+    try:
+        return planning_import_service.generate_training_drafts(
+            import_id=request.import_id,
+            session_key=request.session_key,
+            email_type=request.email_type,
+            include_population=request.include_population,
+            limit=request.limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.get("/planning/drafts")
+def list_training_drafts(
+    import_id: str | None = Query(default=None),
+    session_key: str | None = Query(default=None),
+    draft_status: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    drafts = planning_import_service.list_training_drafts(
+        import_id=import_id,
+        session_key=session_key,
+        status=draft_status,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "status": "ok",
+        "count": len(drafts),
+        "drafts": drafts,
+    }
+
+
+@app.get("/planning/drafts/{draft_id}")
+def get_training_draft(draft_id: int) -> dict[str, Any]:
+    draft = planning_import_service.get_training_draft(draft_id)
+    if draft is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training draft {draft_id} not found.",
+        )
+    return {
+        "status": "ok",
+        "draft": draft,
     }
 
 
