@@ -37,6 +37,29 @@ class FakeApiService implements ApiService {
   }
 
   @override
+  Future<dynamic> patch(
+    String path, {
+    Object? body,
+    bool authenticated = true,
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) async {
+    return {};
+  }
+
+  @override
+  Future<dynamic> uploadFiles(
+    String path, {
+    required String fieldName,
+    required List<ApiUploadFile> files,
+    bool authenticated = true,
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) async {
+    return {};
+  }
+
+  @override
   Future<dynamic> delete(
     String path, {
     bool authenticated = true,

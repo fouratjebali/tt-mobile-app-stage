@@ -1,6 +1,7 @@
 import 'package:tt_mail_assistant/domain/usecases/settings_usecase.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/activity_view_model.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/dashboard_view_model.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/formations_view_model.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/notification_center_view_model.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
@@ -26,6 +27,7 @@ import 'package:tt_mail_assistant/data/repositories/email_repository_impl.dart';
 import 'package:tt_mail_assistant/data/repositories/jury_repository_impl.dart';
 import 'package:tt_mail_assistant/data/repositories/sentiment_repository_impl.dart';
 import 'package:tt_mail_assistant/data/repositories/settings_repository_impl.dart';
+import 'package:tt_mail_assistant/data/services/planning_api_service.dart';
 import 'package:tt_mail_assistant/domain/repositories/agent_repository.dart';
 import 'package:tt_mail_assistant/domain/repositories/auth_repository.dart';
 import 'package:tt_mail_assistant/domain/repositories/email_repository.dart';
@@ -80,6 +82,9 @@ Future<void> init() async {
   );
   getIt.registerLazySingleton<SentimentRemoteDataSource>(
     () => SentimentRemoteDataSource(getIt<ApiService>()),
+  );
+  getIt.registerLazySingleton<PlanningApiService>(
+    () => PlanningApiService(apiService: getIt<ApiService>()),
   );
 
   getIt.registerLazySingleton<AuthRepository>(
@@ -144,6 +149,10 @@ Future<void> init() async {
 
   getIt.registerFactory<NotificationCenterViewModel>(
     () => NotificationCenterViewModel(emailUseCase: getIt<EmailUseCase>()),
+  );
+
+  getIt.registerFactory<FormationsViewModel>(
+    () => FormationsViewModel(planningApiService: getIt<PlanningApiService>()),
   );
 
   getIt.registerLazySingleton<ReviewViewModel>(

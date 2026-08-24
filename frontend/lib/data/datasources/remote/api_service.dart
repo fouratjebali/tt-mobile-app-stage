@@ -1,6 +1,14 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tt_mail_assistant/core/errors/error_message.dart';
 import 'package:tt_mail_assistant/data/datasources/local/auth_secure_storage.dart';
+
+class ApiUploadFile {
+  const ApiUploadFile({required this.filename, required this.bytes});
+
+  final String filename;
+  final Uint8List bytes;
+}
 
 class ApiService {
   ApiService({
@@ -71,6 +79,65 @@ class ApiService {
         options: _options(
           authenticated: authenticated,
           headers: headers,
+          timeout: timeout,
+        ),
+      ),
+    );
+
+    return _decode(response.data);
+  }
+
+  Future<dynamic> patch(
+    String path, {
+    Object? body,
+    bool authenticated = true,
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) async {
+    final response = await _send(
+      () => _dio.patch<Object?>(
+        _normalizePath(path),
+        data: body ?? const <String, dynamic>{},
+        options: _options(
+          authenticated: authenticated,
+          headers: headers,
+          timeout: timeout,
+        ),
+      ),
+    );
+
+    return _decode(response.data);
+  }
+
+  Future<dynamic> uploadFiles(
+    String path, {
+    required String fieldName,
+    required List<ApiUploadFile> files,
+    bool authenticated = true,
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) async {
+    final formData = FormData.fromMap({
+      fieldName:
+          files
+              .map(
+                (file) => MultipartFile.fromBytes(
+                  file.bytes,
+                  filename: file.filename,
+                ),
+              )
+              .toList(),
+    });
+    final response = await _send(
+      () => _dio.post<Object?>(
+        _normalizePath(path),
+        data: formData,
+        options: _options(
+          authenticated: authenticated,
+          headers: {
+            Headers.contentTypeHeader: Headers.multipartFormDataContentType,
+            ...?headers,
+          },
           timeout: timeout,
         ),
       ),

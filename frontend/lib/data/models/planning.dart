@@ -1,0 +1,140 @@
+class PlanningImportSummary {
+  const PlanningImportSummary({
+    required this.importId,
+    required this.status,
+    required this.totalSessions,
+    required this.totalParticipants,
+    required this.missingEmailCount,
+    required this.warningCount,
+    required this.errorCount,
+    required this.createdAt,
+  });
+
+  final String importId;
+  final String status;
+  final int totalSessions;
+  final int totalParticipants;
+  final int missingEmailCount;
+  final int warningCount;
+  final int errorCount;
+  final String createdAt;
+
+  factory PlanningImportSummary.fromJson(Map<String, dynamic> json) {
+    return PlanningImportSummary(
+      importId: _string(json['import_id']),
+      status: _string(json['status']),
+      totalSessions: _int(json['total_sessions']),
+      totalParticipants: _int(json['total_participants']),
+      missingEmailCount: _int(json['missing_email_count']),
+      warningCount: _int(json['warning_count']),
+      errorCount: _int(json['error_count']),
+      createdAt: _string(json['created_at']),
+    );
+  }
+}
+
+class TrainingDraft {
+  const TrainingDraft({
+    required this.id,
+    required this.importId,
+    required this.sessionKey,
+    required this.emailType,
+    required this.subject,
+    required this.body,
+    required this.htmlBody,
+    required this.recipients,
+    required this.cc,
+    required this.status,
+    required this.metadata,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final int id;
+  final String importId;
+  final String sessionKey;
+  final String emailType;
+  final String subject;
+  final String body;
+  final String htmlBody;
+  final List<String> recipients;
+  final List<String> cc;
+  final String status;
+  final Map<String, dynamic> metadata;
+  final String createdAt;
+  final String updatedAt;
+
+  bool get isApproved => status == 'APPROVED';
+  bool get needsContacts => status == 'NEEDS_CONTACTS';
+  bool get isRejected => status == 'REJECTED';
+  bool get canReview => !isApproved && !isRejected;
+
+  factory TrainingDraft.fromJson(Map<String, dynamic> json) {
+    return TrainingDraft(
+      id: _int(json['id']),
+      importId: _string(json['import_id']),
+      sessionKey: _string(json['session_key']),
+      emailType: _string(json['email_type']),
+      subject: _string(json['subject']),
+      body: _string(json['body']),
+      htmlBody: _string(json['html_body']),
+      recipients: _stringList(json['recipients']),
+      cc: _stringList(json['cc']),
+      status: _string(json['status']),
+      metadata: _map(json['metadata']),
+      createdAt: _string(json['created_at']),
+      updatedAt: _string(json['updated_at']),
+    );
+  }
+}
+
+class MissingPlanningContact {
+  const MissingPlanningContact({
+    required this.matricule,
+    required this.fullName,
+    required this.direction,
+    required this.hrResponsible,
+    required this.sessionCount,
+  });
+
+  final String matricule;
+  final String fullName;
+  final String direction;
+  final String hrResponsible;
+  final int sessionCount;
+
+  factory MissingPlanningContact.fromJson(Map<String, dynamic> json) {
+    return MissingPlanningContact(
+      matricule: _string(json['matricule']),
+      fullName: _string(json['full_name']),
+      direction: _string(json['direction']),
+      hrResponsible: _string(json['hr_responsible']),
+      sessionCount: _int(json['session_count']),
+    );
+  }
+}
+
+int _int(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? 0;
+  return 0;
+}
+
+String _string(Object? value) => value?.toString() ?? '';
+
+List<String> _stringList(Object? value) {
+  if (value is List) {
+    return value
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+  return const [];
+}
+
+Map<String, dynamic> _map(Object? value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  return const {};
+}

@@ -1,47 +1,158 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
+import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
+import 'package:tt_mail_assistant/data/models/planning.dart';
+import 'package:tt_mail_assistant/data/services/planning_api_service.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/formations_view_model.dart';
 import 'package:tt_mail_assistant/presentation/widgets/app_bottom_navigation_bar.dart';
 
-class FormationsScreen extends StatelessWidget {
+class FormationsScreen extends StatefulWidget {
   const FormationsScreen({super.key});
+
+  @override
+  State<FormationsScreen> createState() => _FormationsScreenState();
+}
+
+class _FormationsScreenState extends State<FormationsScreen> {
+  late final FormationsViewModel _viewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewModel = getIt<FormationsViewModel>()..addListener(_onChanged);
+    _viewModel.load();
+  }
+
+  @override
+  void dispose() {
+    _viewModel.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _pickPlanningFiles() async {
+    final l10n = context.l10n;
+    final result = await FilePicker.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: const ['xlsx', 'xls'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final picked =
+        result.files
+            .take(5)
+            .map((file) {
+              final bytes = file.bytes;
+              if (bytes == null) return null;
+              return PlanningPickedFile(name: file.name, bytes: bytes);
+            })
+            .whereType<PlanningPickedFile>()
+            .toList();
+
+    if (picked.isEmpty) {
+      _showMessage(l10n.t('formations.pickError'));
+      return;
+    }
+    if (result.files.length > 5) {
+      _showMessage(l10n.t('formations.uploadLimit'));
+    }
+
+    await _viewModel.importFiles(picked);
+    if (!mounted) return;
+    if (_viewModel.errorMessage == null) {
+      _showMessage(l10n.t('formations.importDone'));
+    }
+  }
+
+  Future<void> _generateDrafts() async {
+    await _viewModel.generateDrafts();
+    if (!mounted) return;
+    if (_viewModel.errorMessage == null) {
+      _showMessage(context.l10n.t('formations.draftsDone'));
+    }
+  }
+
+  Future<void> _openDraft(TrainingDraft draft) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => _DraftReviewSheet(viewModel: _viewModel, draft: draft),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final tone = _FormationTone.of(context);
+    final isLoading = _viewModel.state == LoadState.loading;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          children: [
-            _FormationHeader(onBack: () => Navigator.of(context).maybePop()),
-            const SizedBox(height: 22),
-            _UploadPanel(
-              onUpload: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.t('formations.uploadNext'))),
-                );
-              },
-            ),
-            const SizedBox(height: 22),
-            Text(
-              l10n.t('formations.monthPlan'),
-              style: TextStyle(
-                color: tone.text,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
+        child: RefreshIndicator(
+          onRefresh: _viewModel.load,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            children: [
+              _FormationHeader(
+                onBack: () => Navigator.of(context).maybePop(),
+                onRefresh: _viewModel.load,
               ),
-            ),
-            const SizedBox(height: 12),
-            const _FormationStatsGrid(),
-            const SizedBox(height: 22),
-            _PipelineSection(tone: tone),
-            const SizedBox(height: 22),
-            _EmptyPlanningState(tone: tone),
-          ],
+              const SizedBox(height: 18),
+              if (isLoading) const LinearProgressIndicator(minHeight: 3),
+              if (_viewModel.errorMessage != null) ...[
+                const SizedBox(height: 14),
+                _InlineMessage(
+                  icon: Icons.error_outline_rounded,
+                  message: _viewModel.errorMessage!,
+                  tone: tone,
+                  accent: AppPalette.clay,
+                ),
+              ],
+              const SizedBox(height: 18),
+              _UploadPanel(onUpload: _pickPlanningFiles, tone: tone),
+              const SizedBox(height: 20),
+              _MonthOverview(viewModel: _viewModel, tone: tone),
+              const SizedBox(height: 20),
+              _ActionPanel(
+                viewModel: _viewModel,
+                tone: tone,
+                onGenerate: _generateDrafts,
+              ),
+              const SizedBox(height: 20),
+              _DraftsSection(
+                drafts: _viewModel.drafts,
+                tone: tone,
+                onOpen: _openDraft,
+              ),
+              const SizedBox(height: 20),
+              _MissingContactsSection(
+                contacts: _viewModel.missingContacts,
+                tone: tone,
+              ),
+              if (_viewModel.activeImport == null) ...[
+                const SizedBox(height: 20),
+                _EmptyPlanningState(tone: tone),
+              ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: AppBottomNavigationBar(
@@ -110,9 +221,10 @@ class _FormationTone {
 }
 
 class _FormationHeader extends StatelessWidget {
-  const _FormationHeader({required this.onBack});
+  const _FormationHeader({required this.onBack, required this.onRefresh});
 
   final VoidCallback onBack;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -158,20 +270,25 @@ class _FormationHeader extends StatelessWidget {
             ],
           ),
         ),
+        IconButton(
+          onPressed: onRefresh,
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: l10n.t('formations.refresh'),
+        ),
       ],
     );
   }
 }
 
 class _UploadPanel extends StatelessWidget {
-  const _UploadPanel({required this.onUpload});
+  const _UploadPanel({required this.onUpload, required this.tone});
 
   final VoidCallback onUpload;
+  final _FormationTone tone;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final tone = _FormationTone.of(context);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -180,57 +297,52 @@ class _UploadPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: tone.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: AppPalette.deepTeal.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
               Icons.upload_file_rounded,
               color: AppPalette.deepTeal,
-              size: 26,
+              size: 27,
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.t('formations.uploadTitle'),
-            style: TextStyle(
-              color: tone.text,
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.t('formations.uploadSubtitle'),
-            style: TextStyle(
-              color: tone.muted,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onUpload,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(l10n.t('formations.uploadAction')),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppPalette.deepTeal,
-                foregroundColor: AppPalette.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.t('formations.uploadTitle'),
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 5),
+                Text(
+                  l10n.t('formations.uploadSubtitle'),
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
             ),
+          ),
+          const SizedBox(width: 10),
+          IconButton.filled(
+            onPressed: onUpload,
+            icon: const Icon(Icons.add_rounded),
+            tooltip: l10n.t('formations.uploadAction'),
           ),
         ],
       ),
@@ -238,40 +350,57 @@ class _UploadPanel extends StatelessWidget {
   }
 }
 
-class _FormationStatsGrid extends StatelessWidget {
-  const _FormationStatsGrid();
+class _MonthOverview extends StatelessWidget {
+  const _MonthOverview({required this.viewModel, required this.tone});
+
+  final FormationsViewModel viewModel;
+  final _FormationTone tone;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return GridView.count(
-      crossAxisCount: 2,
-      childAspectRatio: 1.45,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _FormationStatCard(
-          icon: Icons.event_available_rounded,
-          label: l10n.t('formations.sessions'),
-          value: '0',
+        Text(
+          l10n.t('formations.monthPlan'),
+          style: TextStyle(
+            color: tone.text,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
         ),
-        _FormationStatCard(
-          icon: Icons.groups_2_rounded,
-          label: l10n.t('formations.participants'),
-          value: '0',
-        ),
-        _FormationStatCard(
-          icon: Icons.edit_document,
-          label: l10n.t('formations.drafts'),
-          value: '0',
-        ),
-        _FormationStatCard(
-          icon: Icons.report_gmailerrorred_rounded,
-          label: l10n.t('formations.missing'),
-          value: '0',
-          accent: AppPalette.clay,
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2,
+          childAspectRatio: 1.48,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _FormationStatCard(
+              icon: Icons.event_available_rounded,
+              label: l10n.t('formations.sessions'),
+              value: '${viewModel.sessions}',
+            ),
+            _FormationStatCard(
+              icon: Icons.groups_2_rounded,
+              label: l10n.t('formations.participants'),
+              value: '${viewModel.participants}',
+            ),
+            _FormationStatCard(
+              icon: Icons.edit_document,
+              label: l10n.t('formations.drafts'),
+              value: '${viewModel.draftsCount}',
+            ),
+            _FormationStatCard(
+              icon: Icons.report_gmailerrorred_rounded,
+              label: l10n.t('formations.missing'),
+              value: '${viewModel.missingCount}',
+              accent: AppPalette.clay,
+            ),
+          ],
         ),
       ],
     );
@@ -337,20 +466,21 @@ class _FormationStatCard extends StatelessWidget {
   }
 }
 
-class _PipelineSection extends StatelessWidget {
-  const _PipelineSection({required this.tone});
+class _ActionPanel extends StatelessWidget {
+  const _ActionPanel({
+    required this.viewModel,
+    required this.tone,
+    required this.onGenerate,
+  });
 
+  final FormationsViewModel viewModel;
   final _FormationTone tone;
+  final VoidCallback onGenerate;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final steps = [
-      (Icons.table_chart_rounded, l10n.t('formations.stepImport')),
-      (Icons.fact_check_rounded, l10n.t('formations.stepValidate')),
-      (Icons.mark_email_read_rounded, l10n.t('formations.stepDraft')),
-      (Icons.outgoing_mail, l10n.t('formations.stepSend')),
-    ];
+    final hasImport = viewModel.activeImport != null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -362,78 +492,675 @@ class _PipelineSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.t('formations.reviewBeforeSend'),
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _StatusPill(
+                label:
+                    hasImport
+                        ? l10n.t('formations.importReady')
+                        : l10n.t('formations.waitingImport'),
+                color: hasImport ? AppPalette.deepTeal : AppPalette.amber,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Text(
-            l10n.t('formations.workflow'),
+            l10n.t('formations.reviewBeforeSendHint'),
             style: TextStyle(
-              color: tone.text,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
+              color: tone.muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
             ),
           ),
-          const SizedBox(height: 14),
-          for (final (index, step) in steps.indexed) ...[
-            _WorkflowStep(
-              icon: step.$1,
-              label: step.$2,
-              index: index + 1,
-              isLast: index == steps.length - 1,
-              tone: tone,
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: hasImport ? onGenerate : null,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: Text(l10n.t('formations.generateDrafts')),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppPalette.deepTeal,
+                foregroundColor: AppPalette.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
             ),
-          ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniMetric(
+                  label: l10n.t('formations.waitingReview'),
+                  value: '${viewModel.waitingReviewCount}',
+                  tone: tone,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MiniMetric(
+                  label: l10n.t('formations.approved'),
+                  value: '${viewModel.approvedCount}',
+                  tone: tone,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MiniMetric(
+                  label: l10n.t('formations.blocked'),
+                  value: '${viewModel.blockedCount}',
+                  tone: tone,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _WorkflowStep extends StatelessWidget {
-  const _WorkflowStep({
-    required this.icon,
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({
     required this.label,
-    required this.index,
-    required this.isLast,
+    required this.value,
     required this.tone,
   });
 
-  final IconData icon;
   final String label;
-  final int index;
-  final bool isLast;
+  final String value;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: tone.surface.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppPalette.deepTeal,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: tone.muted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DraftsSection extends StatelessWidget {
+  const _DraftsSection({
+    required this.drafts,
+    required this.tone,
+    required this.onOpen,
+  });
+
+  final List<TrainingDraft> drafts;
+  final _FormationTone tone;
+  final ValueChanged<TrainingDraft> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: l10n.t('formations.draftsToReview'),
+          count: drafts.length,
+          tone: tone,
+        ),
+        const SizedBox(height: 12),
+        if (drafts.isEmpty)
+          _InlineMessage(
+            icon: Icons.drafts_outlined,
+            message: l10n.t('formations.noDrafts'),
+            tone: tone,
+          )
+        else
+          for (final draft in drafts) ...[
+            _DraftCard(draft: draft, tone: tone, onTap: () => onOpen(draft)),
+            const SizedBox(height: 10),
+          ],
+      ],
+    );
+  }
+}
+
+class _DraftCard extends StatelessWidget {
+  const _DraftCard({
+    required this.draft,
+    required this.tone,
+    required this.onTap,
+  });
+
+  final TrainingDraft draft;
+  final _FormationTone tone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final status = _statusLabel(context, draft.status);
+    final statusColor = _statusColor(draft.status);
+
+    return Material(
+      color: tone.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: tone.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      draft.subject.isEmpty
+                          ? l10n.t('formations.noSubject')
+                          : draft.subject,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.text,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w900,
+                        height: 1.15,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _StatusPill(label: status, color: statusColor),
+                ],
+              ),
+              const SizedBox(height: 9),
+              Text(
+                draft.recipients.isEmpty
+                    ? l10n.t('formations.noRecipients')
+                    : draft.recipients.join(', '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tone.muted,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                draft.body,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tone.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MissingContactsSection extends StatelessWidget {
+  const _MissingContactsSection({required this.contacts, required this.tone});
+
+  final List<MissingPlanningContact> contacts;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    if (contacts.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: l10n.t('formations.contactsToComplete'),
+          count: contacts.length,
+          tone: tone,
+        ),
+        const SizedBox(height: 12),
+        for (final contact in contacts.take(6)) ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: tone.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: tone.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.person_search_rounded, color: AppPalette.clay),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        contact.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: tone.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${contact.matricule} - ${contact.sessionCount} session(s)',
+                        style: TextStyle(
+                          color: tone.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _DraftReviewSheet extends StatefulWidget {
+  const _DraftReviewSheet({required this.viewModel, required this.draft});
+
+  final FormationsViewModel viewModel;
+  final TrainingDraft draft;
+
+  @override
+  State<_DraftReviewSheet> createState() => _DraftReviewSheetState();
+}
+
+class _DraftReviewSheetState extends State<_DraftReviewSheet> {
+  late final TextEditingController _subjectController;
+  late final TextEditingController _recipientsController;
+  late final TextEditingController _ccController;
+  late final TextEditingController _bodyController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _subjectController = TextEditingController(text: widget.draft.subject);
+    _recipientsController = TextEditingController(
+      text: widget.draft.recipients.join(', '),
+    );
+    _ccController = TextEditingController(text: widget.draft.cc.join(', '));
+    _bodyController = TextEditingController(text: widget.draft.body);
+  }
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _recipientsController.dispose();
+    _ccController.dispose();
+    _bodyController.dispose();
+    super.dispose();
+  }
+
+  Future<TrainingDraft?> _save() async {
+    setState(() => _saving = true);
+    try {
+      return await widget.viewModel.saveDraft(
+        draft: widget.draft,
+        subject: _subjectController.text,
+        body: _bodyController.text,
+        recipients: _splitEmails(_recipientsController.text),
+        cc: _splitEmails(_ccController.text),
+      );
+    } catch (error) {
+      if (mounted) _showSheetMessage(error.toString());
+      return null;
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _approve() async {
+    final saved = await _save();
+    if (saved == null) return;
+    setState(() => _saving = true);
+    try {
+      await widget.viewModel.approveDraft(saved);
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) _showSheetMessage(error.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _reject() async {
+    setState(() => _saving = true);
+    try {
+      await widget.viewModel.rejectDraft(
+        widget.draft,
+        reason: 'Rejected from mobile review',
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) _showSheetMessage(error.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _showSheetMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final tone = _FormationTone.of(context);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomInset),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: tone.border,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.t('formations.reviewDraft'),
+                    style: TextStyle(
+                      color: tone.text,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                _StatusPill(
+                  label: _statusLabel(context, widget.draft.status),
+                  color: _statusColor(widget.draft.status),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _LabeledField(
+              label: l10n.t('formations.recipients'),
+              controller: _recipientsController,
+              hint: 'nom.prenom@tunisietelecom.tn',
+              tone: tone,
+            ),
+            const SizedBox(height: 12),
+            _LabeledField(
+              label: l10n.t('formations.cc'),
+              controller: _ccController,
+              hint: l10n.t('formations.optional'),
+              tone: tone,
+            ),
+            const SizedBox(height: 12),
+            _LabeledField(
+              label: l10n.t('formations.subject'),
+              controller: _subjectController,
+              hint: l10n.t('formations.subject'),
+              tone: tone,
+            ),
+            const SizedBox(height: 12),
+            _LabeledField(
+              label: l10n.t('formations.message'),
+              controller: _bodyController,
+              hint: l10n.t('formations.message'),
+              tone: tone,
+              minLines: 8,
+              maxLines: 14,
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        _saving || !widget.draft.canReview ? null : _reject,
+                    icon: const Icon(Icons.close_rounded),
+                    label: Text(l10n.t('formations.reject')),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        _saving || !widget.draft.canReview ? null : _save,
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text(l10n.t('formations.save')),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _saving || !widget.draft.canReview ? null : _approve,
+                icon:
+                    _saving
+                        ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.verified_rounded),
+                label: Text(l10n.t('formations.approve')),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppPalette.deepTeal,
+                  foregroundColor: AppPalette.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LabeledField extends StatelessWidget {
+  const _LabeledField({
+    required this.label,
+    required this.controller,
+    required this.hint,
+    required this.tone,
+    this.minLines = 1,
+    this.maxLines = 1,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String hint;
+  final _FormationTone tone;
+  final int minLines;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: tone.text,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 7),
+        TextField(
+          controller: controller,
+          minLines: minLines,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: true,
+            fillColor: tone.softSurface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: tone.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: tone.border),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.count,
+    required this.tone,
+  });
+
+  final String title;
+  final int count;
   final _FormationTone tone;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Column(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppPalette.deepTeal,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: AppPalette.white, size: 19),
-            ),
-            if (!isLast) Container(width: 2, height: 18, color: tone.border),
-          ],
-        ),
-        const SizedBox(width: 12),
         Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: isLast ? 0 : 18),
-            child: Text(
-              '$index. $label',
-              style: TextStyle(
-                color: tone.text,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
+          child: Text(
+            title,
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ),
+        _StatusPill(label: '$count', color: AppPalette.deepTeal),
       ],
+    );
+  }
+}
+
+class _InlineMessage extends StatelessWidget {
+  const _InlineMessage({
+    required this.icon,
+    required this.message,
+    required this.tone,
+    this.accent = AppPalette.amber,
+  });
+
+  final IconData icon;
+  final String message;
+  final _FormationTone tone;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -446,49 +1173,69 @@ class _EmptyPlanningState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    return _InlineMessage(
+      icon: Icons.folder_open_rounded,
+      message:
+          '${l10n.t('formations.emptyTitle')}\n${l10n.t('formations.emptySubtitle')}',
+      tone: tone,
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: tone.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: tone.border),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.folder_open_rounded,
-            color: AppPalette.amber,
-            size: 26,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.t('formations.emptyTitle'),
-                  style: TextStyle(
-                    color: tone.text,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  l10n.t('formations.emptySubtitle'),
-                  style: TextStyle(
-                    color: tone.muted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        ),
       ),
     );
   }
+}
+
+String _statusLabel(BuildContext context, String status) {
+  final l10n = context.l10n;
+  return switch (status) {
+    'APPROVED' => l10n.t('formations.statusApproved'),
+    'EDITED' => l10n.t('formations.statusEdited'),
+    'NEEDS_CONTACTS' => l10n.t('formations.statusNeedsContacts'),
+    'REJECTED' => l10n.t('formations.statusRejected'),
+    _ => l10n.t('formations.statusWaiting'),
+  };
+}
+
+Color _statusColor(String status) {
+  return switch (status) {
+    'APPROVED' => AppPalette.deepTeal,
+    'EDITED' => AppPalette.blue,
+    'NEEDS_CONTACTS' => AppPalette.clay,
+    'REJECTED' => AppPalette.clay,
+    _ => AppPalette.amber,
+  };
+}
+
+List<String> _splitEmails(String value) {
+  return value
+      .split(RegExp(r'[,;\n]'))
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
 }
