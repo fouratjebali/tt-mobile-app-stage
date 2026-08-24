@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
 from api import app
+from planning.database import PlanningDatabase
 from planning.parser import PlanningExcelParser
 
 
@@ -162,10 +163,9 @@ def test_parser_detects_legend_then_session_header_format():
 
 
 def test_planning_import_api_stores_and_lists_import(tmp_path, monkeypatch):
-    monkeypatch.setenv("PLANNING_IMPORT_DIR", str(tmp_path))
     from api import planning_import_service
 
-    planning_import_service.storage_dir = tmp_path
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
     content = workbook_bytes(
         [
             ["Code session", "Module", "Date Debut", "Date Fin", "Lieu de formation"],
@@ -194,3 +194,70 @@ def test_planning_import_api_stores_and_lists_import(tmp_path, monkeypatch):
     assert list_response.status_code == 200
     imports = list_response.json()
     assert imports[0]["import_id"] == payload["import_id"]
+
+    sessions_response = client.get(
+        "/planning/sessions",
+        params={"import_id": payload["import_id"]},
+    )
+    assert sessions_response.status_code == 200
+    sessions = sessions_response.json()["sessions"]
+    assert sessions[0]["module"] == "Formation securite"
+    assert sessions[0]["participant_count"] == 0
+
+    detail_response = client.get(
+        f"/planning/sessions/{sessions[0]['session_key']}",
+        params={"import_id": payload["import_id"]},
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json()["session"]["module"] == "Formation securite"
+
+
+def test_planning_import_api_lists_missing_contacts(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    content = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+            ],
+            [
+                "S2",
+                "Formation transmission",
+                "2026-09-12",
+                "2026-09-13",
+                "Sfax",
+                "76052",
+                "JABRI Jawher",
+            ],
+        ]
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "participants.xlsx",
+                content,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+
+    missing_response = client.get(
+        "/planning/missing-contacts",
+        params={"import_id": payload["import_id"]},
+    )
+    assert missing_response.status_code == 200
+    contacts = missing_response.json()["contacts"]
+    assert contacts[0]["matricule"] == "76052"
+    assert contacts[0]["full_name"] == "JABRI Jawher"

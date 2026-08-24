@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-import json
-import os
 import uuid
 from pathlib import Path
 from typing import Any
 
+from planning.database import PlanningDatabase, sanitize_import_id
 from planning.models import PlanningImportResult
 from planning.parser import PlanningExcelParser
-
-
-DEFAULT_IMPORT_DIR = Path(__file__).resolve().parents[1] / "data" / "planning_imports"
 
 
 class PlanningImportService:
@@ -18,11 +14,11 @@ class PlanningImportService:
         self,
         *,
         parser: PlanningExcelParser | None = None,
-        storage_dir: Path | None = None,
+        database: PlanningDatabase | None = None,
+        db_path: Path | str | None = None,
     ) -> None:
-        configured_dir = os.getenv("PLANNING_IMPORT_DIR", "").strip()
-        self.storage_dir = storage_dir or Path(configured_dir or DEFAULT_IMPORT_DIR)
         self.parser = parser or PlanningExcelParser()
+        self.database = database or PlanningDatabase(db_path)
 
     def import_files(self, files: list[tuple[str, bytes]]) -> PlanningImportResult:
         if not files:
@@ -36,57 +32,49 @@ class PlanningImportService:
             for filename, content in files
         ]
         result = PlanningImportResult.build(import_id=import_id, files=file_results)
-        self._save_result(result)
+        self.database.save_import(result)
         return result
 
     def list_imports(self) -> list[dict[str, Any]]:
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
-        summaries: list[dict[str, Any]] = []
-        for path in sorted(self.storage_dir.glob("*.json"), reverse=True):
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            summaries.append(
-                {
-                    "import_id": data.get("import_id", path.stem),
-                    "created_at": data.get("created_at", ""),
-                    "status": data.get("status", "unknown"),
-                    "total_sessions": data.get("total_sessions", 0),
-                    "total_participants": data.get("total_participants", 0),
-                    "missing_email_count": data.get("missing_email_count", 0),
-                    "warning_count": data.get("warning_count", 0),
-                    "error_count": data.get("error_count", 0),
-                    "files": [
-                        {
-                            "filename": item.get("filename", ""),
-                            "status": item.get("status", "unknown"),
-                            "sessions": len(item.get("sessions", [])),
-                            "warnings": len(item.get("warnings", [])),
-                            "errors": len(item.get("errors", [])),
-                        }
-                        for item in data.get("files", [])
-                    ],
-                }
-            )
-        return summaries
+        return self.database.list_imports()
 
     def get_import(self, import_id: str) -> dict[str, Any] | None:
-        safe_id = "".join(char for char in import_id if char.isalnum() or char in ("-", "_"))
+        safe_id = sanitize_import_id(import_id)
         if not safe_id:
             return None
-        path = self.storage_dir / f"{safe_id}.json"
-        if not path.exists():
-            return None
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return None
+        return self.database.get_import(safe_id)
 
-    def _save_result(self, result: PlanningImportResult) -> None:
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
-        path = self.storage_dir / f"{result.import_id}.json"
-        path.write_text(
-            json.dumps(result.to_dict(), ensure_ascii=False, indent=2),
-            encoding="utf-8",
+    def list_sessions(
+        self,
+        *,
+        import_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        return self.database.list_sessions(
+            import_id=safe_import_id,
+            limit=limit,
+            offset=offset,
+        )
+
+    def get_session(
+        self,
+        session_key: str,
+        *,
+        import_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        return self.database.get_session(session_key, import_id=safe_import_id)
+
+    def list_missing_contacts(
+        self,
+        *,
+        import_id: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        return self.database.list_missing_contacts(
+            import_id=safe_import_id,
+            limit=limit,
         )

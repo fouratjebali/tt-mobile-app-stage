@@ -1,0 +1,725 @@
+from __future__ import annotations
+
+import json
+import os
+import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
+
+from planning.models import PlanningImportResult, TrainingSession
+
+
+DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "tt_mail_assistant.db"
+
+
+class PlanningDatabase:
+    def __init__(self, db_path: Path | str | None = None) -> None:
+        configured_path = os.getenv("PLANNING_DB_PATH", "").strip()
+        self.db_path = Path(db_path or configured_path or DEFAULT_DB_PATH)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.initialize()
+
+    def initialize(self) -> None:
+        with self._connect() as connection:
+            connection.executescript(
+                """
+                PRAGMA foreign_keys = ON;
+
+                CREATE TABLE IF NOT EXISTS planning_imports (
+                    import_id TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    total_sessions INTEGER NOT NULL DEFAULT 0,
+                    total_participants INTEGER NOT NULL DEFAULT 0,
+                    missing_email_count INTEGER NOT NULL DEFAULT 0,
+                    warning_count INTEGER NOT NULL DEFAULT 0,
+                    error_count INTEGER NOT NULL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS planning_files (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    import_id TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    sheets_json TEXT NOT NULL DEFAULT '[]',
+                    warnings_json TEXT NOT NULL DEFAULT '[]',
+                    errors_json TEXT NOT NULL DEFAULT '[]',
+                    FOREIGN KEY (import_id)
+                        REFERENCES planning_imports(import_id)
+                        ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS training_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    import_id TEXT NOT NULL,
+                    file_id INTEGER NOT NULL,
+                    session_key TEXT NOT NULL,
+                    code_session TEXT NOT NULL DEFAULT '',
+                    lms_session_number TEXT NOT NULL DEFAULT '',
+                    malek_number TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'UNKNOWN',
+                    axis TEXT NOT NULL DEFAULT '',
+                    domain TEXT NOT NULL DEFAULT '',
+                    project TEXT NOT NULL DEFAULT '',
+                    training_type TEXT NOT NULL DEFAULT '',
+                    training_mode TEXT NOT NULL DEFAULT '',
+                    certification_nature TEXT NOT NULL DEFAULT '',
+                    module_code TEXT NOT NULL DEFAULT '',
+                    module TEXT NOT NULL DEFAULT '',
+                    cabinet TEXT NOT NULL DEFAULT '',
+                    trainer TEXT NOT NULL DEFAULT '',
+                    selected_trainer TEXT NOT NULL DEFAULT '',
+                    year TEXT NOT NULL DEFAULT '',
+                    month TEXT NOT NULL DEFAULT '',
+                    week TEXT NOT NULL DEFAULT '',
+                    duration_days TEXT NOT NULL DEFAULT '',
+                    start_date TEXT NOT NULL DEFAULT '',
+                    end_date TEXT NOT NULL DEFAULT '',
+                    schedule TEXT NOT NULL DEFAULT '',
+                    hours_per_day TEXT NOT NULL DEFAULT '',
+                    total_hours TEXT NOT NULL DEFAULT '',
+                    location TEXT NOT NULL DEFAULT '',
+                    accommodation_location TEXT NOT NULL DEFAULT '',
+                    responsible_engagement TEXT NOT NULL DEFAULT '',
+                    candidate_count TEXT NOT NULL DEFAULT '',
+                    source_file TEXT NOT NULL DEFAULT '',
+                    source_sheet TEXT NOT NULL DEFAULT '',
+                    source_rows_json TEXT NOT NULL DEFAULT '[]',
+                    missing_fields_json TEXT NOT NULL DEFAULT '[]',
+                    FOREIGN KEY (import_id)
+                        REFERENCES planning_imports(import_id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (file_id)
+                        REFERENCES planning_files(id)
+                        ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_training_sessions_import
+                    ON training_sessions(import_id);
+                CREATE INDEX IF NOT EXISTS idx_training_sessions_key
+                    ON training_sessions(session_key);
+                CREATE INDEX IF NOT EXISTS idx_training_sessions_dates
+                    ON training_sessions(start_date, end_date);
+
+                CREATE TABLE IF NOT EXISTS training_participants (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    import_id TEXT NOT NULL,
+                    session_id INTEGER NOT NULL,
+                    session_key TEXT NOT NULL,
+                    matricule TEXT NOT NULL DEFAULT '',
+                    full_name TEXT NOT NULL DEFAULT '',
+                    email TEXT NOT NULL DEFAULT '',
+                    residence TEXT NOT NULL DEFAULT '',
+                    direction TEXT NOT NULL DEFAULT '',
+                    hr_responsible TEXT NOT NULL DEFAULT '',
+                    source_row INTEGER NOT NULL DEFAULT 0,
+                    missing_fields_json TEXT NOT NULL DEFAULT '[]',
+                    FOREIGN KEY (import_id)
+                        REFERENCES planning_imports(import_id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY (session_id)
+                        REFERENCES training_sessions(id)
+                        ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_training_participants_import
+                    ON training_participants(import_id);
+                CREATE INDEX IF NOT EXISTS idx_training_participants_session
+                    ON training_participants(session_id);
+                CREATE INDEX IF NOT EXISTS idx_training_participants_matricule
+                    ON training_participants(matricule);
+
+                CREATE TABLE IF NOT EXISTS employee_contacts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    matricule TEXT NOT NULL UNIQUE,
+                    full_name TEXT NOT NULL DEFAULT '',
+                    email TEXT NOT NULL DEFAULT '',
+                    direction TEXT NOT NULL DEFAULT '',
+                    hr_responsible TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_employee_contacts_email
+                    ON employee_contacts(email);
+
+                CREATE TABLE IF NOT EXISTS training_email_drafts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    import_id TEXT,
+                    session_key TEXT NOT NULL,
+                    email_type TEXT NOT NULL,
+                    subject TEXT NOT NULL DEFAULT '',
+                    body TEXT NOT NULL DEFAULT '',
+                    recipients_json TEXT NOT NULL DEFAULT '[]',
+                    cc_json TEXT NOT NULL DEFAULT '[]',
+                    status TEXT NOT NULL DEFAULT 'DRAFTED',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (import_id)
+                        REFERENCES planning_imports(import_id)
+                        ON DELETE SET NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_training_email_drafts_import
+                    ON training_email_drafts(import_id);
+                CREATE INDEX IF NOT EXISTS idx_training_email_drafts_session
+                    ON training_email_drafts(session_key);
+                CREATE INDEX IF NOT EXISTS idx_training_email_drafts_status
+                    ON training_email_drafts(status);
+
+                CREATE TABLE IF NOT EXISTS training_email_send_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    draft_id INTEGER,
+                    recipient_email TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL,
+                    provider_message_id TEXT NOT NULL DEFAULT '',
+                    error TEXT NOT NULL DEFAULT '',
+                    sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (draft_id)
+                        REFERENCES training_email_drafts(id)
+                        ON DELETE SET NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_training_send_logs_draft
+                    ON training_email_send_logs(draft_id);
+                """
+            )
+
+    def save_import(self, result: PlanningImportResult) -> None:
+        with self._connect() as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("BEGIN")
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO planning_imports (
+                    import_id,
+                    created_at,
+                    status,
+                    total_sessions,
+                    total_participants,
+                    missing_email_count,
+                    warning_count,
+                    error_count
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    result.import_id,
+                    result.created_at,
+                    result.status,
+                    result.total_sessions,
+                    result.total_participants,
+                    result.missing_email_count,
+                    result.warning_count,
+                    result.error_count,
+                ),
+            )
+            connection.execute(
+                "DELETE FROM planning_files WHERE import_id = ?",
+                (result.import_id,),
+            )
+
+            for file_result in result.files:
+                file_cursor = connection.execute(
+                    """
+                    INSERT INTO planning_files (
+                        import_id,
+                        filename,
+                        status,
+                        sheets_json,
+                        warnings_json,
+                        errors_json
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        result.import_id,
+                        file_result.filename,
+                        file_result.status,
+                        _json(file_result.sheets),
+                        _json(file_result.warnings),
+                        _json(file_result.errors),
+                    ),
+                )
+                file_id = int(file_cursor.lastrowid)
+                for session in file_result.sessions:
+                    self._insert_session(connection, result.import_id, file_id, session)
+
+            connection.commit()
+
+    def list_imports(self) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    import_id,
+                    created_at,
+                    status,
+                    total_sessions,
+                    total_participants,
+                    missing_email_count,
+                    warning_count,
+                    error_count
+                FROM planning_imports
+                ORDER BY created_at DESC
+                """
+            ).fetchall()
+            return [self._import_summary(connection, row) for row in rows]
+
+    def get_import(self, import_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    import_id,
+                    created_at,
+                    status,
+                    total_sessions,
+                    total_participants,
+                    missing_email_count,
+                    warning_count,
+                    error_count
+                FROM planning_imports
+                WHERE import_id = ?
+                """,
+                (import_id,),
+            ).fetchone()
+            if row is None:
+                return None
+
+            file_rows = connection.execute(
+                """
+                SELECT id, filename, status, sheets_json, warnings_json, errors_json
+                FROM planning_files
+                WHERE import_id = ?
+                ORDER BY id
+                """,
+                (import_id,),
+            ).fetchall()
+            files: list[dict[str, Any]] = []
+            for file_row in file_rows:
+                session_rows = connection.execute(
+                    """
+                    SELECT *
+                    FROM training_sessions
+                    WHERE file_id = ?
+                    ORDER BY start_date, module, id
+                    """,
+                    (file_row["id"],),
+                ).fetchall()
+                files.append(
+                    {
+                        "filename": file_row["filename"],
+                        "status": file_row["status"],
+                        "sheets": _loads(file_row["sheets_json"]),
+                        "sessions": [
+                            self._session_to_dict(connection, session_row)
+                            for session_row in session_rows
+                        ],
+                        "warnings": _loads(file_row["warnings_json"]),
+                        "errors": _loads(file_row["errors_json"]),
+                    }
+                )
+
+            return {
+                "import_id": row["import_id"],
+                "created_at": row["created_at"],
+                "status": row["status"],
+                "files": files,
+                "total_sessions": row["total_sessions"],
+                "total_participants": row["total_participants"],
+                "missing_email_count": row["missing_email_count"],
+                "warning_count": row["warning_count"],
+                "error_count": row["error_count"],
+            }
+
+    def list_sessions(
+        self,
+        *,
+        import_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if import_id:
+            clauses.append("s.import_id = ?")
+            params.append(import_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.extend([limit, offset])
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    s.*,
+                    COUNT(p.id) AS participant_count,
+                    SUM(
+                        CASE
+                            WHEN p.email = '' THEN 1
+                            ELSE 0
+                        END
+                    ) AS missing_email_count
+                FROM training_sessions s
+                LEFT JOIN training_participants p ON p.session_id = s.id
+                {where}
+                GROUP BY s.id
+                ORDER BY s.start_date, s.module, s.id
+                LIMIT ? OFFSET ?
+                """,
+                params,
+            ).fetchall()
+            return [self._session_summary(row) for row in rows]
+
+    def get_session(
+        self,
+        session_key: str,
+        *,
+        import_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        clauses = ["session_key = ?"]
+        params: list[Any] = [session_key]
+        if import_id:
+            clauses.append("import_id = ?")
+            params.append(import_id)
+
+        with self._connect() as connection:
+            row = connection.execute(
+                f"""
+                SELECT *
+                FROM training_sessions
+                WHERE {' AND '.join(clauses)}
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                params,
+            ).fetchone()
+            if row is None:
+                return None
+            return self._session_to_dict(connection, row)
+
+    def list_missing_contacts(
+        self,
+        *,
+        import_id: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        clauses = ["email = ''"]
+        params: list[Any] = []
+        if import_id:
+            clauses.append("import_id = ?")
+            params.append(import_id)
+        params.append(limit)
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    matricule,
+                    full_name,
+                    residence,
+                    direction,
+                    hr_responsible,
+                    COUNT(*) AS session_count,
+                    MIN(source_row) AS first_source_row
+                FROM training_participants
+                WHERE {' AND '.join(clauses)}
+                GROUP BY matricule, full_name, residence, direction, hr_responsible
+                ORDER BY full_name, matricule
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def _insert_session(
+        self,
+        connection: sqlite3.Connection,
+        import_id: str,
+        file_id: int,
+        session: TrainingSession,
+    ) -> None:
+        cursor = connection.execute(
+            """
+            INSERT INTO training_sessions (
+                import_id,
+                file_id,
+                session_key,
+                code_session,
+                lms_session_number,
+                malek_number,
+                status,
+                axis,
+                domain,
+                project,
+                training_type,
+                training_mode,
+                certification_nature,
+                module_code,
+                module,
+                cabinet,
+                trainer,
+                selected_trainer,
+                year,
+                month,
+                week,
+                duration_days,
+                start_date,
+                end_date,
+                schedule,
+                hours_per_day,
+                total_hours,
+                location,
+                accommodation_location,
+                responsible_engagement,
+                candidate_count,
+                source_file,
+                source_sheet,
+                source_rows_json,
+                missing_fields_json
+            )
+            VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            """,
+            (
+                import_id,
+                file_id,
+                session.session_key,
+                session.code_session,
+                session.lms_session_number,
+                session.malek_number,
+                session.status,
+                session.axis,
+                session.domain,
+                session.project,
+                session.training_type,
+                session.training_mode,
+                session.certification_nature,
+                session.module_code,
+                session.module,
+                session.cabinet,
+                session.trainer,
+                session.selected_trainer,
+                session.year,
+                session.month,
+                session.week,
+                session.duration_days,
+                session.start_date,
+                session.end_date,
+                session.schedule,
+                session.hours_per_day,
+                session.total_hours,
+                session.location,
+                session.accommodation_location,
+                session.responsible_engagement,
+                session.candidate_count,
+                session.source_file,
+                session.source_sheet,
+                _json(session.source_rows),
+                _json(session.missing_fields),
+            ),
+        )
+        session_id = int(cursor.lastrowid)
+        for participant in session.participants:
+            connection.execute(
+                """
+                INSERT INTO training_participants (
+                    import_id,
+                    session_id,
+                    session_key,
+                    matricule,
+                    full_name,
+                    email,
+                    residence,
+                    direction,
+                    hr_responsible,
+                    source_row,
+                    missing_fields_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    import_id,
+                    session_id,
+                    session.session_key,
+                    participant.matricule,
+                    participant.full_name,
+                    participant.email,
+                    participant.residence,
+                    participant.direction,
+                    participant.hr_responsible,
+                    participant.source_row,
+                    _json(participant.missing_fields),
+                ),
+            )
+            if participant.matricule and participant.email:
+                connection.execute(
+                    """
+                    INSERT INTO employee_contacts (
+                        matricule,
+                        full_name,
+                        email,
+                        direction,
+                        hr_responsible,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(matricule) DO UPDATE SET
+                        full_name = excluded.full_name,
+                        email = excluded.email,
+                        direction = excluded.direction,
+                        hr_responsible = excluded.hr_responsible,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (
+                        participant.matricule,
+                        participant.full_name,
+                        participant.email,
+                        participant.direction,
+                        participant.hr_responsible,
+                    ),
+                )
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        connection = sqlite3.connect(self.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+    def _import_summary(
+        self,
+        connection: sqlite3.Connection,
+        row: sqlite3.Row,
+    ) -> dict[str, Any]:
+        file_rows = connection.execute(
+            """
+            SELECT
+                filename,
+                status,
+                warnings_json,
+                errors_json,
+                (
+                    SELECT COUNT(*)
+                    FROM training_sessions s
+                    WHERE s.file_id = planning_files.id
+                ) AS session_count
+            FROM planning_files
+            WHERE import_id = ?
+            ORDER BY id
+            """,
+            (row["import_id"],),
+        ).fetchall()
+        return {
+            "import_id": row["import_id"],
+            "created_at": row["created_at"],
+            "status": row["status"],
+            "total_sessions": row["total_sessions"],
+            "total_participants": row["total_participants"],
+            "missing_email_count": row["missing_email_count"],
+            "warning_count": row["warning_count"],
+            "error_count": row["error_count"],
+            "files": [
+                {
+                    "filename": file_row["filename"],
+                    "status": file_row["status"],
+                    "sessions": file_row["session_count"],
+                    "warnings": len(_loads(file_row["warnings_json"])),
+                    "errors": len(_loads(file_row["errors_json"])),
+                }
+                for file_row in file_rows
+            ],
+        }
+
+    def _session_to_dict(
+        self,
+        connection: sqlite3.Connection,
+        row: sqlite3.Row,
+    ) -> dict[str, Any]:
+        data = self._session_base_dict(row)
+        participant_rows = connection.execute(
+            """
+            SELECT *
+            FROM training_participants
+            WHERE session_id = ?
+            ORDER BY source_row, full_name, id
+            """,
+            (row["id"],),
+        ).fetchall()
+        data["participants"] = [
+            {
+                "matricule": participant["matricule"],
+                "full_name": participant["full_name"],
+                "email": participant["email"],
+                "residence": participant["residence"],
+                "direction": participant["direction"],
+                "hr_responsible": participant["hr_responsible"],
+                "source_row": participant["source_row"],
+                "missing_fields": _loads(participant["missing_fields_json"]),
+            }
+            for participant in participant_rows
+        ]
+        return data
+
+    def _session_summary(self, row: sqlite3.Row) -> dict[str, Any]:
+        data = self._session_base_dict(row)
+        data["participant_count"] = row["participant_count"] or 0
+        data["missing_email_count"] = row["missing_email_count"] or 0
+        return data
+
+    def _session_base_dict(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "session_key": row["session_key"],
+            "code_session": row["code_session"],
+            "lms_session_number": row["lms_session_number"],
+            "malek_number": row["malek_number"],
+            "status": row["status"],
+            "axis": row["axis"],
+            "domain": row["domain"],
+            "project": row["project"],
+            "training_type": row["training_type"],
+            "training_mode": row["training_mode"],
+            "certification_nature": row["certification_nature"],
+            "module_code": row["module_code"],
+            "module": row["module"],
+            "cabinet": row["cabinet"],
+            "trainer": row["trainer"],
+            "selected_trainer": row["selected_trainer"],
+            "year": row["year"],
+            "month": row["month"],
+            "week": row["week"],
+            "duration_days": row["duration_days"],
+            "start_date": row["start_date"],
+            "end_date": row["end_date"],
+            "schedule": row["schedule"],
+            "hours_per_day": row["hours_per_day"],
+            "total_hours": row["total_hours"],
+            "location": row["location"],
+            "accommodation_location": row["accommodation_location"],
+            "responsible_engagement": row["responsible_engagement"],
+            "candidate_count": row["candidate_count"],
+            "source_file": row["source_file"],
+            "source_sheet": row["source_sheet"],
+            "source_rows": _loads(row["source_rows_json"]),
+            "missing_fields": _loads(row["missing_fields_json"]),
+        }
+
+
+def sanitize_import_id(import_id: str) -> str:
+    return "".join(char for char in import_id if char.isalnum() or char in ("-", "_"))
+
+
+def _json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _loads(value: str) -> Any:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return []

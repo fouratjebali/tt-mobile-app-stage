@@ -264,6 +264,60 @@ def get_planning_import(import_id: str) -> dict[str, Any]:
     return result
 
 
+@app.get("/planning/sessions")
+def list_planning_sessions(
+    import_id: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    sessions = planning_import_service.list_sessions(
+        import_id=import_id,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "status": "ok",
+        "count": len(sessions),
+        "sessions": sessions,
+    }
+
+
+@app.get("/planning/sessions/{session_key}")
+def get_planning_session(
+    session_key: str,
+    import_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    session = planning_import_service.get_session(
+        session_key,
+        import_id=import_id,
+    )
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training session {session_key} not found.",
+        )
+    return {
+        "status": "ok",
+        "session": session,
+    }
+
+
+@app.get("/planning/missing-contacts")
+def list_planning_missing_contacts(
+    import_id: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> dict[str, Any]:
+    contacts = planning_import_service.list_missing_contacts(
+        import_id=import_id,
+        limit=limit,
+    )
+    return {
+        "status": "ok",
+        "count": len(contacts),
+        "contacts": contacts,
+    }
+
+
 @app.get("/dashboard/stats")
 def dashboard_stats(
     max_results: int = Query(default=10, ge=1, le=50),
