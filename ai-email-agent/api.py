@@ -3,7 +3,7 @@ from email.utils import parsedate_to_datetime
 from email.utils import parseaddr
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 
 from agent.chains import EmailChains
@@ -11,10 +11,12 @@ from agent.agent import EmailAgent
 from config.settings import settings
 from gmail.reader import Email, fetch_emails, fetch_single_email
 from gmail.sender import send_email as gmail_send
+from planning.service import PlanningImportService
 
 
 app = FastAPI(title="TT Mail Assistant Agent 1")
 chains = EmailChains()
+planning_import_service = PlanningImportService()
 
 
 class ChatRequest(BaseModel):
@@ -50,6 +52,18 @@ class BulkDraft(BaseModel):
 
 class SendBulkDraftsRequest(BaseModel):
     drafts: list[BulkDraft] = Field(min_length=1)
+
+
+class PlanningImportSummary(BaseModel):
+    import_id: str
+    created_at: str
+    status: str
+    total_sessions: int
+    total_participants: int
+    missing_email_count: int
+    warning_count: int
+    error_count: int
+    files: list[dict[str, Any]]
 
 
 @lru_cache(maxsize=1)
@@ -195,6 +209,59 @@ def send_bulk_drafts(request: SendBulkDraftsRequest) -> dict[str, Any]:
         "errors": error_count,
         "details": details,
     }
+
+
+@app.post("/planning/import")
+async def import_planning_files(
+    files: list[UploadFile] = File(...),
+) -> dict[str, Any]:
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one planning file is required.",
+        )
+    if len(files) > 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You can import a maximum of 5 planning files at once.",
+        )
+
+    loaded_files: list[tuple[str, bytes]] = []
+    for upload in files:
+        filename = upload.filename or "planning.xlsx"
+        content = await upload.read()
+        if not content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{filename} is empty.",
+            )
+        loaded_files.append((filename, content))
+
+    try:
+        result = planning_import_service.import_files(loaded_files)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return result.to_dict()
+
+
+@app.get("/planning/imports", response_model=list[PlanningImportSummary])
+def list_planning_imports() -> list[dict[str, Any]]:
+    return planning_import_service.list_imports()
+
+
+@app.get("/planning/imports/{import_id}")
+def get_planning_import(import_id: str) -> dict[str, Any]:
+    result = planning_import_service.get_import(import_id)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Planning import {import_id} not found.",
+        )
+    return result
 
 
 @app.get("/dashboard/stats")
