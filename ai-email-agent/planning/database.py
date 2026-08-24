@@ -5,6 +5,7 @@ import os
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from planning.training_agent import TrainingDraft
 
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "tt_mail_assistant.db"
+EDITABLE_DRAFT_STATUSES = {"WAITING_REVIEW", "EDITED", "NEEDS_CONTACTS"}
 
 
 class PlanningDatabase:
@@ -700,6 +702,129 @@ class PlanningDatabase:
             ).fetchone()
             return self._draft_row(row) if row is not None else None
 
+    def update_training_draft(
+        self,
+        draft_id: int,
+        *,
+        subject: str | None = None,
+        body: str | None = None,
+        html_body: str | None = None,
+        recipients: list[str] | None = None,
+        cc: list[str] | None = None,
+    ) -> dict[str, Any] | None:
+        draft = self.get_training_draft(draft_id)
+        if draft is None:
+            return None
+        if draft["status"] not in EDITABLE_DRAFT_STATUSES:
+            raise ValueError("Only drafts waiting for review can be edited.")
+
+        next_subject = draft["subject"] if subject is None else subject.strip()
+        next_body = draft["body"] if body is None else body.strip()
+        next_html_body = draft["html_body"] if html_body is None else html_body.strip()
+        next_recipients = draft["recipients"] if recipients is None else _clean_emails(recipients)
+        next_cc = draft["cc"] if cc is None else _clean_emails(cc)
+        next_status = "EDITED" if next_recipients else "NEEDS_CONTACTS"
+        metadata = {
+            **draft["metadata"],
+            "ready_to_send": False,
+            "review_status": next_status.lower(),
+            "last_review_action": "edited",
+            "edited_at": _utc_now(),
+        }
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE training_email_drafts
+                SET
+                    subject = ?,
+                    body = ?,
+                    html_body = ?,
+                    recipients_json = ?,
+                    cc_json = ?,
+                    status = ?,
+                    metadata_json = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    next_subject,
+                    next_body,
+                    next_html_body,
+                    _json(next_recipients),
+                    _json(next_cc),
+                    next_status,
+                    _json(metadata),
+                    draft_id,
+                ),
+            )
+            connection.commit()
+        return self.get_training_draft(draft_id)
+
+    def approve_training_draft(self, draft_id: int) -> dict[str, Any] | None:
+        draft = self.get_training_draft(draft_id)
+        if draft is None:
+            return None
+        if draft["status"] not in EDITABLE_DRAFT_STATUSES and draft["status"] != "APPROVED":
+            raise ValueError("Only reviewed drafts can be approved.")
+        if not draft["recipients"]:
+            raise ValueError("A training draft needs at least one recipient before approval.")
+        if not draft["subject"].strip() or not draft["body"].strip():
+            raise ValueError("A training draft needs a subject and body before approval.")
+
+        metadata = {
+            **draft["metadata"],
+            "ready_to_send": True,
+            "review_status": "approved",
+            "last_review_action": "approved",
+            "approved_at": _utc_now(),
+        }
+        return self._update_draft_status(draft_id, status="APPROVED", metadata=metadata)
+
+    def reject_training_draft(
+        self,
+        draft_id: int,
+        *,
+        reason: str = "",
+    ) -> dict[str, Any] | None:
+        draft = self.get_training_draft(draft_id)
+        if draft is None:
+            return None
+        if draft["status"] == "SENT":
+            raise ValueError("Sent drafts cannot be rejected.")
+
+        metadata = {
+            **draft["metadata"],
+            "ready_to_send": False,
+            "review_status": "rejected",
+            "last_review_action": "rejected",
+            "rejected_at": _utc_now(),
+            "rejection_reason": reason.strip(),
+        }
+        return self._update_draft_status(draft_id, status="REJECTED", metadata=metadata)
+
+    def _update_draft_status(
+        self,
+        draft_id: int,
+        *,
+        status: str,
+        metadata: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE training_email_drafts
+                SET
+                    status = ?,
+                    metadata_json = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (status, _json(metadata), draft_id),
+            )
+            connection.commit()
+        return self.get_training_draft(draft_id)
+
     def _insert_session(
         self,
         connection: sqlite3.Connection,
@@ -1090,6 +1215,23 @@ def _loads(value: str) -> Any:
         return json.loads(value)
     except json.JSONDecodeError:
         return []
+
+
+def _clean_emails(values: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        email = str(value).strip()
+        key = email.lower()
+        if not email or key in seen:
+            continue
+        cleaned.append(email)
+        seen.add(key)
+    return cleaned
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def _contact_key(contact: EmployeeContact) -> str:

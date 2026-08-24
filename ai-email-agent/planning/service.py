@@ -195,3 +195,33 @@ class PlanningImportService:
 
     def get_training_draft(self, draft_id: int) -> dict[str, Any] | None:
         return self.database.get_training_draft(draft_id)
+
+    def update_training_draft(
+        self,
+        draft_id: int,
+        *,
+        subject: str | None = None,
+        body: str | None = None,
+        html_body: str | None = None,
+        recipients: list[str] | None = None,
+        cc: list[str] | None = None,
+    ) -> dict[str, Any] | None:
+        return self.database.update_training_draft(
+            draft_id,
+            subject=subject,
+            body=body,
+            html_body=html_body,
+            recipients=recipients,
+            cc=cc,
+        )
+
+    def approve_training_draft(self, draft_id: int) -> dict[str, Any] | None:
+        return self.database.approve_training_draft(draft_id)
+
+    def reject_training_draft(
+        self,
+        draft_id: int,
+        *,
+        reason: str = "",
+    ) -> dict[str, Any] | None:
+        return self.database.reject_training_draft(draft_id, reason=reason)

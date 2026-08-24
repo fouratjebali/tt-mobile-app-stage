@@ -74,6 +74,18 @@ class GenerateTrainingDraftsRequest(BaseModel):
     limit: int = Field(default=100, ge=1, le=500)
 
 
+class UpdateTrainingDraftRequest(BaseModel):
+    subject: str | None = None
+    body: str | None = None
+    html_body: str | None = None
+    recipients: list[str] | None = None
+    cc: list[str] | None = None
+
+
+class RejectTrainingDraftRequest(BaseModel):
+    reason: str = ""
+
+
 @lru_cache(maxsize=1)
 def get_agent() -> EmailAgent:
     return EmailAgent()
@@ -422,6 +434,82 @@ def list_training_drafts(
 @app.get("/planning/drafts/{draft_id}")
 def get_training_draft(draft_id: int) -> dict[str, Any]:
     draft = planning_import_service.get_training_draft(draft_id)
+    if draft is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training draft {draft_id} not found.",
+        )
+    return {
+        "status": "ok",
+        "draft": draft,
+    }
+
+
+@app.patch("/planning/drafts/{draft_id}")
+def update_training_draft(
+    draft_id: int,
+    request: UpdateTrainingDraftRequest,
+) -> dict[str, Any]:
+    try:
+        draft = planning_import_service.update_training_draft(
+            draft_id,
+            subject=request.subject,
+            body=request.body,
+            html_body=request.html_body,
+            recipients=request.recipients,
+            cc=request.cc,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    if draft is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training draft {draft_id} not found.",
+        )
+    return {
+        "status": "ok",
+        "draft": draft,
+    }
+
+
+@app.post("/planning/drafts/{draft_id}/approve")
+def approve_training_draft(draft_id: int) -> dict[str, Any]:
+    try:
+        draft = planning_import_service.approve_training_draft(draft_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    if draft is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training draft {draft_id} not found.",
+        )
+    return {
+        "status": "ok",
+        "draft": draft,
+    }
+
+
+@app.post("/planning/drafts/{draft_id}/reject")
+def reject_training_draft(
+    draft_id: int,
+    request: RejectTrainingDraftRequest,
+) -> dict[str, Any]:
+    try:
+        draft = planning_import_service.reject_training_draft(
+            draft_id,
+            reason=request.reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
     if draft is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
