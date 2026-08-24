@@ -65,9 +65,10 @@ class TrainingDraft {
   final String updatedAt;
 
   bool get isApproved => status == 'APPROVED';
+  bool get isSent => status == 'SENT';
   bool get needsContacts => status == 'NEEDS_CONTACTS';
   bool get isRejected => status == 'REJECTED';
-  bool get canReview => !isApproved && !isRejected;
+  bool get canReview => !isApproved && !isRejected && !isSent;
 
   factory TrainingDraft.fromJson(Map<String, dynamic> json) {
     return TrainingDraft(

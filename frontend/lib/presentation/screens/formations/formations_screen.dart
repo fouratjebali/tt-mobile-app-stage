@@ -885,6 +885,18 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
     }
   }
 
+  Future<void> _send() async {
+    setState(() => _saving = true);
+    try {
+      await widget.viewModel.sendDraft(widget.draft);
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) _showSheetMessage(error.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   Future<void> _reject() async {
     setState(() => _saving = true);
     try {
@@ -911,6 +923,8 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
     final l10n = context.l10n;
     final tone = _FormationTone.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final canEdit = widget.draft.canReview;
+    final canSend = widget.draft.isApproved;
 
     return Container(
       margin: EdgeInsets.only(bottom: bottomInset),
@@ -959,6 +973,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
               controller: _recipientsController,
               hint: 'nom.prenom@tunisietelecom.tn',
               tone: tone,
+              enabled: canEdit,
             ),
             const SizedBox(height: 12),
             _LabeledField(
@@ -966,6 +981,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
               controller: _ccController,
               hint: l10n.t('formations.optional'),
               tone: tone,
+              enabled: canEdit,
             ),
             const SizedBox(height: 12),
             _LabeledField(
@@ -973,6 +989,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
               controller: _subjectController,
               hint: l10n.t('formations.subject'),
               tone: tone,
+              enabled: canEdit,
             ),
             const SizedBox(height: 12),
             _LabeledField(
@@ -982,6 +999,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
               tone: tone,
               minLines: 8,
               maxLines: 14,
+              enabled: canEdit,
             ),
             const SizedBox(height: 18),
             Row(
@@ -1009,7 +1027,14 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: _saving || !widget.draft.canReview ? null : _approve,
+                onPressed:
+                    _saving
+                        ? null
+                        : canSend
+                        ? _send
+                        : canEdit
+                        ? _approve
+                        : null,
                 icon:
                     _saving
                         ? const SizedBox(
@@ -1017,8 +1042,18 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                        : const Icon(Icons.verified_rounded),
-                label: Text(l10n.t('formations.approve')),
+                        : Icon(
+                          canSend
+                              ? Icons.outgoing_mail
+                              : Icons.verified_rounded,
+                        ),
+                label: Text(
+                  l10n.t(
+                    canSend
+                        ? 'formations.sendWithOutlook'
+                        : 'formations.approve',
+                  ),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppPalette.deepTeal,
                   foregroundColor: AppPalette.white,
@@ -1044,6 +1079,7 @@ class _LabeledField extends StatelessWidget {
     required this.tone,
     this.minLines = 1,
     this.maxLines = 1,
+    this.enabled = true,
   });
 
   final String label;
@@ -1052,6 +1088,7 @@ class _LabeledField extends StatelessWidget {
   final _FormationTone tone;
   final int minLines;
   final int maxLines;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -1069,6 +1106,7 @@ class _LabeledField extends StatelessWidget {
         const SizedBox(height: 7),
         TextField(
           controller: controller,
+          enabled: enabled,
           minLines: minLines,
           maxLines: maxLines,
           decoration: InputDecoration(
@@ -1218,6 +1256,7 @@ String _statusLabel(BuildContext context, String status) {
     'EDITED' => l10n.t('formations.statusEdited'),
     'NEEDS_CONTACTS' => l10n.t('formations.statusNeedsContacts'),
     'REJECTED' => l10n.t('formations.statusRejected'),
+    'SENT' => l10n.t('formations.statusSent'),
     _ => l10n.t('formations.statusWaiting'),
   };
 }
@@ -1228,6 +1267,7 @@ Color _statusColor(String status) {
     'EDITED' => AppPalette.blue,
     'NEEDS_CONTACTS' => AppPalette.clay,
     'REJECTED' => AppPalette.clay,
+    'SENT' => AppPalette.deepTeal,
     _ => AppPalette.amber,
   };
 }

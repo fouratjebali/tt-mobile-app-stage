@@ -29,6 +29,7 @@ class FormationsViewModel extends ChangeNotifier {
           .length;
   int get approvedCount =>
       drafts.where((draft) => draft.status == 'APPROVED').length;
+  int get sentCount => drafts.where((draft) => draft.status == 'SENT').length;
   int get blockedCount =>
       drafts.where((draft) => draft.status == 'NEEDS_CONTACTS').length;
 
@@ -121,6 +122,12 @@ class FormationsViewModel extends ChangeNotifier {
       draft.id,
       reason: reason,
     );
+    _replaceDraft(updated);
+    return updated;
+  }
+
+  Future<TrainingDraft> sendDraft(TrainingDraft draft) async {
+    final updated = await _planningApiService.sendDraft(draft.id);
     _replaceDraft(updated);
     return updated;
   }

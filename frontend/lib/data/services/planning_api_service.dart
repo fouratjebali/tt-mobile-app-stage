@@ -120,6 +120,11 @@ class PlanningApiService {
     );
     return TrainingDraft.fromJson(_map(_map(data)['draft']));
   }
+
+  Future<TrainingDraft> sendDraft(int draftId) async {
+    final data = await _apiService.post('/planning/drafts/$draftId/send');
+    return TrainingDraft.fromJson(_map(_map(data)['draft']));
+  }
 }
 
 Map<String, dynamic> _map(Object? value) {

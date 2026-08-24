@@ -3,7 +3,7 @@ from email.utils import parsedate_to_datetime
 from email.utils import parseaddr
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile, status
+from fastapi import FastAPI, File, Header, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 
 from agent.chains import EmailChains
@@ -11,12 +11,20 @@ from agent.agent import EmailAgent
 from config.settings import settings
 from gmail.reader import Email, fetch_emails, fetch_single_email
 from gmail.sender import send_email as gmail_send
+from outlook.graph_client import OutlookGraphClient, OutlookGraphError
+from outlook.session_store import OutlookSession, OutlookSessionStore, is_expiring_soon
 from planning.service import PlanningImportService
 
 
 app = FastAPI(title="TT Mail Assistant Agent 1")
 chains = EmailChains()
 planning_import_service = PlanningImportService()
+outlook_session_store = OutlookSessionStore()
+outlook_graph_client = OutlookGraphClient(
+    client_id=settings.MICROSOFT_CLIENT_ID or settings.client_id or "",
+    client_secret=settings.MICROSOFT_CLIENT_SECRET or settings.client_secret or "",
+    tenant_id=settings.MICROSOFT_TENANT_ID,
+)
 
 
 class ChatRequest(BaseModel):
@@ -52,6 +60,13 @@ class BulkDraft(BaseModel):
 
 class SendBulkDraftsRequest(BaseModel):
     drafts: list[BulkDraft] = Field(min_length=1)
+
+
+class MicrosoftAuthRequest(BaseModel):
+    access_token: str = Field(min_length=1)
+    id_token: str | None = None
+    refresh_token: str = ""
+    expires_at: str | None = None
 
 
 class PlanningImportSummary(BaseModel):
@@ -98,6 +113,47 @@ def health() -> dict[str, str]:
         "service": "agent1",
         "ollama_base_url": settings.OLLAMA_BASE_URL,
         "ollama_model": settings.OLLAMA_MODEL,
+    }
+
+
+@app.post("/auth/microsoft")
+def sign_in_with_microsoft(request: MicrosoftAuthRequest) -> dict[str, Any]:
+    try:
+        me = outlook_graph_client.get_me(request.access_token)
+    except OutlookGraphError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Microsoft token could not be verified: {exc}",
+        ) from exc
+
+    user = _user_from_graph_profile(me)
+    session = outlook_session_store.create_session(
+        access_token=request.access_token,
+        refresh_token=request.refresh_token,
+        expires_at=request.expires_at or "",
+        user_id=user["id"],
+        email=user["email"],
+        display_name=user["display_name"],
+        photo_url=user["photo_url"],
+    )
+    return {
+        "status": "ok",
+        "session_token": session.session_token,
+        "expires_at": session.expires_at,
+        "user": user,
+    }
+
+
+@app.get("/auth/me")
+def current_outlook_user(
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    session = _require_outlook_session(authorization)
+    return {
+        "id": session.user_id,
+        "email": session.email,
+        "display_name": session.display_name,
+        "photo_url": session.photo_url,
     }
 
 
@@ -521,6 +577,39 @@ def reject_training_draft(
     }
 
 
+@app.post("/planning/drafts/{draft_id}/send")
+def send_training_draft(
+    draft_id: int,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    session = _require_outlook_session(authorization)
+    try:
+        draft = planning_import_service.send_training_draft(
+            draft_id,
+            outlook_sender=outlook_graph_client,
+            access_token=session.access_token,
+        )
+    except OutlookGraphError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Outlook send failed: {exc}",
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    if draft is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training draft {draft_id} not found.",
+        )
+    return {
+        "status": "sent",
+        "draft": draft,
+    }
+
+
 @app.get("/dashboard/stats")
 def dashboard_stats(
     max_results: int = Query(default=10, ge=1, le=50),
@@ -667,6 +756,59 @@ def _format_chat_email_line(email: dict[str, Any]) -> str:
     ).strip()
 
 
+
+def _require_outlook_session(authorization: str | None) -> OutlookSession:
+    token = _bearer_token(authorization)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Outlook session is required.",
+        )
+
+    session = outlook_session_store.get_session(token)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Outlook session is invalid or expired.",
+        )
+
+    if is_expiring_soon(session.expires_at) and session.refresh_token:
+        try:
+            refreshed = outlook_graph_client.refresh_access_token(session.refresh_token)
+            access_token = refreshed["access_token"]
+            if access_token:
+                updated = outlook_session_store.update_tokens(
+                    session.session_token,
+                    access_token=access_token,
+                    refresh_token=refreshed.get("refresh_token", ""),
+                    expires_at=refreshed.get("expires_at", ""),
+                )
+                if updated is not None:
+                    return updated
+        except OutlookGraphError:
+            return session
+
+    return session
+
+
+def _bearer_token(authorization: str | None) -> str:
+    if not authorization:
+        return ""
+    prefix = "bearer "
+    if authorization.lower().startswith(prefix):
+        return authorization[len(prefix) :].strip()
+    return authorization.strip()
+
+
+def _user_from_graph_profile(profile: dict[str, Any]) -> dict[str, str]:
+    email = str(profile.get("mail") or profile.get("userPrincipalName") or "").strip()
+    user_id = str(profile.get("id") or email or "microsoft").strip()
+    return {
+        "id": user_id,
+        "email": email,
+        "display_name": str(profile.get("displayName") or email or "Outlook user"),
+        "photo_url": "",
+    }
 def _email_list_response(
     emails: list[Email],
     *,

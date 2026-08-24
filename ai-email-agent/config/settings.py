@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     client_id: str | None = None
     client_secret: str | None = None
+    MICROSOFT_CLIENT_ID: str | None = None
+    MICROSOFT_CLIENT_SECRET: str | None = None
+    MICROSOFT_TENANT_ID: str = "common"
 
     class Config:
         env_file = ".env"

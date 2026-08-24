@@ -225,3 +225,43 @@ class PlanningImportService:
         reason: str = "",
     ) -> dict[str, Any] | None:
         return self.database.reject_training_draft(draft_id, reason=reason)
+
+    def send_training_draft(
+        self,
+        draft_id: int,
+        *,
+        outlook_sender: Any,
+        access_token: str,
+    ) -> dict[str, Any] | None:
+        draft = self.database.get_training_draft(draft_id)
+        if draft is None:
+            return None
+        if draft["status"] != "APPROVED":
+            raise ValueError("Only approved training drafts can be sent.")
+        if not draft["recipients"]:
+            raise ValueError("A training draft needs at least one recipient before sending.")
+
+        try:
+            sent = outlook_sender.send_mail(
+                access_token=access_token,
+                subject=draft["subject"],
+                body=draft["body"],
+                html_body=draft["html_body"],
+                recipients=draft["recipients"],
+                cc=draft["cc"],
+            )
+        except Exception as exc:
+            for recipient in draft["recipients"]:
+                self.database.log_training_send(
+                    draft_id,
+                    recipient_email=recipient,
+                    status="error",
+                    error=str(exc),
+                )
+            raise
+
+        provider_message_id = str(sent.get("message_id") or "").strip()
+        return self.database.mark_training_draft_sent(
+            draft_id,
+            provider_message_id=provider_message_id,
+        )

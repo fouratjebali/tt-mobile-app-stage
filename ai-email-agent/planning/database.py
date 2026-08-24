@@ -803,6 +803,66 @@ class PlanningDatabase:
         }
         return self._update_draft_status(draft_id, status="REJECTED", metadata=metadata)
 
+    def mark_training_draft_sent(
+        self,
+        draft_id: int,
+        *,
+        provider_message_id: str = "",
+    ) -> dict[str, Any] | None:
+        draft = self.get_training_draft(draft_id)
+        if draft is None:
+            return None
+
+        metadata = {
+            **draft["metadata"],
+            "ready_to_send": False,
+            "review_status": "sent",
+            "last_review_action": "sent",
+            "sent_at": _utc_now(),
+            "provider_message_id": provider_message_id,
+        }
+        updated = self._update_draft_status(draft_id, status="SENT", metadata=metadata)
+        for recipient in draft["recipients"]:
+            self.log_training_send(
+                draft_id,
+                recipient_email=recipient,
+                status="sent",
+                provider_message_id=provider_message_id,
+            )
+        return updated
+
+    def log_training_send(
+        self,
+        draft_id: int,
+        *,
+        recipient_email: str,
+        status: str,
+        provider_message_id: str = "",
+        error: str = "",
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO training_email_send_logs (
+                    draft_id,
+                    recipient_email,
+                    status,
+                    provider_message_id,
+                    error,
+                    sent_at
+                )
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (
+                    draft_id,
+                    recipient_email,
+                    status,
+                    provider_message_id,
+                    error,
+                ),
+            )
+            connection.commit()
+
     def _update_draft_status(
         self,
         draft_id: int,
