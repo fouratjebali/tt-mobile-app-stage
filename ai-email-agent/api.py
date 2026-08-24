@@ -96,6 +96,14 @@ class RunPlanningAutomationRequest(BaseModel):
     limit: int = Field(default=500, ge=1, le=1000)
 
 
+class SaveEmployeeContactRequest(BaseModel):
+    matricule: str = ""
+    full_name: str = ""
+    email: str = Field(min_length=3)
+    direction: str = ""
+    hr_responsible: str = ""
+
+
 class UpdateTrainingDraftRequest(BaseModel):
     subject: str | None = None
     body: str | None = None
@@ -441,6 +449,27 @@ def list_employee_contacts(
         "status": "ok",
         "count": len(contacts),
         "contacts": contacts,
+    }
+
+
+@app.post("/planning/contacts")
+def save_employee_contact(request: SaveEmployeeContactRequest) -> dict[str, Any]:
+    try:
+        result = planning_import_service.save_contact(
+            matricule=request.matricule,
+            full_name=request.full_name,
+            email=request.email,
+            direction=request.direction,
+            hr_responsible=request.hr_responsible,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return {
+        "status": "ok",
+        **result,
     }
 
 

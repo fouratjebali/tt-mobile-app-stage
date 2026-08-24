@@ -34,6 +34,23 @@ class PlanningApiService {
     return PlanningImportSummary.fromJson(_map(data));
   }
 
+  Future<Map<String, dynamic>> importContactFiles({
+    required List<PlanningPickedFile> files,
+  }) async {
+    final data = await _apiService.uploadFiles(
+      '/planning/contacts/import',
+      fieldName: 'files',
+      files:
+          files
+              .map(
+                (file) => ApiUploadFile(filename: file.name, bytes: file.bytes),
+              )
+              .toList(),
+      timeout: _planningTimeout,
+    );
+    return _map(data);
+  }
+
   Future<List<PlanningImportSummary>> listImports() async {
     final data = await _apiService.get('/planning/imports');
     if (data is List) {
@@ -57,6 +74,35 @@ class PlanningApiService {
     return contacts
         .map((item) => MissingPlanningContact.fromJson(_map(item)))
         .toList();
+  }
+
+  Future<void> saveContact({
+    required String matricule,
+    required String fullName,
+    required String email,
+    String direction = '',
+    String hrResponsible = '',
+  }) async {
+    await _apiService.post(
+      '/planning/contacts',
+      body: {
+        'matricule': matricule,
+        'full_name': fullName,
+        'email': email,
+        'direction': direction,
+        'hr_responsible': hrResponsible,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> applyContactMapping({String? importId}) async {
+    final encodedImportId = Uri.encodeQueryComponent(importId ?? '');
+    final path =
+        encodedImportId.isEmpty
+            ? '/planning/contacts/apply'
+            : '/planning/contacts/apply?import_id=$encodedImportId';
+    final data = await _apiService.post(path, body: const <String, dynamic>{});
+    return _map(data);
   }
 
   Future<List<TrainingDraft>> listDrafts({String? importId}) async {

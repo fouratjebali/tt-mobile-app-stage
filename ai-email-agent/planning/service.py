@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from planning.contact_parser import ContactDirectoryParser
+from planning.contact_parser import ContactDirectoryParser, EmployeeContact
 from planning.database import PlanningDatabase, sanitize_import_id
 from planning.models import PlanningImportResult
 from planning.parser import PlanningExcelParser
@@ -118,6 +118,32 @@ class PlanningImportService:
     def apply_contact_mapping(self, *, import_id: str | None = None) -> dict[str, Any]:
         safe_import_id = sanitize_import_id(import_id) if import_id else None
         return self.database.apply_contact_mapping(import_id=safe_import_id)
+
+    def save_contact(
+        self,
+        *,
+        matricule: str = "",
+        full_name: str = "",
+        email: str,
+        direction: str = "",
+        hr_responsible: str = "",
+        source_file: str = "mobile",
+    ) -> dict[str, Any]:
+        cleaned_email = email.strip().lower()
+        if "@" not in cleaned_email:
+            raise ValueError("A valid email address is required.")
+        if not matricule.strip() and not full_name.strip():
+            raise ValueError("A matricule or employee name is required.")
+
+        contact = EmployeeContact(
+            matricule=matricule.strip(),
+            full_name=full_name.strip(),
+            email=cleaned_email,
+            direction=direction.strip(),
+            hr_responsible=hr_responsible.strip(),
+            source_file=source_file,
+        )
+        return self.database.save_contacts([contact])
 
     def generate_training_drafts(
         self,

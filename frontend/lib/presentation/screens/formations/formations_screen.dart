@@ -72,6 +72,42 @@ class _FormationsScreenState extends State<FormationsScreen> {
     }
   }
 
+  Future<void> _pickContactFiles() async {
+    final l10n = context.l10n;
+    final result = await FilePicker.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: const ['xlsx', 'xls', 'csv'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final picked =
+        result.files
+            .take(5)
+            .map((file) {
+              final bytes = file.bytes;
+              if (bytes == null) return null;
+              return PlanningPickedFile(name: file.name, bytes: bytes);
+            })
+            .whereType<PlanningPickedFile>()
+            .toList();
+
+    if (picked.isEmpty) {
+      _showMessage(l10n.t('formations.contactPickError'));
+      return;
+    }
+    if (result.files.length > 5) {
+      _showMessage(l10n.t('formations.uploadLimit'));
+    }
+
+    await _viewModel.importContactFiles(picked);
+    if (!mounted) return;
+    if (_viewModel.errorMessage == null) {
+      _showMessage(l10n.t('formations.contactsImported'));
+    }
+  }
+
   Future<void> _generateDrafts() async {
     await _viewModel.runAutomation();
     if (!mounted) return;
@@ -88,6 +124,18 @@ class _FormationsScreenState extends State<FormationsScreen> {
       backgroundColor: Colors.transparent,
       builder:
           (context) => _DraftReviewSheet(viewModel: _viewModel, draft: draft),
+    );
+  }
+
+  Future<void> _openContactFix(MissingPlanningContact contact) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) =>
+              _ContactFixSheet(viewModel: _viewModel, contact: contact),
     );
   }
 
@@ -128,6 +176,8 @@ class _FormationsScreenState extends State<FormationsScreen> {
               ],
               const SizedBox(height: 18),
               _UploadPanel(onUpload: _pickPlanningFiles, tone: tone),
+              const SizedBox(height: 12),
+              _ContactDirectoryPanel(onUpload: _pickContactFiles, tone: tone),
               const SizedBox(height: 20),
               _MonthOverview(viewModel: _viewModel, tone: tone),
               const SizedBox(height: 20),
@@ -146,6 +196,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
               _MissingContactsSection(
                 contacts: _viewModel.missingContacts,
                 tone: tone,
+                onFix: _openContactFix,
               ),
               if (_viewModel.activeImport == null) ...[
                 const SizedBox(height: 20),
@@ -343,6 +394,76 @@ class _UploadPanel extends StatelessWidget {
             onPressed: onUpload,
             icon: const Icon(Icons.add_rounded),
             tooltip: l10n.t('formations.uploadAction'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactDirectoryPanel extends StatelessWidget {
+  const _ContactDirectoryPanel({required this.onUpload, required this.tone});
+
+  final VoidCallback onUpload;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tone.softSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppPalette.blue.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.contact_mail_rounded,
+              color: AppPalette.blue,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.t('formations.contactsTitle'),
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.t('formations.contactsSubtitle'),
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton.filledTonal(
+            onPressed: onUpload,
+            icon: const Icon(Icons.upload_rounded),
+            tooltip: l10n.t('formations.contactsUpload'),
           ),
         ],
       ),
@@ -749,10 +870,15 @@ class _DraftCard extends StatelessWidget {
 }
 
 class _MissingContactsSection extends StatelessWidget {
-  const _MissingContactsSection({required this.contacts, required this.tone});
+  const _MissingContactsSection({
+    required this.contacts,
+    required this.tone,
+    required this.onFix,
+  });
 
   final List<MissingPlanningContact> contacts;
   final _FormationTone tone;
+  final ValueChanged<MissingPlanningContact> onFix;
 
   @override
   Widget build(BuildContext context) {
@@ -806,12 +932,162 @@ class _MissingContactsSection extends StatelessWidget {
                     ],
                   ),
                 ),
+                IconButton(
+                  onPressed: () => onFix(contact),
+                  icon: const Icon(Icons.edit_rounded),
+                  tooltip: l10n.t('formations.fixContact'),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 8),
         ],
       ],
+    );
+  }
+}
+
+class _ContactFixSheet extends StatefulWidget {
+  const _ContactFixSheet({required this.viewModel, required this.contact});
+
+  final FormationsViewModel viewModel;
+  final MissingPlanningContact contact;
+
+  @override
+  State<_ContactFixSheet> createState() => _ContactFixSheetState();
+}
+
+class _ContactFixSheetState extends State<_ContactFixSheet> {
+  late final TextEditingController _emailController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final email = _emailController.text.trim();
+    if (!email.contains('@')) {
+      _showMessage(context.l10n.t('formations.invalidEmail'));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.viewModel.saveMissingContact(
+        contact: widget.contact,
+        email: email,
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) _showMessage(error.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final tone = _FormationTone.of(context);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomInset),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: tone.border,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              l10n.t('formations.fixContact'),
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.contact.fullName,
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.contact.matricule,
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _LabeledField(
+              label: l10n.t('formations.emailAddress'),
+              controller: _emailController,
+              hint: 'nom.prenom@tunisietelecom.tn',
+              tone: tone,
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon:
+                    _saving
+                        ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.save_rounded),
+                label: Text(l10n.t('formations.saveContact')),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppPalette.deepTeal,
+                  foregroundColor: AppPalette.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

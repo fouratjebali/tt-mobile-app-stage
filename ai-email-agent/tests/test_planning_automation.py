@@ -98,3 +98,72 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
     second_payload = second_run.json()
     assert second_payload["generated"] == 0
     assert second_payload["skipped_existing"] == 1
+
+
+def test_manual_contact_save_can_complete_missing_participant(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+            ],
+            [
+                "S10",
+                "Cloud et securite",
+                "2026-09-24",
+                "2026-09-25",
+                "Tunis",
+                "40004",
+                "SAIDI Ines",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    import_id = import_response.json()["import_id"]
+
+    missing_before = client.get(
+        "/planning/missing-contacts",
+        params={"import_id": import_id},
+    )
+    assert missing_before.json()["count"] == 1
+
+    save_response = client.post(
+        "/planning/contacts",
+        json={
+            "matricule": "40004",
+            "full_name": "SAIDI Ines",
+            "email": "ines.saidi@tunisietelecom.tn",
+        },
+    )
+    assert save_response.status_code == 200
+
+    apply_response = client.post(
+        "/planning/contacts/apply",
+        params={"import_id": import_id},
+    )
+    assert apply_response.status_code == 200
+    assert apply_response.json()["mapped"] == 1
+
+    missing_after = client.get(
+        "/planning/missing-contacts",
+        params={"import_id": import_id},
+    )
+    assert missing_after.json()["count"] == 0

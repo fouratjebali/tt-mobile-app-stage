@@ -130,6 +130,16 @@ const Map<String, String> _english = {
   'formations.draftsDone': 'Drafts are ready for review.',
   'formations.automationDone':
       'Automation completed. Drafts are ready for review.',
+  'formations.contactsTitle': 'Employee directory',
+  'formations.contactsSubtitle':
+      'Upload contacts to complete missing participant emails.',
+  'formations.contactsUpload': 'Upload contacts',
+  'formations.contactsImported': 'Contact directory imported and applied.',
+  'formations.contactPickError': 'Unable to read the selected contact files.',
+  'formations.fixContact': 'Fix contact',
+  'formations.emailAddress': 'Email address',
+  'formations.invalidEmail': 'Enter a valid email address.',
+  'formations.saveContact': 'Save contact',
   'formations.monthPlan': 'Month overview',
   'formations.sessions': 'Sessions',
   'formations.participants': 'Participants',
@@ -362,6 +372,17 @@ const Map<String, String> _french = {
   'formations.draftsDone': 'Brouillons prets pour verification.',
   'formations.automationDone':
       'Automatisation terminee. Brouillons prets pour verification.',
+  'formations.contactsTitle': 'Annuaire collaborateurs',
+  'formations.contactsSubtitle':
+      'Importez les contacts pour completer les emails manquants.',
+  'formations.contactsUpload': 'Importer les contacts',
+  'formations.contactsImported': 'Annuaire importe et applique.',
+  'formations.contactPickError':
+      'Impossible de lire les fichiers de contacts selectionnes.',
+  'formations.fixContact': 'Corriger le contact',
+  'formations.emailAddress': 'Adresse email',
+  'formations.invalidEmail': 'Saisissez une adresse email valide.',
+  'formations.saveContact': 'Enregistrer le contact',
   'formations.monthPlan': 'Vue du mois',
   'formations.sessions': 'Sessions',
   'formations.participants': 'Participants',

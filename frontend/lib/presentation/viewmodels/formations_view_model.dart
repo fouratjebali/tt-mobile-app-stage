@@ -79,6 +79,25 @@ class FormationsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> importContactFiles(List<PlanningPickedFile> files) async {
+    state = LoadState.loading;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _planningApiService.importContactFiles(files: files);
+      final importId = activeImport?.importId;
+      if (importId != null && importId.isNotEmpty) {
+        await _planningApiService.applyContactMapping(importId: importId);
+      }
+      await _loadDetails();
+      state = LoadState.success;
+    } catch (error) {
+      errorMessage = error.toString();
+      state = LoadState.error;
+    }
+    notifyListeners();
+  }
+
   Future<void> generateDrafts({String emailType = 'auto'}) async {
     final importId = activeImport?.importId;
     if (importId == null || importId.isEmpty) return;
@@ -164,6 +183,25 @@ class FormationsViewModel extends ChangeNotifier {
     final updated = await _planningApiService.sendDraft(draft.id);
     _replaceDraft(updated);
     return updated;
+  }
+
+  Future<void> saveMissingContact({
+    required MissingPlanningContact contact,
+    required String email,
+  }) async {
+    await _planningApiService.saveContact(
+      matricule: contact.matricule,
+      fullName: contact.fullName,
+      email: email,
+      direction: contact.direction,
+      hrResponsible: contact.hrResponsible,
+    );
+    final importId = activeImport?.importId;
+    if (importId != null && importId.isNotEmpty) {
+      await _planningApiService.applyContactMapping(importId: importId);
+    }
+    await _loadDetails();
+    notifyListeners();
   }
 
   Future<void> _loadDetails() async {
