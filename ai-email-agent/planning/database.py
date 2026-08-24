@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from planning.contact_parser import EmployeeContact, normalize_name
 from planning.models import PlanningImportResult, TrainingSession
 
 
@@ -134,10 +135,13 @@ class PlanningDatabase:
                 CREATE TABLE IF NOT EXISTS employee_contacts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     matricule TEXT NOT NULL UNIQUE,
+                    normalized_name TEXT NOT NULL DEFAULT '',
                     full_name TEXT NOT NULL DEFAULT '',
                     email TEXT NOT NULL DEFAULT '',
                     direction TEXT NOT NULL DEFAULT '',
                     hr_responsible TEXT NOT NULL DEFAULT '',
+                    source_file TEXT NOT NULL DEFAULT '',
+                    source_row INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
 
@@ -183,6 +187,15 @@ class PlanningDatabase:
 
                 CREATE INDEX IF NOT EXISTS idx_training_send_logs_draft
                     ON training_email_send_logs(draft_id);
+                """
+            )
+            self._ensure_column(connection, "employee_contacts", "normalized_name", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "employee_contacts", "source_file", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "employee_contacts", "source_row", "INTEGER NOT NULL DEFAULT 0")
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_employee_contacts_normalized_name
+                    ON employee_contacts(normalized_name)
                 """
             )
 
@@ -433,6 +446,169 @@ class PlanningDatabase:
             ).fetchall()
             return [dict(row) for row in rows]
 
+    def save_contacts(self, contacts: list[EmployeeContact]) -> dict[str, Any]:
+        imported = 0
+        skipped = 0
+        with self._connect() as connection:
+            for contact in contacts:
+                contact_key = _contact_key(contact)
+                if not contact_key or not contact.email:
+                    skipped += 1
+                    continue
+                connection.execute(
+                    """
+                    INSERT INTO employee_contacts (
+                        matricule,
+                        normalized_name,
+                        full_name,
+                        email,
+                        direction,
+                        hr_responsible,
+                        source_file,
+                        source_row,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(matricule) DO UPDATE SET
+                        normalized_name = excluded.normalized_name,
+                        full_name = excluded.full_name,
+                        email = excluded.email,
+                        direction = excluded.direction,
+                        hr_responsible = excluded.hr_responsible,
+                        source_file = excluded.source_file,
+                        source_row = excluded.source_row,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (
+                        contact_key,
+                        contact.normalized_name,
+                        contact.full_name,
+                        contact.email,
+                        contact.direction,
+                        contact.hr_responsible,
+                        contact.source_file,
+                        contact.source_row,
+                    ),
+                )
+                imported += 1
+            connection.commit()
+        return {
+            "imported": imported,
+            "skipped": skipped,
+        }
+
+    def list_contacts(self, *, limit: int = 200, offset: int = 0) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    matricule,
+                    normalized_name,
+                    full_name,
+                    email,
+                    direction,
+                    hr_responsible,
+                    source_file,
+                    source_row,
+                    updated_at
+                FROM employee_contacts
+                ORDER BY full_name, matricule
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            ).fetchall()
+            return [_contact_row(row) for row in rows]
+
+    def apply_contact_mapping(self, *, import_id: str | None = None) -> dict[str, Any]:
+        with self._connect() as connection:
+            contacts = connection.execute(
+                """
+                SELECT matricule, normalized_name, email, direction, hr_responsible
+                FROM employee_contacts
+                WHERE email != ''
+                """
+            ).fetchall()
+            by_matricule = {
+                row["matricule"]: row
+                for row in contacts
+                if row["matricule"] and not str(row["matricule"]).startswith("name:")
+            }
+            name_counts: dict[str, int] = {}
+            by_name: dict[str, sqlite3.Row] = {}
+            for row in contacts:
+                normalized_name = row["normalized_name"]
+                if not normalized_name:
+                    continue
+                name_counts[normalized_name] = name_counts.get(normalized_name, 0) + 1
+                by_name[normalized_name] = row
+
+            clauses = ["email = ''"]
+            params: list[Any] = []
+            if import_id:
+                clauses.append("import_id = ?")
+                params.append(import_id)
+            participants = connection.execute(
+                f"""
+                SELECT id, import_id, matricule, full_name, missing_fields_json
+                FROM training_participants
+                WHERE {' AND '.join(clauses)}
+                """,
+                params,
+            ).fetchall()
+
+            mapped = 0
+            unmatched = 0
+            for participant in participants:
+                contact = None
+                matricule = participant["matricule"]
+                if matricule and matricule in by_matricule:
+                    contact = by_matricule[matricule]
+                else:
+                    normalized_name = _normalize_participant_name(participant["full_name"])
+                    if normalized_name and name_counts.get(normalized_name) == 1:
+                        contact = by_name[normalized_name]
+
+                if contact is None:
+                    unmatched += 1
+                    continue
+
+                missing_fields = [
+                    field
+                    for field in _loads(participant["missing_fields_json"])
+                    if field != "email"
+                ]
+                connection.execute(
+                    """
+                    UPDATE training_participants
+                    SET
+                        email = ?,
+                        direction = COALESCE(NULLIF(direction, ''), ?),
+                        hr_responsible = COALESCE(NULLIF(hr_responsible, ''), ?),
+                        missing_fields_json = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        contact["email"],
+                        contact["direction"],
+                        contact["hr_responsible"],
+                        _json(missing_fields),
+                        participant["id"],
+                    ),
+                )
+                mapped += 1
+
+            affected_imports = self._affected_import_ids(connection, import_id)
+            for affected_import_id in affected_imports:
+                self._refresh_import_counts(connection, affected_import_id)
+
+            connection.commit()
+
+        return {
+            "mapped": mapped,
+            "unmatched": unmatched,
+            "import_id": import_id or "",
+        }
+
     def _insert_session(
         self,
         connection: sqlite3.Connection,
@@ -560,26 +736,35 @@ class PlanningDatabase:
                     """
                     INSERT INTO employee_contacts (
                         matricule,
+                        normalized_name,
                         full_name,
                         email,
                         direction,
                         hr_responsible,
+                        source_file,
+                        source_row,
                         updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(matricule) DO UPDATE SET
+                        normalized_name = excluded.normalized_name,
                         full_name = excluded.full_name,
                         email = excluded.email,
                         direction = excluded.direction,
                         hr_responsible = excluded.hr_responsible,
+                        source_file = excluded.source_file,
+                        source_row = excluded.source_row,
                         updated_at = CURRENT_TIMESTAMP
                     """,
                     (
                         participant.matricule,
+                        _normalize_participant_name(participant.full_name),
                         participant.full_name,
                         participant.email,
                         participant.direction,
                         participant.hr_responsible,
+                        session.source_file,
+                        participant.source_row,
                     ),
                 )
 
@@ -591,6 +776,79 @@ class PlanningDatabase:
             yield connection
         finally:
             connection.close()
+
+    def _ensure_column(
+        self,
+        connection: sqlite3.Connection,
+        table: str,
+        column: str,
+        definition: str,
+    ) -> None:
+        existing = {
+            row["name"]
+            for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in existing:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+    def _affected_import_ids(
+        self,
+        connection: sqlite3.Connection,
+        import_id: str | None,
+    ) -> list[str]:
+        if import_id:
+            return [import_id]
+        rows = connection.execute("SELECT import_id FROM planning_imports").fetchall()
+        return [row["import_id"] for row in rows]
+
+    def _refresh_import_counts(
+        self,
+        connection: sqlite3.Connection,
+        import_id: str,
+    ) -> None:
+        counts = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS total_participants,
+                SUM(CASE WHEN email = '' THEN 1 ELSE 0 END) AS missing_email_count
+            FROM training_participants
+            WHERE import_id = ?
+            """,
+            (import_id,),
+        ).fetchone()
+        missing_email_count = int(counts["missing_email_count"] or 0)
+        current = connection.execute(
+            """
+            SELECT warning_count, error_count
+            FROM planning_imports
+            WHERE import_id = ?
+            """,
+            (import_id,),
+        ).fetchone()
+        if current is None:
+            return
+        if int(current["error_count"] or 0):
+            status = "error"
+        elif int(current["warning_count"] or 0) or missing_email_count:
+            status = "needs_review"
+        else:
+            status = "ok"
+        connection.execute(
+            """
+            UPDATE planning_imports
+            SET
+                total_participants = ?,
+                missing_email_count = ?,
+                status = ?
+            WHERE import_id = ?
+            """,
+            (
+                int(counts["total_participants"] or 0),
+                missing_email_count,
+                status,
+                import_id,
+            ),
+        )
 
     def _import_summary(
         self,
@@ -723,3 +981,30 @@ def _loads(value: str) -> Any:
         return json.loads(value)
     except json.JSONDecodeError:
         return []
+
+
+def _contact_key(contact: EmployeeContact) -> str:
+    if contact.matricule:
+        return contact.matricule
+    if contact.normalized_name:
+        return f"name:{contact.normalized_name}"
+    return ""
+
+
+def _contact_row(row: sqlite3.Row) -> dict[str, Any]:
+    matricule = str(row["matricule"] or "")
+    return {
+        "matricule": "" if matricule.startswith("name:") else matricule,
+        "normalized_name": row["normalized_name"],
+        "full_name": row["full_name"],
+        "email": row["email"],
+        "direction": row["direction"],
+        "hr_responsible": row["hr_responsible"],
+        "source_file": row["source_file"],
+        "source_row": row["source_row"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def _normalize_participant_name(value: str) -> str:
+    return normalize_name(value)

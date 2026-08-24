@@ -318,6 +318,60 @@ def list_planning_missing_contacts(
     }
 
 
+@app.post("/planning/contacts/import")
+async def import_employee_contacts(
+    files: list[UploadFile] = File(...),
+) -> dict[str, Any]:
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one contact directory file is required.",
+        )
+
+    loaded_files: list[tuple[str, bytes]] = []
+    for upload in files:
+        filename = upload.filename or "contacts.xlsx"
+        content = await upload.read()
+        if not content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"{filename} is empty.",
+            )
+        loaded_files.append((filename, content))
+
+    try:
+        return planning_import_service.import_contacts(loaded_files)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.get("/planning/contacts")
+def list_employee_contacts(
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    contacts = planning_import_service.list_contacts(limit=limit, offset=offset)
+    return {
+        "status": "ok",
+        "count": len(contacts),
+        "contacts": contacts,
+    }
+
+
+@app.post("/planning/contacts/apply")
+def apply_employee_contact_mapping(
+    import_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    result = planning_import_service.apply_contact_mapping(import_id=import_id)
+    return {
+        "status": "ok",
+        **result,
+    }
+
+
 @app.get("/dashboard/stats")
 def dashboard_stats(
     max_results: int = Query(default=10, ge=1, le=50),

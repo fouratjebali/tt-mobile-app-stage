@@ -261,3 +261,96 @@ def test_planning_import_api_lists_missing_contacts(tmp_path):
     contacts = missing_response.json()["contacts"]
     assert contacts[0]["matricule"] == "76052"
     assert contacts[0]["full_name"] == "JABRI Jawher"
+
+
+def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+            ],
+            [
+                "S3",
+                "Formation fibre optique",
+                "2026-09-20",
+                "2026-09-21",
+                "Gabes",
+                "76052",
+                "JABRI Jawher",
+            ],
+        ]
+    )
+    planning_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert planning_response.status_code == 200
+    import_id = planning_response.json()["import_id"]
+
+    contacts = workbook_bytes(
+        [
+            ["Matricule", "Nom et Prenom", "Email", "Direction", "Resp RH"],
+            [
+                "76052",
+                "JABRI Jawher",
+                "jawher.jabri@tunisietelecom.tn",
+                "DIRECTION REGIONALE GABES",
+                "Responsable RH Gabes",
+            ],
+        ]
+    )
+    contacts_response = client.post(
+        "/planning/contacts/import",
+        files={
+            "files": (
+                "contacts.xlsx",
+                contacts,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert contacts_response.status_code == 200
+    assert contacts_response.json()["imported"] == 1
+
+    saved_contacts = client.get("/planning/contacts")
+    assert saved_contacts.status_code == 200
+    assert saved_contacts.json()["contacts"][0]["email"] == "jawher.jabri@tunisietelecom.tn"
+
+    apply_response = client.post(
+        "/planning/contacts/apply",
+        params={"import_id": import_id},
+    )
+    assert apply_response.status_code == 200
+    assert apply_response.json()["mapped"] == 1
+
+    missing_response = client.get(
+        "/planning/missing-contacts",
+        params={"import_id": import_id},
+    )
+    assert missing_response.status_code == 200
+    assert missing_response.json()["count"] == 0
+
+    import_response = client.get(f"/planning/imports/{import_id}")
+    assert import_response.status_code == 200
+    payload = import_response.json()
+    assert payload["missing_email_count"] == 0
+    participant = payload["files"][0]["sessions"][0]["participants"][0]
+    assert participant["email"] == "jawher.jabri@tunisietelecom.tn"
+    assert "email" not in participant["missing_fields"]
