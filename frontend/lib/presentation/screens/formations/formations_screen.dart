@@ -2386,6 +2386,9 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
   }
 
   Future<void> _send() async {
+    final confirmed = await _openSendConfirmation();
+    if (confirmed != true) return;
+
     setState(() => _saving = true);
     try {
       await widget.viewModel.sendDraft(_draft);
@@ -2395,6 +2398,75 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<bool?> _openSendConfirmation() {
+    var checked = false;
+    final recipients = _draft.recipients;
+    final visibleRecipients = recipients.take(4).join('\n');
+    return showDialog<bool>(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              final l10n = context.l10n;
+              return AlertDialog(
+                title: Text(l10n.t('formations.sendSafetyTitle')),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.t('formations.sendSafetyMessage')),
+                      const SizedBox(height: 14),
+                      _SafetyLine(
+                        label: l10n.t('formations.subject'),
+                        value: _draft.subject,
+                      ),
+                      const SizedBox(height: 10),
+                      _SafetyLine(
+                        label: l10n.t('formations.recipients'),
+                        value:
+                            '${recipients.length} ${l10n.t('formations.sendSafetyRecipients')}',
+                      ),
+                      if (visibleRecipients.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          visibleRecipients,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      CheckboxListTile(
+                        value: checked,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(l10n.t('formations.sendSafetyCheckbox')),
+                        onChanged:
+                            (value) =>
+                                setDialogState(() => checked = value ?? false),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: Text(l10n.t('settings.cancel')),
+                  ),
+                  FilledButton.icon(
+                    onPressed:
+                        checked ? () => Navigator.of(context).pop(true) : null,
+                    icon: const Icon(Icons.send_rounded),
+                    label: Text(l10n.t('formations.sendWithOutlook')),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
   }
 
   Future<void> _reject() async {
@@ -2747,6 +2819,34 @@ class _RegenerateDraftPanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SafetyLine extends StatelessWidget {
+  const _SafetyLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value.isEmpty ? '-' : value,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
     );
   }
 }

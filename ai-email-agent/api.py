@@ -128,6 +128,12 @@ class RejectTrainingDraftRequest(BaseModel):
     reason: str = ""
 
 
+class SendTrainingDraftRequest(BaseModel):
+    confirmed: bool = False
+    confirmed_recipient_count: int | None = Field(default=None, ge=0)
+    confirmed_subject: str = ""
+
+
 @lru_cache(maxsize=1)
 def get_agent() -> EmailAgent:
     return EmailAgent()
@@ -764,14 +770,19 @@ def reject_training_draft(
 @app.post("/planning/drafts/{draft_id}/send")
 def send_training_draft(
     draft_id: int,
+    request: SendTrainingDraftRequest | None = None,
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
+    payload = request or SendTrainingDraftRequest()
     session = _require_outlook_session(authorization)
     try:
         draft = planning_import_service.send_training_draft(
             draft_id,
             outlook_sender=outlook_graph_client,
             access_token=session.access_token,
+            confirmed=payload.confirmed,
+            confirmed_recipient_count=payload.confirmed_recipient_count,
+            confirmed_subject=payload.confirmed_subject,
         )
     except OutlookGraphError as exc:
         raise HTTPException(

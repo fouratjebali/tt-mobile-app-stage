@@ -435,6 +435,9 @@ class PlanningImportService:
         *,
         outlook_sender: Any,
         access_token: str,
+        confirmed: bool = False,
+        confirmed_recipient_count: int | None = None,
+        confirmed_subject: str = "",
     ) -> dict[str, Any] | None:
         draft = self.database.get_training_draft(draft_id)
         if draft is None:
@@ -443,6 +446,12 @@ class PlanningImportService:
             raise ValueError("Only approved training drafts can be sent.")
         if not draft["recipients"]:
             raise ValueError("A training draft needs at least one recipient before sending.")
+        if not confirmed:
+            raise ValueError("Send confirmation is required before sending this draft.")
+        if confirmed_recipient_count != len(draft["recipients"]):
+            raise ValueError("Recipient confirmation does not match the approved draft.")
+        if confirmed_subject.strip() != draft["subject"].strip():
+            raise ValueError("Subject confirmation does not match the approved draft.")
 
         try:
             sent = outlook_sender.send_mail(

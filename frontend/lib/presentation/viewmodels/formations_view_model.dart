@@ -267,7 +267,11 @@ class FormationsViewModel extends ChangeNotifier {
   }
 
   Future<TrainingDraft> sendDraft(TrainingDraft draft) async {
-    final updated = await _planningApiService.sendDraft(draft.id);
+    final updated = await _planningApiService.sendDraft(
+      draftId: draft.id,
+      confirmedRecipientCount: draft.recipients.length,
+      confirmedSubject: draft.subject,
+    );
     _replaceDraft(updated);
     final importId = activeImport?.importId;
     if (importId != null && importId.isNotEmpty) {

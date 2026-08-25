@@ -274,8 +274,19 @@ class PlanningApiService {
     return TrainingDraft.fromJson(_map(_map(data)['draft']));
   }
 
-  Future<TrainingDraft> sendDraft(int draftId) async {
-    final data = await _apiService.post('/planning/drafts/$draftId/send');
+  Future<TrainingDraft> sendDraft({
+    required int draftId,
+    required int confirmedRecipientCount,
+    required String confirmedSubject,
+  }) async {
+    final data = await _apiService.post(
+      '/planning/drafts/$draftId/send',
+      body: {
+        'confirmed': true,
+        'confirmed_recipient_count': confirmedRecipientCount,
+        'confirmed_subject': confirmedSubject,
+      },
+    );
     return TrainingDraft.fromJson(_map(_map(data)['draft']));
   }
 }

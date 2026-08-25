@@ -141,10 +141,22 @@ def test_send_training_draft_uses_outlook_after_approval(tmp_path, monkeypatch):
 
     approve_response = client.post(f"/planning/drafts/{draft['id']}/approve")
     assert approve_response.status_code == 200
+    approved_draft = approve_response.json()["draft"]
+
+    unconfirmed_send = client.post(
+        f"/planning/drafts/{draft['id']}/send",
+        headers={"Authorization": f"Bearer {session.session_token}"},
+    )
+    assert unconfirmed_send.status_code == 409
 
     send_response = client.post(
         f"/planning/drafts/{draft['id']}/send",
         headers={"Authorization": f"Bearer {session.session_token}"},
+        json={
+            "confirmed": True,
+            "confirmed_recipient_count": len(approved_draft["recipients"]),
+            "confirmed_subject": approved_draft["subject"],
+        },
     )
 
     assert send_response.status_code == 200

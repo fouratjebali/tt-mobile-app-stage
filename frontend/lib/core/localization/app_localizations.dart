@@ -247,6 +247,12 @@ const Map<String, String> _english = {
   'formations.save': 'Save',
   'formations.approve': 'Approve',
   'formations.sendWithOutlook': 'Send with Outlook',
+  'formations.sendSafetyTitle': 'Confirm before sending',
+  'formations.sendSafetyMessage':
+      'This message will be sent from Outlook. Check the subject and recipients one last time.',
+  'formations.sendSafetyRecipients': 'recipient(s)',
+  'formations.sendSafetyCheckbox':
+      'I checked the recipients and content, and I want to send this email.',
   'formations.statusApproved': 'approved',
   'formations.statusEdited': 'edited',
   'formations.statusNeedsContacts': 'contacts',
@@ -567,6 +573,12 @@ const Map<String, String> _french = {
   'formations.save': 'Enregistrer',
   'formations.approve': 'Valider',
   'formations.sendWithOutlook': 'Envoyer avec Outlook',
+  'formations.sendSafetyTitle': 'Confirmer avant envoi',
+  'formations.sendSafetyMessage':
+      'Ce message sera envoye depuis Outlook. Verifiez une derniere fois l objet et les destinataires.',
+  'formations.sendSafetyRecipients': 'destinataire(s)',
+  'formations.sendSafetyCheckbox':
+      'J ai verifie les destinataires et le contenu, et je veux envoyer cet email.',
   'formations.statusApproved': 'valide',
   'formations.statusEdited': 'modifie',
   'formations.statusNeedsContacts': 'contacts',
