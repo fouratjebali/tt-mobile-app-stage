@@ -116,6 +116,19 @@ class PlanningApiService {
     return drafts.map((item) => TrainingDraft.fromJson(_map(item))).toList();
   }
 
+  Future<List<TrainingSendHistory>> listSendHistory({String? importId}) async {
+    final data = await _apiService.get(
+      '/planning/send-history',
+      queryParameters: {
+        if (importId != null && importId.isNotEmpty) 'import_id': importId,
+      },
+    );
+    final history = _list(_map(data)['history']);
+    return history
+        .map((item) => TrainingSendHistory.fromJson(_map(item)))
+        .toList();
+  }
+
   Future<List<TrainingDraft>> generateDrafts({
     required String importId,
     String emailType = 'auto',

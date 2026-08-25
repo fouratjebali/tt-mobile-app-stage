@@ -14,6 +14,7 @@ class FormationsViewModel extends ChangeNotifier {
   PlanningImportSummary? activeImport;
   List<PlanningImportSummary> imports = const [];
   List<TrainingDraft> drafts = const [];
+  List<TrainingSendHistory> sendHistory = const [];
   List<MissingPlanningContact> missingContacts = const [];
   Map<String, dynamic>? lastAutomation;
 
@@ -31,6 +32,7 @@ class FormationsViewModel extends ChangeNotifier {
   int get approvedCount =>
       drafts.where((draft) => draft.status == 'APPROVED').length;
   int get sentCount => drafts.where((draft) => draft.status == 'SENT').length;
+  int get sentHistoryCount => sendHistory.where((item) => item.isSent).length;
   int get blockedCount =>
       drafts.where((draft) => draft.status == 'NEEDS_CONTACTS').length;
 
@@ -182,6 +184,12 @@ class FormationsViewModel extends ChangeNotifier {
   Future<TrainingDraft> sendDraft(TrainingDraft draft) async {
     final updated = await _planningApiService.sendDraft(draft.id);
     _replaceDraft(updated);
+    final importId = activeImport?.importId;
+    if (importId != null && importId.isNotEmpty) {
+      sendHistory = await _planningApiService.listSendHistory(
+        importId: importId,
+      );
+    }
     return updated;
   }
 
@@ -208,10 +216,12 @@ class FormationsViewModel extends ChangeNotifier {
     final importId = activeImport?.importId;
     if (importId == null || importId.isEmpty) {
       drafts = const [];
+      sendHistory = const [];
       missingContacts = const [];
       return;
     }
     drafts = await _planningApiService.listDrafts(importId: importId);
+    sendHistory = await _planningApiService.listSendHistory(importId: importId);
     missingContacts = await _planningApiService.listMissingContacts(
       importId: importId,
     );

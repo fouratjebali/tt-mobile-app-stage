@@ -158,6 +158,11 @@ const Map<String, String> _english = {
   'formations.draftsToReview': 'Drafts to review',
   'formations.noDrafts':
       'No drafts yet. Import a planning file, then generate training emails.',
+  'formations.sendHistory': 'Send history',
+  'formations.noSendHistory':
+      'Sent and failed Outlook attempts will appear here.',
+  'formations.sentTo': 'To',
+  'formations.sentAt': 'Sent at',
   'formations.contactsToComplete': 'Contacts to complete',
   'formations.noSubject': '(No subject)',
   'formations.noRecipients': 'No recipient yet',
@@ -176,6 +181,7 @@ const Map<String, String> _english = {
   'formations.statusNeedsContacts': 'contacts',
   'formations.statusRejected': 'rejected',
   'formations.statusSent': 'sent',
+  'formations.statusError': 'error',
   'formations.statusWaiting': 'review',
   'formations.workflow': 'Workflow',
   'formations.stepImport': 'Import Excel planning',
@@ -401,6 +407,11 @@ const Map<String, String> _french = {
   'formations.draftsToReview': 'Brouillons a verifier',
   'formations.noDrafts':
       'Aucun brouillon. Importez un planning puis generez les emails de formation.',
+  'formations.sendHistory': 'Historique d envoi',
+  'formations.noSendHistory':
+      'Les envois Outlook et les echecs apparaitront ici.',
+  'formations.sentTo': 'A',
+  'formations.sentAt': 'Envoye le',
   'formations.contactsToComplete': 'Contacts a completer',
   'formations.noSubject': '(Sans objet)',
   'formations.noRecipients': 'Aucun destinataire',
@@ -419,6 +430,7 @@ const Map<String, String> _french = {
   'formations.statusNeedsContacts': 'contacts',
   'formations.statusRejected': 'refuse',
   'formations.statusSent': 'envoye',
+  'formations.statusError': 'erreur',
   'formations.statusWaiting': 'revue',
   'formations.workflow': 'Traitement',
   'formations.stepImport': 'Importer le planning Excel',

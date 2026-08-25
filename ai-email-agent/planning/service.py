@@ -278,6 +278,24 @@ class PlanningImportService:
             offset=offset,
         )
 
+    def list_training_send_logs(
+        self,
+        *,
+        import_id: str | None = None,
+        draft_id: int | None = None,
+        status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        return self.database.list_training_send_logs(
+            import_id=safe_import_id,
+            draft_id=draft_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+
     def get_training_draft(self, draft_id: int) -> dict[str, Any] | None:
         return self.database.get_training_draft(draft_id)
 

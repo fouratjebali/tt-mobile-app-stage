@@ -89,6 +89,53 @@ class TrainingDraft {
   }
 }
 
+class TrainingSendHistory {
+  const TrainingSendHistory({
+    required this.id,
+    required this.draftId,
+    required this.importId,
+    required this.sessionKey,
+    required this.emailType,
+    required this.subject,
+    required this.recipientEmail,
+    required this.status,
+    required this.providerMessageId,
+    required this.error,
+    required this.sentAt,
+  });
+
+  final int id;
+  final int draftId;
+  final String importId;
+  final String sessionKey;
+  final String emailType;
+  final String subject;
+  final String recipientEmail;
+  final String status;
+  final String providerMessageId;
+  final String error;
+  final String sentAt;
+
+  bool get isSent => status.toLowerCase() == 'sent';
+  bool get isError => status.toLowerCase() == 'error';
+
+  factory TrainingSendHistory.fromJson(Map<String, dynamic> json) {
+    return TrainingSendHistory(
+      id: _int(json['id']),
+      draftId: _int(json['draft_id']),
+      importId: _string(json['import_id']),
+      sessionKey: _string(json['session_key']),
+      emailType: _string(json['email_type']),
+      subject: _string(json['subject']),
+      recipientEmail: _string(json['recipient_email']),
+      status: _string(json['status']),
+      providerMessageId: _string(json['provider_message_id']),
+      error: _string(json['error']),
+      sentAt: _string(json['sent_at']),
+    );
+  }
+}
+
 class MissingPlanningContact {
   const MissingPlanningContact({
     required this.matricule,

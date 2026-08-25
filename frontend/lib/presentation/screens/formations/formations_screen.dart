@@ -193,6 +193,8 @@ class _FormationsScreenState extends State<FormationsScreen> {
                 onOpen: _openDraft,
               ),
               const SizedBox(height: 20),
+              _SendHistorySection(history: _viewModel.sendHistory, tone: tone),
+              const SizedBox(height: 20),
               _MissingContactsSection(
                 contacts: _viewModel.missingContacts,
                 tone: tone,
@@ -864,6 +866,145 @@ class _DraftCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SendHistorySection extends StatelessWidget {
+  const _SendHistorySection({required this.history, required this.tone});
+
+  final List<TrainingSendHistory> history;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: l10n.t('formations.sendHistory'),
+          count: history.length,
+          tone: tone,
+        ),
+        const SizedBox(height: 12),
+        if (history.isEmpty)
+          _InlineMessage(
+            icon: Icons.history_rounded,
+            message: l10n.t('formations.noSendHistory'),
+            tone: tone,
+          )
+        else
+          for (final item in history.take(6)) ...[
+            _SendHistoryCard(item: item, tone: tone),
+            const SizedBox(height: 10),
+          ],
+      ],
+    );
+  }
+}
+
+class _SendHistoryCard extends StatelessWidget {
+  const _SendHistoryCard({required this.item, required this.tone});
+
+  final TrainingSendHistory item;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final color = item.isSent ? AppPalette.deepTeal : AppPalette.clay;
+    final statusLabel =
+        item.isSent
+            ? l10n.t('formations.statusSent')
+            : l10n.t('formations.statusError');
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  item.subject.isEmpty
+                      ? l10n.t('formations.noSubject')
+                      : item.subject,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    height: 1.15,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _StatusPill(label: statusLabel, color: color),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.alternate_email_rounded, size: 15, color: tone.muted),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '${l10n.t('formations.sentTo')} ${item.recipientEmail}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Row(
+            children: [
+              Icon(Icons.schedule_rounded, size: 15, color: tone.muted),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '${l10n.t('formations.sentAt')} ${_formatHistoryDate(item.sentAt)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (item.isError && item.error.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              item.error,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppPalette.clay,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1546,6 +1687,16 @@ Color _statusColor(String status) {
     'SENT' => AppPalette.deepTeal,
     _ => AppPalette.amber,
   };
+}
+
+String _formatHistoryDate(String value) {
+  final normalized = value.replaceFirst(' ', 'T');
+  final parsed = DateTime.tryParse(normalized);
+  if (parsed == null) return value;
+  final local = parsed.toLocal();
+  String twoDigits(int number) => number.toString().padLeft(2, '0');
+  return '${twoDigits(local.day)}/${twoDigits(local.month)}/${local.year} '
+      '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
 }
 
 List<String> _splitEmails(String value) {

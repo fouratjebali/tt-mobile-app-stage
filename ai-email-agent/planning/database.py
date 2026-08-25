@@ -883,6 +883,70 @@ class PlanningDatabase:
             )
             connection.commit()
 
+    def list_training_send_logs(
+        self,
+        *,
+        import_id: str | None = None,
+        draft_id: int | None = None,
+        status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if import_id:
+            clauses.append("d.import_id = ?")
+            params.append(import_id)
+        if draft_id is not None:
+            clauses.append("l.draft_id = ?")
+            params.append(draft_id)
+        if status:
+            clauses.append("LOWER(l.status) = LOWER(?)")
+            params.append(status)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.extend([limit, offset])
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    l.id,
+                    l.draft_id,
+                    l.recipient_email,
+                    l.status,
+                    l.provider_message_id,
+                    l.error,
+                    l.sent_at,
+                    d.import_id,
+                    d.session_key,
+                    d.email_type,
+                    d.subject
+                FROM training_email_send_logs AS l
+                LEFT JOIN training_email_drafts AS d
+                    ON d.id = l.draft_id
+                {where}
+                ORDER BY l.sent_at DESC, l.id DESC
+                LIMIT ? OFFSET ?
+                """,
+                params,
+            ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "draft_id": int(row["draft_id"] or 0),
+                "import_id": row["import_id"] or "",
+                "session_key": row["session_key"] or "",
+                "email_type": row["email_type"] or "",
+                "subject": row["subject"] or "",
+                "recipient_email": row["recipient_email"] or "",
+                "status": row["status"] or "",
+                "provider_message_id": row["provider_message_id"] or "",
+                "error": row["error"] or "",
+                "sent_at": row["sent_at"] or "",
+            }
+            for row in rows
+        ]
+
     def _update_draft_status(
         self,
         draft_id: int,

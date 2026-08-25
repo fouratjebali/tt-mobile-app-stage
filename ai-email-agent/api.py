@@ -539,6 +539,28 @@ def list_training_drafts(
     }
 
 
+@app.get("/planning/send-history")
+def list_training_send_history(
+    import_id: str | None = Query(default=None),
+    draft_id: int | None = Query(default=None),
+    send_status: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    history = planning_import_service.list_training_send_logs(
+        import_id=import_id,
+        draft_id=draft_id,
+        status=send_status,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "status": "ok",
+        "count": len(history),
+        "history": history,
+    }
+
+
 @app.get("/planning/drafts/{draft_id}")
 def get_training_draft(draft_id: int) -> dict[str, Any]:
     draft = planning_import_service.get_training_draft(draft_id)
