@@ -91,6 +91,7 @@ const Map<String, String> _english = {
   'settings.signOutAction': 'Sign out',
   'settings.user': 'User',
   'common.back': 'Back',
+  'common.close': 'Close',
   'home.error': 'Error',
   'home.recentActivity': 'Recent activity',
   'home.noRecentActivity': 'No recent activity',
@@ -127,6 +128,25 @@ const Map<String, String> _english = {
   'formations.pickError': 'Unable to read the selected Excel files.',
   'formations.uploadLimit': 'Only the first 5 planning files were selected.',
   'formations.importDone': 'Planning imported successfully.',
+  'formations.importFeedbackTitle': 'Planning import result',
+  'formations.importFeedbackClean':
+      'Planning is ready. No blocking issue was found.',
+  'formations.importFeedbackNeedsReview':
+      'Planning was imported, but a few items need attention.',
+  'formations.feedbackFiles': 'Files',
+  'formations.feedbackMissingEmails': 'Missing emails',
+  'formations.feedbackAutomationRan':
+      'Automation prepared {generated} drafts and skipped {skipped} existing ones.',
+  'formations.feedbackAutomationSkipped':
+      'Automatic draft preparation is off. You can run it when ready.',
+  'formations.feedbackIssueCount':
+      '{warnings} warnings and {errors} errors were found.',
+  'formations.feedbackFilesTitle': 'Imported files',
+  'formations.feedbackFileSessions': '{count} sessions found',
+  'formations.importStatusOk': 'ready',
+  'formations.importStatusReview': 'review',
+  'formations.importStatusError': 'error',
+  'formations.importStatusUnknown': 'unknown',
   'formations.draftsDone': 'Drafts are ready for review.',
   'formations.automationDone':
       'Automation completed. Drafts are ready for review.',
@@ -361,6 +381,7 @@ const Map<String, String> _french = {
   'settings.signOutAction': 'Se déconnecter',
   'settings.user': 'Utilisateur',
   'common.back': 'Retour',
+  'common.close': 'Fermer',
   'home.error': 'Erreur',
   'home.recentActivity': 'Activité récente',
   'home.noRecentActivity': 'Aucune activité récente',
@@ -398,6 +419,25 @@ const Map<String, String> _french = {
   'formations.pickError': 'Impossible de lire les fichiers Excel selectionnes.',
   'formations.uploadLimit': 'Seuls les 5 premiers fichiers ont ete retenus.',
   'formations.importDone': 'Planning importe avec succes.',
+  'formations.importFeedbackTitle': 'Resultat de l import',
+  'formations.importFeedbackClean':
+      'Le planning est pret. Aucun probleme bloquant detecte.',
+  'formations.importFeedbackNeedsReview':
+      'Le planning est importe, mais certains points demandent attention.',
+  'formations.feedbackFiles': 'Fichiers',
+  'formations.feedbackMissingEmails': 'Emails manquants',
+  'formations.feedbackAutomationRan':
+      'L automatisation a prepare {generated} brouillons et ignore {skipped} existants.',
+  'formations.feedbackAutomationSkipped':
+      'La preparation automatique est desactivee. Vous pouvez la lancer plus tard.',
+  'formations.feedbackIssueCount':
+      '{warnings} alertes et {errors} erreurs detectees.',
+  'formations.feedbackFilesTitle': 'Fichiers importes',
+  'formations.feedbackFileSessions': '{count} sessions trouvees',
+  'formations.importStatusOk': 'pret',
+  'formations.importStatusReview': 'revue',
+  'formations.importStatusError': 'erreur',
+  'formations.importStatusUnknown': 'inconnu',
   'formations.draftsDone': 'Brouillons prets pour verification.',
   'formations.automationDone':
       'Automatisation terminee. Brouillons prets pour verification.',

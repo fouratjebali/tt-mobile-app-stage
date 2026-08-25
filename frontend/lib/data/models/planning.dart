@@ -8,6 +8,7 @@ class PlanningImportSummary {
     required this.warningCount,
     required this.errorCount,
     required this.createdAt,
+    required this.files,
   });
 
   final String importId;
@@ -18,6 +19,14 @@ class PlanningImportSummary {
   final int warningCount;
   final int errorCount;
   final String createdAt;
+  final List<PlanningImportFileSummary> files;
+
+  bool get hasIssues =>
+      status == 'error' ||
+      status == 'needs_review' ||
+      missingEmailCount > 0 ||
+      warningCount > 0 ||
+      errorCount > 0;
 
   factory PlanningImportSummary.fromJson(Map<String, dynamic> json) {
     return PlanningImportSummary(
@@ -29,6 +38,38 @@ class PlanningImportSummary {
       warningCount: _int(json['warning_count']),
       errorCount: _int(json['error_count']),
       createdAt: _string(json['created_at']),
+      files:
+          _list(json['files'])
+              .map((item) => PlanningImportFileSummary.fromJson(_map(item)))
+              .toList(),
+    );
+  }
+}
+
+class PlanningImportFileSummary {
+  const PlanningImportFileSummary({
+    required this.filename,
+    required this.status,
+    required this.sessionCount,
+    required this.warnings,
+    required this.errors,
+  });
+
+  final String filename;
+  final String status;
+  final int sessionCount;
+  final List<String> warnings;
+  final List<String> errors;
+
+  bool get hasIssues => warnings.isNotEmpty || errors.isNotEmpty;
+
+  factory PlanningImportFileSummary.fromJson(Map<String, dynamic> json) {
+    return PlanningImportFileSummary(
+      filename: _string(json['filename']),
+      status: _string(json['status']),
+      sessionCount: _list(json['sessions']).length,
+      warnings: _stringList(json['warnings']),
+      errors: _stringList(json['errors']),
     );
   }
 }
@@ -226,6 +267,8 @@ List<String> _stringList(Object? value) {
   }
   return const [];
 }
+
+List<dynamic> _list(Object? value) => value is List ? value : const [];
 
 Map<String, dynamic> _map(Object? value) {
   if (value is Map<String, dynamic>) return value;

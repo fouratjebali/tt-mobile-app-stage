@@ -12,6 +12,7 @@ class FormationsViewModel extends ChangeNotifier {
   LoadState state = LoadState.idle;
   String? errorMessage;
   PlanningImportSummary? activeImport;
+  PlanningImportSummary? lastImportResult;
   TrainingAutomationSettings? automationSettings;
   List<PlanningImportSummary> imports = const [];
   List<TrainingDraft> drafts = const [];
@@ -61,10 +62,13 @@ class FormationsViewModel extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
+      lastImportResult = null;
       automationSettings ??= await _planningApiService.getAutomationSettings();
-      activeImport = await _planningApiService.importPlanningFiles(
+      final imported = await _planningApiService.importPlanningFiles(
         files: files,
       );
+      lastImportResult = imported;
+      activeImport = imported;
       imports = [
         activeImport!,
         ...imports.where((item) => item.importId != activeImport!.importId),

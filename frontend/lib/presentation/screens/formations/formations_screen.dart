@@ -68,7 +68,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
     await _viewModel.importFiles(picked);
     if (!mounted) return;
     if (_viewModel.errorMessage == null) {
-      _showMessage(l10n.t('formations.importDone'));
+      await _openImportFeedback();
     }
   }
 
@@ -123,6 +123,25 @@ class _FormationsScreenState extends State<FormationsScreen> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _AutomationSettingsSheet(viewModel: _viewModel),
+    );
+  }
+
+  Future<void> _openImportFeedback() async {
+    final summary = _viewModel.lastImportResult;
+    if (summary == null) {
+      _showMessage(context.l10n.t('formations.importDone'));
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => _ImportFeedbackSheet(
+            summary: summary,
+            automation: _viewModel.lastAutomation,
+          ),
     );
   }
 
@@ -1261,6 +1280,326 @@ class _MissingContactsSection extends StatelessWidget {
   }
 }
 
+class _ImportFeedbackSheet extends StatelessWidget {
+  const _ImportFeedbackSheet({required this.summary, required this.automation});
+
+  final PlanningImportSummary summary;
+  final Map<String, dynamic>? automation;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final tone = _FormationTone.of(context);
+    final generated = _intFromMap(automation, 'generated');
+    final skipped = _intFromMap(automation, 'skipped_existing');
+    final autoRan = automation != null;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: tone.border,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.t('formations.importFeedbackTitle'),
+                    style: TextStyle(
+                      color: tone.text,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _StatusPill(
+                  label: _importStatusLabel(context, summary.status),
+                  color: _importStatusColor(summary.status),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              summary.hasIssues
+                  ? l10n.t('formations.importFeedbackNeedsReview')
+                  : l10n.t('formations.importFeedbackClean'),
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
+              crossAxisCount: 2,
+              childAspectRatio: 1.55,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _FeedbackMetric(
+                  label: l10n.t('formations.feedbackFiles'),
+                  value: '${summary.files.length}',
+                  icon: Icons.upload_file_rounded,
+                  tone: tone,
+                ),
+                _FeedbackMetric(
+                  label: l10n.t('formations.sessions'),
+                  value: '${summary.totalSessions}',
+                  icon: Icons.event_available_rounded,
+                  tone: tone,
+                ),
+                _FeedbackMetric(
+                  label: l10n.t('formations.participants'),
+                  value: '${summary.totalParticipants}',
+                  icon: Icons.groups_2_rounded,
+                  tone: tone,
+                ),
+                _FeedbackMetric(
+                  label: l10n.t('formations.feedbackMissingEmails'),
+                  value: '${summary.missingEmailCount}',
+                  icon: Icons.person_search_rounded,
+                  tone: tone,
+                  accent:
+                      summary.missingEmailCount > 0
+                          ? AppPalette.clay
+                          : AppPalette.deepTeal,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _InlineMessage(
+              icon:
+                  autoRan
+                      ? Icons.auto_awesome_rounded
+                      : Icons.pause_circle_outline_rounded,
+              message:
+                  autoRan
+                      ? l10n
+                          .t('formations.feedbackAutomationRan')
+                          .replaceAll('{generated}', '$generated')
+                          .replaceAll('{skipped}', '$skipped')
+                      : l10n.t('formations.feedbackAutomationSkipped'),
+              tone: tone,
+              accent: autoRan ? AppPalette.deepTeal : AppPalette.amber,
+            ),
+            if (summary.warningCount > 0 || summary.errorCount > 0) ...[
+              const SizedBox(height: 12),
+              _InlineMessage(
+                icon: Icons.warning_amber_rounded,
+                message: l10n
+                    .t('formations.feedbackIssueCount')
+                    .replaceAll('{warnings}', '${summary.warningCount}')
+                    .replaceAll('{errors}', '${summary.errorCount}'),
+                tone: tone,
+                accent: AppPalette.clay,
+              ),
+            ],
+            const SizedBox(height: 16),
+            Text(
+              l10n.t('formations.feedbackFilesTitle'),
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final file in summary.files) ...[
+              _ImportFileResultCard(file: file, tone: tone),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppPalette.deepTeal,
+                  foregroundColor: AppPalette.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(l10n.t('common.close')),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedbackMetric extends StatelessWidget {
+  const _FeedbackMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.tone,
+    this.accent = AppPalette.deepTeal,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final _FormationTone tone;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: tone.softSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, color: accent, size: 22),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 23,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tone.muted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportFileResultCard extends StatelessWidget {
+  const _ImportFileResultCard({required this.file, required this.tone});
+
+  final PlanningImportFileSummary file;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final issues = [...file.errors, ...file.warnings];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.softSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                file.hasIssues
+                    ? Icons.warning_amber_rounded
+                    : Icons.check_circle_outline_rounded,
+                color: file.hasIssues ? AppPalette.clay : AppPalette.deepTeal,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      file.filename,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.text,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n
+                          .t('formations.feedbackFileSessions')
+                          .replaceAll('{count}', '${file.sessionCount}'),
+                      style: TextStyle(
+                        color: tone.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _StatusPill(
+                label: _importStatusLabel(context, file.status),
+                color: _importStatusColor(file.status),
+              ),
+            ],
+          ),
+          if (issues.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final issue in issues.take(3)) ...[
+              Text(
+                issue,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tone.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _AutomationSettingsSheet extends StatefulWidget {
   const _AutomationSettingsSheet({required this.viewModel});
 
@@ -2138,6 +2477,33 @@ Color _statusColor(String status) {
     'SENT' => AppPalette.deepTeal,
     _ => AppPalette.amber,
   };
+}
+
+String _importStatusLabel(BuildContext context, String status) {
+  final l10n = context.l10n;
+  return switch (status) {
+    'ok' => l10n.t('formations.importStatusOk'),
+    'needs_review' => l10n.t('formations.importStatusReview'),
+    'error' => l10n.t('formations.importStatusError'),
+    _ => status.isEmpty ? l10n.t('formations.importStatusUnknown') : status,
+  };
+}
+
+Color _importStatusColor(String status) {
+  return switch (status) {
+    'ok' => AppPalette.deepTeal,
+    'needs_review' => AppPalette.amber,
+    'error' => AppPalette.clay,
+    _ => AppPalette.blue,
+  };
+}
+
+int _intFromMap(Map<String, dynamic>? value, String key) {
+  final raw = value?[key];
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  if (raw is String) return int.tryParse(raw) ?? 0;
+  return 0;
 }
 
 TrainingAutomationSettings _defaultAutomationSettings() {
