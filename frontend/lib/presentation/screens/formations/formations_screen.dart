@@ -1448,7 +1448,7 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
           )
         else ...[
           SizedBox(
-            height: 82,
+            height: 76,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: days.length,
@@ -1516,7 +1516,8 @@ class _CalendarDayChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         width: 72,
-        padding: const EdgeInsets.all(10),
+        height: 76,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
         decoration: BoxDecoration(
           color:
               selected
@@ -1531,7 +1532,7 @@ class _CalendarDayChip extends StatelessWidget {
           ),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               _weekdayShort(context, date),
@@ -1541,25 +1542,35 @@ class _CalendarDayChip extends StatelessWidget {
                 color: tone.muted,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
+                height: 1,
               ),
             ),
-            const SizedBox(height: 5),
             Text(
               '${date.day}',
               style: TextStyle(
                 color: accent,
-                fontSize: 22,
+                fontSize: 21,
                 fontWeight: FontWeight.w900,
                 height: 1,
               ),
             ),
-            const SizedBox(height: 5),
-            Text(
-              '$count',
-              style: TextStyle(
-                color: accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
+            Container(
+              constraints: const BoxConstraints(minWidth: 22),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: selected ? 0.16 : 0.10),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$count',
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
               ),
             ),
           ],
