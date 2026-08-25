@@ -26,6 +26,24 @@ class PlanningImportService:
         self.training_agent = training_agent or FrenchTrainingAgent()
         self.database = database or PlanningDatabase(db_path)
 
+    def get_automation_settings(self) -> dict[str, Any]:
+        return self.database.get_automation_settings()
+
+    def update_automation_settings(
+        self,
+        *,
+        auto_run_after_import: bool | None = None,
+        default_email_type: str | None = None,
+        include_population: bool | None = None,
+        max_drafts_per_run: int | None = None,
+    ) -> dict[str, Any]:
+        return self.database.update_automation_settings(
+            auto_run_after_import=auto_run_after_import,
+            default_email_type=default_email_type,
+            include_population=include_population,
+            max_drafts_per_run=max_drafts_per_run,
+        )
+
     def import_files(self, files: list[tuple[str, bytes]]) -> PlanningImportResult:
         if not files:
             raise ValueError("At least one planning file is required.")
@@ -218,10 +236,18 @@ class PlanningImportService:
         self,
         *,
         import_id: str | None = None,
-        email_type: str = "auto",
-        include_population: bool = True,
-        limit: int = 500,
+        email_type: str | None = None,
+        include_population: bool | None = None,
+        limit: int | None = None,
     ) -> dict[str, Any]:
+        automation_settings = self.database.get_automation_settings()
+        resolved_email_type = email_type or automation_settings["default_email_type"]
+        resolved_include_population = (
+            automation_settings["include_population"]
+            if include_population is None
+            else include_population
+        )
+        resolved_limit = limit or automation_settings["max_drafts_per_run"]
         safe_import_id = sanitize_import_id(import_id) if import_id else None
         if safe_import_id is None:
             imports = self.database.list_imports()
@@ -241,9 +267,9 @@ class PlanningImportService:
         mapping = self.database.apply_contact_mapping(import_id=safe_import_id)
         generated = self.generate_training_drafts(
             import_id=safe_import_id,
-            email_type=email_type,
-            include_population=include_population,
-            limit=limit,
+            email_type=resolved_email_type,
+            include_population=resolved_include_population,
+            limit=resolved_limit,
             skip_existing=True,
         )
         status = "ok"
@@ -257,6 +283,12 @@ class PlanningImportService:
             "generated": generated["generated"],
             "skipped_existing": generated["skipped_existing"],
             "errors": generated["errors"],
+            "settings": {
+                **automation_settings,
+                "default_email_type": resolved_email_type,
+                "include_population": resolved_include_population,
+                "max_drafts_per_run": resolved_limit,
+            },
             "drafts": generated["drafts"],
         }
 

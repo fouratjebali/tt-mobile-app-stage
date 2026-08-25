@@ -61,6 +61,30 @@ class PlanningApiService {
     return const [];
   }
 
+  Future<TrainingAutomationSettings> getAutomationSettings() async {
+    final data = await _apiService.get('/planning/automation/settings');
+    return TrainingAutomationSettings.fromJson(_map(_map(data)['settings']));
+  }
+
+  Future<TrainingAutomationSettings> updateAutomationSettings({
+    bool? autoRunAfterImport,
+    String? defaultEmailType,
+    bool? includePopulation,
+    int? maxDraftsPerRun,
+  }) async {
+    final data = await _apiService.patch(
+      '/planning/automation/settings',
+      body: {
+        if (autoRunAfterImport != null)
+          'auto_run_after_import': autoRunAfterImport,
+        if (defaultEmailType != null) 'default_email_type': defaultEmailType,
+        if (includePopulation != null) 'include_population': includePopulation,
+        if (maxDraftsPerRun != null) 'max_drafts_per_run': maxDraftsPerRun,
+      },
+    );
+    return TrainingAutomationSettings.fromJson(_map(_map(data)['settings']));
+  }
+
   Future<List<MissingPlanningContact>> listMissingContacts({
     String? importId,
   }) async {
@@ -148,14 +172,17 @@ class PlanningApiService {
 
   Future<Map<String, dynamic>> runAutomation({
     required String importId,
-    String emailType = 'auto',
+    String? emailType,
+    bool? includePopulation,
+    int? limit,
   }) async {
     final data = await _apiService.post(
       '/planning/automation/run',
       body: {
         'import_id': importId,
-        'email_type': emailType,
-        'include_population': true,
+        if (emailType != null) 'email_type': emailType,
+        if (includePopulation != null) 'include_population': includePopulation,
+        if (limit != null) 'limit': limit,
       },
       timeout: _planningTimeout,
     );

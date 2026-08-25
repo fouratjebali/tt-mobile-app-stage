@@ -116,6 +116,16 @@ class _FormationsScreenState extends State<FormationsScreen> {
     }
   }
 
+  Future<void> _openAutomationSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AutomationSettingsSheet(viewModel: _viewModel),
+    );
+  }
+
   Future<void> _openDraft(TrainingDraft draft) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -185,6 +195,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
                 viewModel: _viewModel,
                 tone: tone,
                 onGenerate: _generateDrafts,
+                onSettings: _openAutomationSettings,
               ),
               const SizedBox(height: 20),
               _DraftsSection(
@@ -594,11 +605,13 @@ class _ActionPanel extends StatelessWidget {
     required this.viewModel,
     required this.tone,
     required this.onGenerate,
+    required this.onSettings,
   });
 
   final FormationsViewModel viewModel;
   final _FormationTone tone;
   final VoidCallback onGenerate;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -627,6 +640,12 @@ class _ActionPanel extends StatelessWidget {
                   ),
                 ),
               ),
+              IconButton(
+                onPressed: onSettings,
+                icon: const Icon(Icons.tune_rounded),
+                tooltip: l10n.t('formations.automationSettings'),
+              ),
+              const SizedBox(width: 4),
               _StatusPill(
                 label:
                     hasImport
@@ -1084,6 +1103,284 @@ class _MissingContactsSection extends StatelessWidget {
           const SizedBox(height: 8),
         ],
       ],
+    );
+  }
+}
+
+class _AutomationSettingsSheet extends StatefulWidget {
+  const _AutomationSettingsSheet({required this.viewModel});
+
+  final FormationsViewModel viewModel;
+
+  @override
+  State<_AutomationSettingsSheet> createState() =>
+      _AutomationSettingsSheetState();
+}
+
+class _AutomationSettingsSheetState extends State<_AutomationSettingsSheet> {
+  late bool _autoRunAfterImport;
+  late String _defaultEmailType;
+  late bool _includePopulation;
+  late int _maxDraftsPerRun;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings =
+        widget.viewModel.automationSettings ?? _defaultAutomationSettings();
+    _autoRunAfterImport = settings.autoRunAfterImport;
+    _defaultEmailType = settings.defaultEmailType;
+    _includePopulation = settings.includePopulation;
+    _maxDraftsPerRun =
+        settings.maxDraftsPerRun == 0 ? 100 : settings.maxDraftsPerRun;
+    if (![25, 50, 100, 200, 500].contains(_maxDraftsPerRun)) {
+      _maxDraftsPerRun = 100;
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await widget.viewModel.saveAutomationSettings(
+        TrainingAutomationSettings(
+          autoRunAfterImport: _autoRunAfterImport,
+          defaultEmailType: _defaultEmailType,
+          includePopulation: _includePopulation,
+          maxDraftsPerRun: _maxDraftsPerRun,
+          updatedAt: '',
+        ),
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final tone = _FormationTone.of(context);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomInset),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: tone.border,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              l10n.t('formations.automationSettings'),
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              l10n.t('formations.automationSettingsSubtitle'),
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 18),
+            _SwitchSettingRow(
+              title: l10n.t('formations.autoRunAfterImport'),
+              subtitle: l10n.t('formations.autoRunAfterImportHint'),
+              value: _autoRunAfterImport,
+              tone: tone,
+              onChanged: (value) => setState(() => _autoRunAfterImport = value),
+            ),
+            const SizedBox(height: 12),
+            _SettingsDropdown<String>(
+              label: l10n.t('formations.defaultEmailType'),
+              value: _defaultEmailType,
+              items: const ['auto', 'sensibilisation', 'confirmation_presence'],
+              itemLabel: (value) => _automationEmailTypeLabel(context, value),
+              tone: tone,
+              onChanged: (value) => setState(() => _defaultEmailType = value),
+            ),
+            const SizedBox(height: 12),
+            _SwitchSettingRow(
+              title: l10n.t('formations.includePopulation'),
+              subtitle: l10n.t('formations.includePopulationHint'),
+              value: _includePopulation,
+              tone: tone,
+              onChanged: (value) => setState(() => _includePopulation = value),
+            ),
+            const SizedBox(height: 12),
+            _SettingsDropdown<int>(
+              label: l10n.t('formations.maxDraftsPerRun'),
+              value: _maxDraftsPerRun,
+              items: const [25, 50, 100, 200, 500],
+              itemLabel: (value) => '$value',
+              tone: tone,
+              onChanged: (value) => setState(() => _maxDraftsPerRun = value),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon:
+                    _saving
+                        ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.save_rounded),
+                label: Text(l10n.t('formations.saveAutomationSettings')),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppPalette.deepTeal,
+                  foregroundColor: AppPalette.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SwitchSettingRow extends StatelessWidget {
+  const _SwitchSettingRow({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.tone,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final _FormationTone tone;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: tone.softSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsDropdown<T> extends StatelessWidget {
+  const _SettingsDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.itemLabel,
+    required this.tone,
+    required this.onChanged,
+  });
+
+  final String label;
+  final T value;
+  final List<T> items;
+  final String Function(T value) itemLabel;
+  final _FormationTone tone;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      isExpanded: true,
+      dropdownColor: tone.surface,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: tone.softSurface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: tone.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: tone.border),
+        ),
+      ),
+      items:
+          items
+              .map(
+                (item) => DropdownMenuItem<T>(
+                  value: item,
+                  child: Text(itemLabel(item)),
+                ),
+              )
+              .toList(),
+      onChanged: (value) {
+        if (value != null) onChanged(value);
+      },
     );
   }
 }
@@ -1686,6 +1983,25 @@ Color _statusColor(String status) {
     'REJECTED' => AppPalette.clay,
     'SENT' => AppPalette.deepTeal,
     _ => AppPalette.amber,
+  };
+}
+
+TrainingAutomationSettings _defaultAutomationSettings() {
+  return const TrainingAutomationSettings(
+    autoRunAfterImport: true,
+    defaultEmailType: 'auto',
+    includePopulation: true,
+    maxDraftsPerRun: 100,
+    updatedAt: '',
+  );
+}
+
+String _automationEmailTypeLabel(BuildContext context, String value) {
+  final l10n = context.l10n;
+  return switch (value) {
+    'sensibilisation' => l10n.t('formations.emailTypeAwareness'),
+    'confirmation_presence' => l10n.t('formations.emailTypeConfirmation'),
+    _ => l10n.t('formations.emailTypeAuto'),
   };
 }
 

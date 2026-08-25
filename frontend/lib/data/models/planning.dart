@@ -33,6 +33,52 @@ class PlanningImportSummary {
   }
 }
 
+class TrainingAutomationSettings {
+  const TrainingAutomationSettings({
+    required this.autoRunAfterImport,
+    required this.defaultEmailType,
+    required this.includePopulation,
+    required this.maxDraftsPerRun,
+    required this.updatedAt,
+  });
+
+  final bool autoRunAfterImport;
+  final String defaultEmailType;
+  final bool includePopulation;
+  final int maxDraftsPerRun;
+  final String updatedAt;
+
+  TrainingAutomationSettings copyWith({
+    bool? autoRunAfterImport,
+    String? defaultEmailType,
+    bool? includePopulation,
+    int? maxDraftsPerRun,
+    String? updatedAt,
+  }) {
+    return TrainingAutomationSettings(
+      autoRunAfterImport: autoRunAfterImport ?? this.autoRunAfterImport,
+      defaultEmailType: defaultEmailType ?? this.defaultEmailType,
+      includePopulation: includePopulation ?? this.includePopulation,
+      maxDraftsPerRun: maxDraftsPerRun ?? this.maxDraftsPerRun,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  factory TrainingAutomationSettings.fromJson(Map<String, dynamic> json) {
+    final maxDrafts = _int(json['max_drafts_per_run']);
+    return TrainingAutomationSettings(
+      autoRunAfterImport: _bool(json['auto_run_after_import']),
+      defaultEmailType:
+          _string(json['default_email_type']).isEmpty
+              ? 'auto'
+              : _string(json['default_email_type']),
+      includePopulation: _bool(json['include_population']),
+      maxDraftsPerRun: maxDrafts == 0 ? 100 : maxDrafts,
+      updatedAt: _string(json['updated_at']),
+    );
+  }
+}
+
 class TrainingDraft {
   const TrainingDraft({
     required this.id,
@@ -185,4 +231,13 @@ Map<String, dynamic> _map(Object? value) {
   if (value is Map<String, dynamic>) return value;
   if (value is Map) return Map<String, dynamic>.from(value);
   return const {};
+}
+
+bool _bool(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    return {'1', 'true', 'yes', 'on'}.contains(value.toLowerCase().trim());
+  }
+  return false;
 }

@@ -12,6 +12,7 @@ class FormationsViewModel extends ChangeNotifier {
   LoadState state = LoadState.idle;
   String? errorMessage;
   PlanningImportSummary? activeImport;
+  TrainingAutomationSettings? automationSettings;
   List<PlanningImportSummary> imports = const [];
   List<TrainingDraft> drafts = const [];
   List<TrainingSendHistory> sendHistory = const [];
@@ -41,6 +42,7 @@ class FormationsViewModel extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
+      automationSettings = await _planningApiService.getAutomationSettings();
       imports = await _planningApiService.listImports();
       activeImport = imports.isNotEmpty ? imports.first : null;
       await _loadDetails();
@@ -57,6 +59,7 @@ class FormationsViewModel extends ChangeNotifier {
     errorMessage = null;
     notifyListeners();
     try {
+      automationSettings ??= await _planningApiService.getAutomationSettings();
       activeImport = await _planningApiService.importPlanningFiles(
         files: files,
       );
@@ -64,9 +67,13 @@ class FormationsViewModel extends ChangeNotifier {
         activeImport!,
         ...imports.where((item) => item.importId != activeImport!.importId),
       ];
-      lastAutomation = await _planningApiService.runAutomation(
-        importId: activeImport!.importId,
-      );
+      if (automationSettings?.autoRunAfterImport ?? true) {
+        lastAutomation = await _planningApiService.runAutomation(
+          importId: activeImport!.importId,
+        );
+      } else {
+        lastAutomation = null;
+      }
       imports = await _planningApiService.listImports();
       activeImport = imports.firstWhere(
         (item) => item.importId == activeImport!.importId,
@@ -129,7 +136,7 @@ class FormationsViewModel extends ChangeNotifier {
     try {
       lastAutomation = await _planningApiService.runAutomation(
         importId: importId,
-        emailType: emailType,
+        emailType: emailType == 'auto' ? null : emailType,
       );
       imports = await _planningApiService.listImports();
       activeImport = imports.firstWhere(
@@ -137,6 +144,27 @@ class FormationsViewModel extends ChangeNotifier {
         orElse: () => activeImport!,
       );
       await _loadDetails();
+      state = LoadState.success;
+    } catch (error) {
+      errorMessage = error.toString();
+      state = LoadState.error;
+    }
+    notifyListeners();
+  }
+
+  Future<void> saveAutomationSettings(
+    TrainingAutomationSettings settings,
+  ) async {
+    state = LoadState.loading;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      automationSettings = await _planningApiService.updateAutomationSettings(
+        autoRunAfterImport: settings.autoRunAfterImport,
+        defaultEmailType: settings.defaultEmailType,
+        includePopulation: settings.includePopulation,
+        maxDraftsPerRun: settings.maxDraftsPerRun,
+      );
       state = LoadState.success;
     } catch (error) {
       errorMessage = error.toString();

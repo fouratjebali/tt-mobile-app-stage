@@ -192,6 +192,24 @@ class PlanningDatabase:
 
                 CREATE INDEX IF NOT EXISTS idx_training_send_logs_draft
                     ON training_email_send_logs(draft_id);
+
+                CREATE TABLE IF NOT EXISTS planning_automation_settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    auto_run_after_import INTEGER NOT NULL DEFAULT 1,
+                    default_email_type TEXT NOT NULL DEFAULT 'auto',
+                    include_population INTEGER NOT NULL DEFAULT 1,
+                    max_drafts_per_run INTEGER NOT NULL DEFAULT 100,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                INSERT OR IGNORE INTO planning_automation_settings (
+                    id,
+                    auto_run_after_import,
+                    default_email_type,
+                    include_population,
+                    max_drafts_per_run
+                )
+                VALUES (1, 1, 'auto', 1, 100);
                 """
             )
             self._ensure_column(connection, "employee_contacts", "normalized_name", "TEXT NOT NULL DEFAULT ''")
@@ -205,6 +223,85 @@ class PlanningDatabase:
                     ON employee_contacts(normalized_name)
                 """
             )
+
+    def get_automation_settings(self) -> dict[str, Any]:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM planning_automation_settings
+                WHERE id = 1
+                """
+            ).fetchone()
+        if row is None:
+            return {
+                "auto_run_after_import": True,
+                "default_email_type": "auto",
+                "include_population": True,
+                "max_drafts_per_run": 100,
+                "updated_at": "",
+            }
+        return {
+            "auto_run_after_import": bool(row["auto_run_after_import"]),
+            "default_email_type": row["default_email_type"] or "auto",
+            "include_population": bool(row["include_population"]),
+            "max_drafts_per_run": int(row["max_drafts_per_run"] or 100),
+            "updated_at": row["updated_at"] or "",
+        }
+
+    def update_automation_settings(
+        self,
+        *,
+        auto_run_after_import: bool | None = None,
+        default_email_type: str | None = None,
+        include_population: bool | None = None,
+        max_drafts_per_run: int | None = None,
+    ) -> dict[str, Any]:
+        current = self.get_automation_settings()
+        next_email_type = (
+            current["default_email_type"]
+            if default_email_type is None
+            else default_email_type.strip().lower()
+        )
+        if next_email_type not in {"auto", "sensibilisation", "confirmation_presence"}:
+            raise ValueError("Unsupported automation email type.")
+        next_limit = (
+            current["max_drafts_per_run"]
+            if max_drafts_per_run is None
+            else max(1, min(500, int(max_drafts_per_run)))
+        )
+        next_auto_run = (
+            current["auto_run_after_import"]
+            if auto_run_after_import is None
+            else bool(auto_run_after_import)
+        )
+        next_include_population = (
+            current["include_population"]
+            if include_population is None
+            else bool(include_population)
+        )
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE planning_automation_settings
+                SET
+                    auto_run_after_import = ?,
+                    default_email_type = ?,
+                    include_population = ?,
+                    max_drafts_per_run = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+                """,
+                (
+                    1 if next_auto_run else 0,
+                    next_email_type,
+                    1 if next_include_population else 0,
+                    next_limit,
+                ),
+            )
+            connection.commit()
+        return self.get_automation_settings()
 
     def save_import(self, result: PlanningImportResult) -> None:
         with self._connect() as connection:

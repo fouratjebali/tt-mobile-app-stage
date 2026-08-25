@@ -167,3 +167,88 @@ def test_manual_contact_save_can_complete_missing_participant(tmp_path):
         params={"import_id": import_id},
     )
     assert missing_after.json()["count"] == 0
+
+
+def test_planning_automation_settings_control_default_run(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+
+    settings_response = client.patch(
+        "/planning/automation/settings",
+        json={
+            "auto_run_after_import": False,
+            "default_email_type": "sensibilisation",
+            "include_population": False,
+            "max_drafts_per_run": 1,
+        },
+    )
+    assert settings_response.status_code == 200
+    settings_payload = settings_response.json()["settings"]
+    assert settings_payload["auto_run_after_import"] is False
+    assert settings_payload["default_email_type"] == "sensibilisation"
+    assert settings_payload["include_population"] is False
+    assert settings_payload["max_drafts_per_run"] == 1
+
+    get_response = client.get("/planning/automation/settings")
+    assert get_response.status_code == 200
+    assert get_response.json()["settings"]["default_email_type"] == "sensibilisation"
+
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Email",
+            ],
+            [
+                "S11",
+                "Communication client",
+                "2026-09-28",
+                "2026-09-28",
+                "Tunis",
+                "50005",
+                "ALI Sami",
+                "sami.ali@tunisietelecom.tn",
+            ],
+            [
+                "S12",
+                "Gestion incidents",
+                "2026-09-29",
+                "2026-09-29",
+                "Tunis",
+                "50006",
+                "KARRAY Lina",
+                "lina.karray@tunisietelecom.tn",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    import_id = import_response.json()["import_id"]
+
+    run_response = client.post(
+        "/planning/automation/run",
+        json={"import_id": import_id},
+    )
+    assert run_response.status_code == 200
+    payload = run_response.json()
+    assert payload["generated"] == 1
+    assert payload["settings"]["default_email_type"] == "sensibilisation"
+    assert payload["settings"]["include_population"] is False
+    assert payload["settings"]["max_drafts_per_run"] == 1
+    assert payload["drafts"][0]["email_type"] == "sensibilisation"

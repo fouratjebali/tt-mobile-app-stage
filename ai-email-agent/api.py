@@ -91,9 +91,16 @@ class GenerateTrainingDraftsRequest(BaseModel):
 
 class RunPlanningAutomationRequest(BaseModel):
     import_id: str | None = None
-    email_type: str = "auto"
-    include_population: bool = True
-    limit: int = Field(default=500, ge=1, le=1000)
+    email_type: str | None = None
+    include_population: bool | None = None
+    limit: int | None = Field(default=None, ge=1, le=1000)
+
+
+class AutomationSettingsRequest(BaseModel):
+    auto_run_after_import: bool | None = None
+    default_email_type: str | None = None
+    include_population: bool | None = None
+    max_drafts_per_run: int | None = Field(default=None, ge=1, le=500)
 
 
 class SaveEmployeeContactRequest(BaseModel):
@@ -515,6 +522,36 @@ def run_planning_automation(request: RunPlanningAutomationRequest) -> dict[str, 
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
+
+@app.get("/planning/automation/settings")
+def get_planning_automation_settings() -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "settings": planning_import_service.get_automation_settings(),
+    }
+
+
+@app.patch("/planning/automation/settings")
+def update_planning_automation_settings(
+    request: AutomationSettingsRequest,
+) -> dict[str, Any]:
+    try:
+        settings_payload = planning_import_service.update_automation_settings(
+            auto_run_after_import=request.auto_run_after_import,
+            default_email_type=request.default_email_type,
+            include_population=request.include_population,
+            max_drafts_per_run=request.max_drafts_per_run,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return {
+        "status": "ok",
+        "settings": settings_payload,
+    }
 
 
 @app.get("/planning/drafts")

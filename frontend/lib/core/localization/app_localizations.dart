@@ -150,6 +150,21 @@ const Map<String, String> _english = {
       'Generated training emails stay blocked until you review, edit, and approve them.',
   'formations.generateDrafts': 'Generate training drafts',
   'formations.runAutomation': 'Run automation',
+  'formations.automationSettings': 'Automation settings',
+  'formations.automationSettingsSubtitle':
+      'Choose how training emails are prepared after a planning import.',
+  'formations.autoRunAfterImport': 'Prepare drafts after import',
+  'formations.autoRunAfterImportHint':
+      'New planning files can create review-ready drafts automatically.',
+  'formations.defaultEmailType': 'Default email type',
+  'formations.emailTypeAuto': 'Choose automatically',
+  'formations.emailTypeAwareness': 'Awareness email',
+  'formations.emailTypeConfirmation': 'Presence confirmation',
+  'formations.includePopulation': 'Include participant list',
+  'formations.includePopulationHint':
+      'Add the target population table in generated messages.',
+  'formations.maxDraftsPerRun': 'Maximum drafts per run',
+  'formations.saveAutomationSettings': 'Save settings',
   'formations.importReady': 'ready',
   'formations.waitingImport': 'waiting',
   'formations.waitingReview': 'Review',
@@ -399,6 +414,21 @@ const Map<String, String> _french = {
       'Les emails de formation restent bloques jusqu a verification, modification et validation.',
   'formations.generateDrafts': 'Generer les brouillons',
   'formations.runAutomation': 'Lancer l automatisation',
+  'formations.automationSettings': 'Parametres d automatisation',
+  'formations.automationSettingsSubtitle':
+      'Choisissez comment preparer les emails apres l import du planning.',
+  'formations.autoRunAfterImport': 'Preparer apres import',
+  'formations.autoRunAfterImportHint':
+      'Les nouveaux plannings peuvent creer automatiquement des brouillons a verifier.',
+  'formations.defaultEmailType': 'Type d email par defaut',
+  'formations.emailTypeAuto': 'Choix automatique',
+  'formations.emailTypeAwareness': 'Email de sensibilisation',
+  'formations.emailTypeConfirmation': 'Confirmation de presence',
+  'formations.includePopulation': 'Inclure la liste des participants',
+  'formations.includePopulationHint':
+      'Ajouter le tableau de la population cible dans les messages generes.',
+  'formations.maxDraftsPerRun': 'Brouillons maximum par lancement',
+  'formations.saveAutomationSettings': 'Enregistrer',
   'formations.importReady': 'pret',
   'formations.waitingImport': 'en attente',
   'formations.waitingReview': 'Revue',
