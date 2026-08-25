@@ -67,7 +67,9 @@ class PlanningExcelParser:
                 filename=filename,
                 status="error",
                 sheets=[],
-                errors=["Only .xlsx planning files are supported for now."],
+                errors=[
+                    "Unsupported planning file format. Please upload an Excel .xlsx file."
+                ],
             )
 
         try:
@@ -77,7 +79,10 @@ class PlanningExcelParser:
                 filename=filename,
                 status="error",
                 sheets=[],
-                errors=[f"Unable to read Excel file: {exc}"],
+                errors=[
+                    "The Excel planning file could not be read. Check that it is not "
+                    f"protected or corrupted, then upload it again. Technical detail: {exc}"
+                ],
             )
 
         all_sessions: dict[str, TrainingSession] = {}
@@ -98,7 +103,10 @@ class PlanningExcelParser:
             except PlanningParseError as exc:
                 warnings.append(f"{worksheet.title}: {exc}")
             except Exception as exc:
-                errors.append(f"{worksheet.title}: unexpected parser error: {exc}")
+                errors.append(
+                    f"{worksheet.title}: this sheet could not be imported. "
+                    f"Please check the planning columns and dates. Technical detail: {exc}"
+                )
 
         sessions = list(all_sessions.values())
         for session in sessions:
@@ -130,7 +138,10 @@ class PlanningExcelParser:
     ) -> tuple[list[TrainingSession], list[str]]:
         header_row, column_map = self._detect_header(worksheet)
         if header_row is None:
-            raise PlanningParseError("No recognizable planning header row found.")
+            raise PlanningParseError(
+                "Planning headers were not found. Expected columns include Module, "
+                "Date Debut, Date Fin, Lieu de formation, Matricule, and Nom & Prenom."
+            )
 
         sessions: dict[str, TrainingSession] = {}
         warnings: list[str] = []
@@ -164,7 +175,10 @@ class PlanningExcelParser:
                 existing.participants.append(participant)
 
         if not sessions:
-            warnings.append(f"{worksheet.title}: header row {header_row} found, but no sessions were imported.")
+            warnings.append(
+                f"{worksheet.title}: headers were found on row {header_row}, "
+                "but no training sessions were imported. Check that session rows are filled."
+            )
 
         return list(sessions.values()), warnings
 

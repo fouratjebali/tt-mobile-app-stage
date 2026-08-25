@@ -66,7 +66,9 @@ class ContactDirectoryParser:
         return ContactImportResult(
             filename=filename,
             status="error",
-            errors=["Only .xlsx and .csv contact directories are supported."],
+            errors=[
+                "Unsupported contact file format. Please upload a .xlsx or .csv directory."
+            ],
         )
 
     def _parse_xlsx(self, filename: str, content: bytes) -> ContactImportResult:
@@ -76,7 +78,10 @@ class ContactDirectoryParser:
             return ContactImportResult(
                 filename=filename,
                 status="error",
-                errors=[f"Unable to read contact directory: {exc}"],
+                errors=[
+                    "The contact directory could not be read. Check that it is not "
+                    f"protected or corrupted, then upload it again. Technical detail: {exc}"
+                ],
             )
 
         contacts: list[EmployeeContact] = []
@@ -85,7 +90,10 @@ class ContactDirectoryParser:
         for worksheet in workbook.worksheets:
             header_row, column_map = self._detect_xlsx_header(worksheet)
             if header_row is None:
-                warnings.append(f"{worksheet.title}: no contact header found.")
+                warnings.append(
+                    f"{worksheet.title}: contact headers were not found. "
+                    "Expected columns include Email plus Nom & Prenom or Matricule."
+                )
                 continue
             max_column = max(column_map.values(), default=0)
             for row_index, row in enumerate(
@@ -121,7 +129,7 @@ class ContactDirectoryParser:
             return ContactImportResult(
                 filename=filename,
                 status="error",
-                errors=["The contact directory is empty."],
+                errors=["The contact directory is empty. Choose a file that contains employee rows."],
             )
 
         header_index, column_map = self._detect_csv_header(rows)
@@ -129,7 +137,10 @@ class ContactDirectoryParser:
             return ContactImportResult(
                 filename=filename,
                 status="error",
-                errors=["No contact header found."],
+                errors=[
+                    "Contact headers were not found. Expected columns include Email "
+                    "plus Nom & Prenom or Matricule."
+                ],
             )
 
         contacts: list[EmployeeContact] = []
@@ -237,7 +248,14 @@ def _result(
     warnings: list[str],
 ) -> ContactImportResult:
     status = "ok" if contacts else "error"
-    errors = [] if contacts else ["No valid contacts were found."]
+    errors = (
+        []
+        if contacts
+        else [
+            "No valid contacts were found. Each row needs an email and either "
+            "a matricule or a name."
+        ]
+    )
     return ContactImportResult(
         filename=filename,
         status=status,
