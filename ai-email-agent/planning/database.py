@@ -550,6 +550,167 @@ class PlanningDatabase:
             ).fetchall()
             return [dict(row) for row in rows]
 
+    def list_contact_reviews(
+        self,
+        *,
+        import_id: str | None = None,
+        review_only: bool = False,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if import_id:
+            clauses.append("p.import_id = ?")
+            params.append(import_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        with self._connect() as connection:
+            participant_rows = connection.execute(
+                f"""
+                SELECT
+                    p.id,
+                    p.import_id,
+                    p.matricule,
+                    p.full_name,
+                    p.email,
+                    p.direction,
+                    p.hr_responsible,
+                    p.source_row,
+                    s.session_key,
+                    s.module,
+                    s.start_date,
+                    s.end_date
+                FROM training_participants AS p
+                JOIN training_sessions AS s
+                    ON s.id = p.session_id
+                {where}
+                ORDER BY p.full_name, p.matricule, s.start_date, s.module
+                """,
+                params,
+            ).fetchall()
+            contacts = connection.execute(
+                """
+                SELECT
+                    matricule,
+                    normalized_name,
+                    full_name,
+                    email,
+                    direction,
+                    hr_responsible,
+                    source_file,
+                    source_row,
+                    updated_at
+                FROM employee_contacts
+                WHERE email != ''
+                """
+            ).fetchall()
+
+        by_matricule = {
+            row["matricule"]: row
+            for row in contacts
+            if row["matricule"] and not str(row["matricule"]).startswith("name:")
+        }
+        by_email = {str(row["email"]).lower(): row for row in contacts if row["email"]}
+        name_counts: dict[str, int] = {}
+        by_name: dict[str, sqlite3.Row] = {}
+        for row in contacts:
+            normalized_name = row["normalized_name"]
+            if not normalized_name:
+                continue
+            name_counts[normalized_name] = name_counts.get(normalized_name, 0) + 1
+            by_name[normalized_name] = row
+
+        grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
+        for participant in participant_rows:
+            matricule = participant["matricule"] or ""
+            full_name = participant["full_name"] or ""
+            email = participant["email"] or ""
+            normalized_name = _normalize_participant_name(full_name)
+            matricule_contact = by_matricule.get(matricule) if matricule else None
+            name_contact = (
+                by_name.get(normalized_name)
+                if normalized_name and name_counts.get(normalized_name) == 1
+                else None
+            )
+            email_contact = by_email.get(email.lower()) if email else None
+            contact = matricule_contact or name_contact or email_contact
+
+            if not email:
+                status_value = "missing"
+                match_method = "none"
+                needs_review = True
+                reason = "Email missing from planning."
+                suggested_email = contact["email"] if contact is not None else ""
+            elif (
+                matricule_contact is not None
+                and str(matricule_contact["email"]).lower() == email.lower()
+            ):
+                status_value = "matched"
+                match_method = "matricule"
+                needs_review = False
+                reason = "Matched by matricule."
+                suggested_email = email
+            elif (
+                name_contact is not None
+                and str(name_contact["email"]).lower() == email.lower()
+            ):
+                status_value = "review"
+                match_method = "name"
+                needs_review = True
+                reason = "Matched by name. Please verify before sending."
+                suggested_email = email
+            else:
+                status_value = "matched"
+                match_method = "planning"
+                needs_review = False
+                reason = "Email provided by planning."
+                suggested_email = email
+
+            key = (matricule, normalized_name, email or suggested_email)
+            if key not in grouped:
+                grouped[key] = {
+                    "matricule": matricule,
+                    "full_name": full_name,
+                    "email": email,
+                    "suggested_email": suggested_email,
+                    "direction": participant["direction"] or "",
+                    "hr_responsible": participant["hr_responsible"] or "",
+                    "match_method": match_method,
+                    "status": status_value,
+                    "needs_review": needs_review,
+                    "reason": reason,
+                    "contact_source": contact["source_file"] if contact is not None else "",
+                    "session_count": 0,
+                    "sessions": [],
+                }
+            item = grouped[key]
+            item["session_count"] += 1
+            if len(item["sessions"]) < 3:
+                item["sessions"].append(
+                    {
+                        "session_key": participant["session_key"] or "",
+                        "module": participant["module"] or "",
+                        "start_date": participant["start_date"] or "",
+                        "end_date": participant["end_date"] or "",
+                    }
+                )
+
+        items = list(grouped.values())
+        items.sort(key=lambda item: (not item["needs_review"], item["full_name"], item["matricule"]))
+        counts = {
+            "total": len(items),
+            "matched": sum(1 for item in items if item["status"] == "matched"),
+            "review": sum(1 for item in items if item["status"] == "review"),
+            "missing": sum(1 for item in items if item["status"] == "missing"),
+        }
+        if review_only:
+            items = [item for item in items if item["needs_review"]]
+        return {
+            **counts,
+            "contacts": items[offset : offset + limit],
+        }
+
     def save_contacts(self, contacts: list[EmployeeContact]) -> dict[str, Any]:
         imported = 0
         skipped = 0

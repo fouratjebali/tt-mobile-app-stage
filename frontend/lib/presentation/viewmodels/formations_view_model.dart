@@ -18,6 +18,8 @@ class FormationsViewModel extends ChangeNotifier {
   List<TrainingDraft> drafts = const [];
   List<TrainingSendHistory> sendHistory = const [];
   List<MissingPlanningContact> missingContacts = const [];
+  PlanningContactReviewSummary? contactReviewSummary;
+  List<PlanningContactReview> contactReviews = const [];
   Map<String, dynamic>? lastAutomation;
   String draftStatusFilter = 'all';
   String draftEmailTypeFilter = 'all';
@@ -39,6 +41,8 @@ class FormationsViewModel extends ChangeNotifier {
   int get sentHistoryCount => sendHistory.where((item) => item.isSent).length;
   int get blockedCount =>
       drafts.where((draft) => draft.status == 'NEEDS_CONTACTS').length;
+  int get contactReviewCount => contactReviewSummary?.needsReview ?? 0;
+  int get contactMatchedCount => contactReviewSummary?.matched ?? 0;
 
   Future<void> load() async {
     state = LoadState.loading;
@@ -293,12 +297,33 @@ class FormationsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> saveReviewedContact({
+    required PlanningContactReview contact,
+    required String email,
+  }) async {
+    await _planningApiService.saveContact(
+      matricule: contact.matricule,
+      fullName: contact.fullName,
+      email: email,
+      direction: contact.direction,
+      hrResponsible: contact.hrResponsible,
+    );
+    final importId = activeImport?.importId;
+    if (importId != null && importId.isNotEmpty) {
+      await _planningApiService.applyContactMapping(importId: importId);
+    }
+    await _loadDetails();
+    notifyListeners();
+  }
+
   Future<void> _loadDetails() async {
     final importId = activeImport?.importId;
     if (importId == null || importId.isEmpty) {
       drafts = const [];
       sendHistory = const [];
       missingContacts = const [];
+      contactReviewSummary = null;
+      contactReviews = const [];
       return;
     }
     drafts = await _loadDraftsForImport(importId);
@@ -306,6 +331,10 @@ class FormationsViewModel extends ChangeNotifier {
     missingContacts = await _planningApiService.listMissingContacts(
       importId: importId,
     );
+    contactReviewSummary = await _planningApiService.listContactReview(
+      importId: importId,
+    );
+    contactReviews = contactReviewSummary?.contacts ?? const [];
   }
 
   Future<void> _reloadDrafts() async {

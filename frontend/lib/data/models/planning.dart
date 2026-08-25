@@ -223,6 +223,117 @@ class TrainingSendHistory {
   }
 }
 
+class PlanningContactReviewSummary {
+  const PlanningContactReviewSummary({
+    required this.total,
+    required this.matched,
+    required this.review,
+    required this.missing,
+    required this.contacts,
+  });
+
+  final int total;
+  final int matched;
+  final int review;
+  final int missing;
+  final List<PlanningContactReview> contacts;
+
+  int get needsReview => review + missing;
+
+  factory PlanningContactReviewSummary.fromJson(Map<String, dynamic> json) {
+    return PlanningContactReviewSummary(
+      total: _int(json['total']),
+      matched: _int(json['matched']),
+      review: _int(json['review']),
+      missing: _int(json['missing']),
+      contacts:
+          _list(
+            json['contacts'],
+          ).map((item) => PlanningContactReview.fromJson(_map(item))).toList(),
+    );
+  }
+}
+
+class PlanningContactReview {
+  const PlanningContactReview({
+    required this.matricule,
+    required this.fullName,
+    required this.email,
+    required this.suggestedEmail,
+    required this.direction,
+    required this.hrResponsible,
+    required this.matchMethod,
+    required this.status,
+    required this.needsReview,
+    required this.reason,
+    required this.contactSource,
+    required this.sessionCount,
+    required this.sessions,
+  });
+
+  final String matricule;
+  final String fullName;
+  final String email;
+  final String suggestedEmail;
+  final String direction;
+  final String hrResponsible;
+  final String matchMethod;
+  final String status;
+  final bool needsReview;
+  final String reason;
+  final String contactSource;
+  final int sessionCount;
+  final List<PlanningContactReviewSession> sessions;
+
+  String get displayEmail => email.isNotEmpty ? email : suggestedEmail;
+  bool get isMissing => status == 'missing';
+  bool get isNameMatch => matchMethod == 'name';
+
+  factory PlanningContactReview.fromJson(Map<String, dynamic> json) {
+    return PlanningContactReview(
+      matricule: _string(json['matricule']),
+      fullName: _string(json['full_name']),
+      email: _string(json['email']),
+      suggestedEmail: _string(json['suggested_email']),
+      direction: _string(json['direction']),
+      hrResponsible: _string(json['hr_responsible']),
+      matchMethod: _string(json['match_method']),
+      status: _string(json['status']),
+      needsReview: _bool(json['needs_review']),
+      reason: _string(json['reason']),
+      contactSource: _string(json['contact_source']),
+      sessionCount: _int(json['session_count']),
+      sessions:
+          _list(json['sessions'])
+              .map((item) => PlanningContactReviewSession.fromJson(_map(item)))
+              .toList(),
+    );
+  }
+}
+
+class PlanningContactReviewSession {
+  const PlanningContactReviewSession({
+    required this.sessionKey,
+    required this.module,
+    required this.startDate,
+    required this.endDate,
+  });
+
+  final String sessionKey;
+  final String module;
+  final String startDate;
+  final String endDate;
+
+  factory PlanningContactReviewSession.fromJson(Map<String, dynamic> json) {
+    return PlanningContactReviewSession(
+      sessionKey: _string(json['session_key']),
+      module: _string(json['module']),
+      startDate: _string(json['start_date']),
+      endDate: _string(json['end_date']),
+    );
+  }
+}
+
 class MissingPlanningContact {
   const MissingPlanningContact({
     required this.matricule,

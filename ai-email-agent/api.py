@@ -441,6 +441,25 @@ def list_planning_missing_contacts(
     }
 
 
+@app.get("/planning/contact-review")
+def list_planning_contact_review(
+    import_id: str | None = Query(default=None),
+    review_only: bool = Query(default=False),
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    result = planning_import_service.list_contact_reviews(
+        import_id=import_id,
+        review_only=review_only,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "status": "ok",
+        **result,
+    }
+
+
 @app.post("/planning/contacts/import")
 async def import_employee_contacts(
     files: list[UploadFile] = File(...),

@@ -236,3 +236,97 @@ def test_training_draft_can_be_regenerated_in_place(tmp_path):
     assert "Sensibilisation" in regenerated["subject"]
     assert regenerated["metadata"]["last_review_action"] == "regenerated"
     assert regenerated["metadata"]["previous_status"] == "EDITED"
+
+
+def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+            ],
+            [
+                "S21",
+                "Pilotage reseau IP",
+                "2026-11-03",
+                "2026-11-04",
+                "Tunis",
+                "90009",
+                "TRABELSI Karim",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    import_id = import_response.json()["import_id"]
+
+    initial_review = client.get(
+        "/planning/contact-review",
+        params={"import_id": import_id},
+    ).json()
+
+    assert initial_review["missing"] == 1
+    assert initial_review["contacts"][0]["status"] == "missing"
+    assert initial_review["contacts"][0]["needs_review"] is True
+
+    contacts_csv = (
+        "Nom & Prenom,Email\n"
+        "TRABELSI Karim,karim.trabelsi@tunisietelecom.tn\n"
+    ).encode()
+    contact_response = client.post(
+        "/planning/contacts/import",
+        files={"files": ("contacts.csv", contacts_csv, "text/csv")},
+    )
+    assert contact_response.status_code == 200
+    apply_response = client.post(
+        "/planning/contacts/apply",
+        params={"import_id": import_id},
+    )
+    assert apply_response.status_code == 200
+
+    name_review = client.get(
+        "/planning/contact-review",
+        params={"import_id": import_id},
+    ).json()
+
+    assert name_review["missing"] == 0
+    assert name_review["review"] == 1
+    assert name_review["contacts"][0]["match_method"] == "name"
+    assert name_review["contacts"][0]["needs_review"] is True
+
+    save_response = client.post(
+        "/planning/contacts",
+        json={
+            "matricule": "90009",
+            "full_name": "TRABELSI Karim",
+            "email": "karim.trabelsi@tunisietelecom.tn",
+        },
+    )
+    assert save_response.status_code == 200
+
+    exact_review = client.get(
+        "/planning/contact-review",
+        params={"import_id": import_id},
+    ).json()
+
+    assert exact_review["matched"] == 1
+    assert exact_review["review"] == 0
+    assert exact_review["contacts"][0]["match_method"] == "matricule"
+    assert exact_review["contacts"][0]["needs_review"] is False

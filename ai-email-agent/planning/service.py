@@ -111,6 +111,22 @@ class PlanningImportService:
             limit=limit,
         )
 
+    def list_contact_reviews(
+        self,
+        *,
+        import_id: str | None = None,
+        review_only: bool = False,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        return self.database.list_contact_reviews(
+            import_id=safe_import_id,
+            review_only=review_only,
+            limit=limit,
+            offset=offset,
+        )
+
     def import_contacts(self, files: list[tuple[str, bytes]]) -> dict[str, Any]:
         if not files:
             raise ValueError("At least one contact directory file is required.")

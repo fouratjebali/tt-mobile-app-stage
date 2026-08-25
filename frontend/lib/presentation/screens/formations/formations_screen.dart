@@ -177,7 +177,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
     );
   }
 
-  Future<void> _openContactFix(MissingPlanningContact contact) async {
+  Future<void> _openContactReview(PlanningContactReview contact) async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -250,10 +250,11 @@ class _FormationsScreenState extends State<FormationsScreen> {
               const SizedBox(height: 20),
               _SendHistorySection(history: _viewModel.sendHistory, tone: tone),
               const SizedBox(height: 20),
-              _MissingContactsSection(
-                contacts: _viewModel.missingContacts,
+              _ContactMatchingReviewSection(
+                summary: _viewModel.contactReviewSummary,
+                contacts: _viewModel.contactReviews,
                 tone: tone,
-                onFix: _openContactFix,
+                onFix: _openContactReview,
               ),
               if (_viewModel.activeImport == null) ...[
                 const SizedBox(height: 20),
@@ -1223,49 +1224,162 @@ class _SendHistoryCard extends StatelessWidget {
   }
 }
 
-class _MissingContactsSection extends StatelessWidget {
-  const _MissingContactsSection({
+class _ContactMatchingReviewSection extends StatelessWidget {
+  const _ContactMatchingReviewSection({
+    required this.summary,
     required this.contacts,
     required this.tone,
     required this.onFix,
   });
 
-  final List<MissingPlanningContact> contacts;
+  final PlanningContactReviewSummary? summary;
+  final List<PlanningContactReview> contacts;
   final _FormationTone tone;
-  final ValueChanged<MissingPlanningContact> onFix;
+  final ValueChanged<PlanningContactReview> onFix;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    if (contacts.isEmpty) return const SizedBox.shrink();
+    final currentSummary = summary;
+    if (currentSummary == null || currentSummary.total == 0) {
+      return const SizedBox.shrink();
+    }
+    final visibleContacts =
+        contacts.where((contact) => contact.needsReview).isEmpty
+            ? contacts.take(4).toList()
+            : contacts.where((contact) => contact.needsReview).take(8).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(
-          title: l10n.t('formations.contactsToComplete'),
-          count: contacts.length,
+          title: l10n.t('formations.contactReviewTitle'),
+          count: currentSummary.needsReview,
           tone: tone,
         ),
         const SizedBox(height: 12),
-        for (final contact in contacts.take(6)) ...[
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: tone.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: tone.border),
-            ),
-            child: Row(
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: tone.softSurface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: tone.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                currentSummary.needsReview == 0
+                    ? l10n.t('formations.contactReviewReady')
+                    : l10n.t('formations.contactReviewSubtitle'),
+                style: TextStyle(
+                  color: tone.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _CompactMetric(
+                      label: l10n.t('formations.contactReviewMatched'),
+                      value: '${currentSummary.matched}',
+                      tone: tone,
+                      accent: AppPalette.deepTeal,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _CompactMetric(
+                      label: l10n.t('formations.contactReviewNameMatch'),
+                      value: '${currentSummary.review}',
+                      tone: tone,
+                      accent: AppPalette.amber,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _CompactMetric(
+                      label: l10n.t('formations.contactReviewMissing'),
+                      value: '${currentSummary.missing}',
+                      tone: tone,
+                      accent: AppPalette.clay,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (final contact in visibleContacts) ...[
+          _ContactReviewCard(contact: contact, tone: tone, onFix: onFix),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _ContactReviewCard extends StatelessWidget {
+  const _ContactReviewCard({
+    required this.contact,
+    required this.tone,
+    required this.onFix,
+  });
+
+  final PlanningContactReview contact;
+  final _FormationTone tone;
+  final ValueChanged<PlanningContactReview> onFix;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final accent =
+        contact.isMissing
+            ? AppPalette.clay
+            : contact.needsReview
+            ? AppPalette.amber
+            : AppPalette.deepTeal;
+    final icon =
+        contact.isMissing
+            ? Icons.person_search_rounded
+            : contact.needsReview
+            ? Icons.manage_search_rounded
+            : Icons.verified_user_outlined;
+    final email =
+        contact.displayEmail.isEmpty
+            ? l10n.t('formations.contactReviewNoEmail')
+            : contact.displayEmail;
+    final firstSession =
+        contact.sessions.isEmpty ? null : contact.sessions.first;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: accent),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.person_search_rounded, color: AppPalette.clay),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        contact.fullName,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        contact.fullName.isEmpty
+                            ? l10n.t('settings.user')
+                            : contact.fullName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -1274,29 +1388,102 @@ class _MissingContactsSection extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${contact.matricule} - ${contact.sessionCount} session(s)',
-                        style: TextStyle(
-                          color: tone.muted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+                    ),
+                    const SizedBox(width: 8),
+                    _StatusPill(
+                      label: _contactMatchLabel(context, contact),
+                      color: accent,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                IconButton(
-                  onPressed: () => onFix(contact),
-                  icon: const Icon(Icons.edit_rounded),
-                  tooltip: l10n.t('formations.fixContact'),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    if (contact.matricule.isNotEmpty) contact.matricule,
+                    '${contact.sessionCount} session(s)',
+                    if (firstSession?.module.isNotEmpty ?? false)
+                      firstSession!.module,
+                  ].join(' - '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          IconButton(
+            onPressed: () => onFix(contact),
+            icon: const Icon(Icons.edit_rounded),
+            tooltip: l10n.t('formations.contactReviewEdit'),
+          ),
         ],
-      ],
+      ),
+    );
+  }
+}
+
+class _CompactMetric extends StatelessWidget {
+  const _CompactMetric({
+    required this.label,
+    required this.value,
+    required this.tone,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final _FormationTone tone;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: accent,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: tone.muted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1964,7 +2151,7 @@ class _ContactFixSheet extends StatefulWidget {
   const _ContactFixSheet({required this.viewModel, required this.contact});
 
   final FormationsViewModel viewModel;
-  final MissingPlanningContact contact;
+  final PlanningContactReview contact;
 
   @override
   State<_ContactFixSheet> createState() => _ContactFixSheetState();
@@ -1977,7 +2164,7 @@ class _ContactFixSheetState extends State<_ContactFixSheet> {
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController();
+    _emailController = TextEditingController(text: widget.contact.displayEmail);
   }
 
   @override
@@ -1994,7 +2181,7 @@ class _ContactFixSheetState extends State<_ContactFixSheet> {
     }
     setState(() => _saving = true);
     try {
-      await widget.viewModel.saveMissingContact(
+      await widget.viewModel.saveReviewedContact(
         contact: widget.contact,
         email: email,
       );
@@ -2042,7 +2229,7 @@ class _ContactFixSheetState extends State<_ContactFixSheet> {
             ),
             const SizedBox(height: 18),
             Text(
-              l10n.t('formations.fixContact'),
+              l10n.t('formations.contactReviewEdit'),
               style: TextStyle(
                 color: tone.text,
                 fontSize: 22,
@@ -2060,13 +2247,32 @@ class _ContactFixSheetState extends State<_ContactFixSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              widget.contact.matricule,
+              [
+                if (widget.contact.matricule.isNotEmpty)
+                  widget.contact.matricule,
+                _contactMatchLabel(context, widget.contact),
+              ].join(' - '),
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
             ),
+            if (widget.contact.reason.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _InlineMessage(
+                icon:
+                    widget.contact.needsReview
+                        ? Icons.info_outline_rounded
+                        : Icons.verified_outlined,
+                message: widget.contact.reason,
+                tone: tone,
+                accent:
+                    widget.contact.needsReview
+                        ? AppPalette.amber
+                        : AppPalette.deepTeal,
+              ),
+            ],
             const SizedBox(height: 16),
             _LabeledField(
               label: l10n.t('formations.emailAddress'),
@@ -2807,6 +3013,17 @@ String _draftStatusFilterLabel(BuildContext context, String value) {
 String _draftEmailTypeFilterLabel(BuildContext context, String value) {
   if (value == 'all') return context.l10n.t('formations.filterAllTypes');
   return _automationEmailTypeLabel(context, value);
+}
+
+String _contactMatchLabel(BuildContext context, PlanningContactReview contact) {
+  final l10n = context.l10n;
+  if (contact.isMissing) return l10n.t('formations.contactMatchMissing');
+  return switch (contact.matchMethod) {
+    'matricule' => l10n.t('formations.contactMatchMatricule'),
+    'name' => l10n.t('formations.contactMatchName'),
+    'planning' => l10n.t('formations.contactMatchPlanning'),
+    _ => l10n.t('formations.contactMatchReview'),
+  };
 }
 
 String _formatHistoryDate(String value) {

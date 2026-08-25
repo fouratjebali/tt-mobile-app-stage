@@ -117,6 +117,20 @@ class PlanningApiService {
         .toList();
   }
 
+  Future<PlanningContactReviewSummary> listContactReview({
+    String? importId,
+    bool reviewOnly = false,
+  }) async {
+    final data = await _apiService.get(
+      '/planning/contact-review',
+      queryParameters: {
+        if (importId != null && importId.isNotEmpty) 'import_id': importId,
+        'review_only': reviewOnly,
+      },
+    );
+    return PlanningContactReviewSummary.fromJson(_map(data));
+  }
+
   Future<void> saveContact({
     required String matricule,
     required String fullName,
