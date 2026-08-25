@@ -309,10 +309,7 @@ def send_bulk_drafts(request: SendBulkDraftsRequest) -> dict[str, Any]:
     }
 
 
-@app.post("/planning/import")
-async def import_planning_files(
-    files: list[UploadFile] = File(...),
-) -> dict[str, Any]:
+async def _load_planning_uploads(files: list[UploadFile]) -> list[tuple[str, bytes]]:
     if not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -334,9 +331,32 @@ async def import_planning_files(
                 detail=f"{filename} is empty.",
             )
         loaded_files.append((filename, content))
+    return loaded_files
 
+
+@app.post("/planning/import")
+async def import_planning_files(
+    files: list[UploadFile] = File(...),
+) -> dict[str, Any]:
+    loaded_files = await _load_planning_uploads(files)
     try:
         result = planning_import_service.import_files(loaded_files)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return result.to_dict()
+
+
+@app.post("/planning/import/preview")
+async def preview_planning_files(
+    files: list[UploadFile] = File(...),
+) -> dict[str, Any]:
+    loaded_files = await _load_planning_uploads(files)
+    try:
+        result = planning_import_service.preview_import_files(loaded_files)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -94,6 +94,27 @@ class FormationsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<PlanningImportSummary?> previewImportFiles(
+    List<PlanningPickedFile> files,
+  ) async {
+    state = LoadState.loading;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final preview = await _planningApiService.previewPlanningFiles(
+        files: files,
+      );
+      state = LoadState.success;
+      return preview;
+    } catch (error) {
+      errorMessage = error.toString();
+      state = LoadState.error;
+      return null;
+    } finally {
+      notifyListeners();
+    }
+  }
+
   Future<void> importContactFiles(List<PlanningPickedFile> files) async {
     state = LoadState.loading;
     errorMessage = null;

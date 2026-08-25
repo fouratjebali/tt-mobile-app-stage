@@ -129,10 +129,18 @@ const Map<String, String> _english = {
   'formations.uploadLimit': 'Only the first 5 planning files were selected.',
   'formations.importDone': 'Planning imported successfully.',
   'formations.importFeedbackTitle': 'Planning import result',
+  'formations.importPreviewTitle': 'Preview planning import',
   'formations.importFeedbackClean':
       'Planning is ready. No blocking issue was found.',
+  'formations.importPreviewClean':
+      'This planning looks ready to import. Nothing has been saved yet.',
   'formations.importFeedbackNeedsReview':
       'Planning was imported, but a few items need attention.',
+  'formations.importPreviewNeedsReview':
+      'Review these points before saving the planning.',
+  'formations.importPreviewNotSaved':
+      'This is only a preview. Confirm to save the planning and prepare drafts if automation is enabled.',
+  'formations.confirmImport': 'Import planning',
   'formations.feedbackFiles': 'Files',
   'formations.feedbackMissingEmails': 'Missing emails',
   'formations.feedbackAutomationRan':
@@ -420,10 +428,18 @@ const Map<String, String> _french = {
   'formations.uploadLimit': 'Seuls les 5 premiers fichiers ont ete retenus.',
   'formations.importDone': 'Planning importe avec succes.',
   'formations.importFeedbackTitle': 'Resultat de l import',
+  'formations.importPreviewTitle': 'Apercu avant import',
   'formations.importFeedbackClean':
       'Le planning est pret. Aucun probleme bloquant detecte.',
+  'formations.importPreviewClean':
+      'Ce planning semble pret a importer. Rien n est encore enregistre.',
   'formations.importFeedbackNeedsReview':
       'Le planning est importe, mais certains points demandent attention.',
+  'formations.importPreviewNeedsReview':
+      'Verifiez ces points avant d enregistrer le planning.',
+  'formations.importPreviewNotSaved':
+      'Ceci est seulement un apercu. Confirmez pour enregistrer le planning et preparer les brouillons si l automatisation est activee.',
+  'formations.confirmImport': 'Importer le planning',
   'formations.feedbackFiles': 'Fichiers',
   'formations.feedbackMissingEmails': 'Emails manquants',
   'formations.feedbackAutomationRan':

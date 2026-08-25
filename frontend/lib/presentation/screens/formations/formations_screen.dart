@@ -65,6 +65,11 @@ class _FormationsScreenState extends State<FormationsScreen> {
       _showMessage(l10n.t('formations.uploadLimit'));
     }
 
+    final preview = await _viewModel.previewImportFiles(picked);
+    if (!mounted || preview == null) return;
+    final shouldImport = await _openImportPreview(preview);
+    if (!mounted || shouldImport != true) return;
+
     await _viewModel.importFiles(picked);
     if (!mounted) return;
     if (_viewModel.errorMessage == null) {
@@ -126,6 +131,21 @@ class _FormationsScreenState extends State<FormationsScreen> {
     );
   }
 
+  Future<bool?> _openImportPreview(PlanningImportSummary summary) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => _ImportFeedbackSheet(
+            summary: summary,
+            automation: null,
+            mode: _ImportFeedbackMode.preview,
+          ),
+    );
+  }
+
   Future<void> _openImportFeedback() async {
     final summary = _viewModel.lastImportResult;
     if (summary == null) {
@@ -141,6 +161,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
           (context) => _ImportFeedbackSheet(
             summary: summary,
             automation: _viewModel.lastAutomation,
+            mode: _ImportFeedbackMode.result,
           ),
     );
   }
@@ -1280,11 +1301,18 @@ class _MissingContactsSection extends StatelessWidget {
   }
 }
 
+enum _ImportFeedbackMode { preview, result }
+
 class _ImportFeedbackSheet extends StatelessWidget {
-  const _ImportFeedbackSheet({required this.summary, required this.automation});
+  const _ImportFeedbackSheet({
+    required this.summary,
+    required this.automation,
+    required this.mode,
+  });
 
   final PlanningImportSummary summary;
   final Map<String, dynamic>? automation;
+  final _ImportFeedbackMode mode;
 
   @override
   Widget build(BuildContext context) {
@@ -1293,6 +1321,7 @@ class _ImportFeedbackSheet extends StatelessWidget {
     final generated = _intFromMap(automation, 'generated');
     final skipped = _intFromMap(automation, 'skipped_existing');
     final autoRan = automation != null;
+    final isPreview = mode == _ImportFeedbackMode.preview;
 
     return Container(
       decoration: BoxDecoration(
@@ -1321,7 +1350,11 @@ class _ImportFeedbackSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    l10n.t('formations.importFeedbackTitle'),
+                    l10n.t(
+                      isPreview
+                          ? 'formations.importPreviewTitle'
+                          : 'formations.importFeedbackTitle',
+                    ),
                     style: TextStyle(
                       color: tone.text,
                       fontSize: 22,
@@ -1339,8 +1372,16 @@ class _ImportFeedbackSheet extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               summary.hasIssues
-                  ? l10n.t('formations.importFeedbackNeedsReview')
-                  : l10n.t('formations.importFeedbackClean'),
+                  ? l10n.t(
+                    isPreview
+                        ? 'formations.importPreviewNeedsReview'
+                        : 'formations.importFeedbackNeedsReview',
+                  )
+                  : l10n.t(
+                    isPreview
+                        ? 'formations.importPreviewClean'
+                        : 'formations.importFeedbackClean',
+                  ),
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 13,
@@ -1388,21 +1429,29 @@ class _ImportFeedbackSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            _InlineMessage(
-              icon:
-                  autoRan
-                      ? Icons.auto_awesome_rounded
-                      : Icons.pause_circle_outline_rounded,
-              message:
-                  autoRan
-                      ? l10n
-                          .t('formations.feedbackAutomationRan')
-                          .replaceAll('{generated}', '$generated')
-                          .replaceAll('{skipped}', '$skipped')
-                      : l10n.t('formations.feedbackAutomationSkipped'),
-              tone: tone,
-              accent: autoRan ? AppPalette.deepTeal : AppPalette.amber,
-            ),
+            if (isPreview)
+              _InlineMessage(
+                icon: Icons.visibility_outlined,
+                message: l10n.t('formations.importPreviewNotSaved'),
+                tone: tone,
+                accent: AppPalette.blue,
+              )
+            else
+              _InlineMessage(
+                icon:
+                    autoRan
+                        ? Icons.auto_awesome_rounded
+                        : Icons.pause_circle_outline_rounded,
+                message:
+                    autoRan
+                        ? l10n
+                            .t('formations.feedbackAutomationRan')
+                            .replaceAll('{generated}', '$generated')
+                            .replaceAll('{skipped}', '$skipped')
+                        : l10n.t('formations.feedbackAutomationSkipped'),
+                tone: tone,
+                accent: autoRan ? AppPalette.deepTeal : AppPalette.amber,
+              ),
             if (summary.warningCount > 0 || summary.errorCount > 0) ...[
               const SizedBox(height: 12),
               _InlineMessage(
@@ -1430,21 +1479,54 @@ class _ImportFeedbackSheet extends StatelessWidget {
               const SizedBox(height: 8),
             ],
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppPalette.deepTeal,
-                  foregroundColor: AppPalette.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            if (isPreview)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(l10n.t('settings.cancel')),
+                    ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppPalette.deepTeal,
+                        foregroundColor: AppPalette.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(l10n.t('formations.confirmImport')),
+                    ),
+                  ),
+                ],
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppPalette.deepTeal,
+                    foregroundColor: AppPalette.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(l10n.t('common.close')),
                 ),
-                child: Text(l10n.t('common.close')),
               ),
-            ),
           ],
         ),
       ),

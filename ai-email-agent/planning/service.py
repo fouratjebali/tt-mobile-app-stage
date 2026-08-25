@@ -50,14 +50,22 @@ class PlanningImportService:
         if len(files) > 5:
             raise ValueError("A maximum of 5 planning files can be imported at once.")
 
+        result = self.preview_import_files(files)
+        self.database.save_import(result)
+        return result
+
+    def preview_import_files(self, files: list[tuple[str, bytes]]) -> PlanningImportResult:
+        if not files:
+            raise ValueError("At least one planning file is required.")
+        if len(files) > 5:
+            raise ValueError("A maximum of 5 planning files can be imported at once.")
+
         import_id = uuid.uuid4().hex
         file_results = [
             self.parser.parse_workbook(filename=filename, content=content)
             for filename, content in files
         ]
-        result = PlanningImportResult.build(import_id=import_id, files=file_results)
-        self.database.save_import(result)
-        return result
+        return PlanningImportResult.build(import_id=import_id, files=file_results)
 
     def list_imports(self) -> list[dict[str, Any]]:
         return self.database.list_imports()

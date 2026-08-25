@@ -17,6 +17,23 @@ class PlanningApiService {
   final ApiService _apiService;
   static const _planningTimeout = Duration(minutes: 3);
 
+  Future<PlanningImportSummary> previewPlanningFiles({
+    required List<PlanningPickedFile> files,
+  }) async {
+    final data = await _apiService.uploadFiles(
+      '/planning/import/preview',
+      fieldName: 'files',
+      files:
+          files
+              .map(
+                (file) => ApiUploadFile(filename: file.name, bytes: file.bytes),
+              )
+              .toList(),
+      timeout: _planningTimeout,
+    );
+    return PlanningImportSummary.fromJson(_map(data));
+  }
+
   Future<PlanningImportSummary> importPlanningFiles({
     required List<PlanningPickedFile> files,
   }) async {

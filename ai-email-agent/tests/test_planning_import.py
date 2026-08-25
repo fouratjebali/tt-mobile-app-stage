@@ -174,6 +174,25 @@ def test_planning_import_api_stores_and_lists_import(tmp_path, monkeypatch):
     )
     client = TestClient(app)
 
+    preview_response = client.post(
+        "/planning/import/preview",
+        files={
+            "files": (
+                "planning.xlsx",
+                content,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert preview_response.status_code == 200
+    preview_payload = preview_response.json()
+    assert preview_payload["total_sessions"] == 1
+    assert preview_payload["files"][0]["sessions"][0]["module"] == "Formation securite"
+
+    imports_before_save = client.get("/planning/imports")
+    assert imports_before_save.status_code == 200
+    assert imports_before_save.json() == []
+
     response = client.post(
         "/planning/import",
         files={
