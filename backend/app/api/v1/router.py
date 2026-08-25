@@ -10,6 +10,7 @@ from app.api.v1.routes import (
     health,
     jury,
     notifications,
+    planning,
     sentiment,
 )
 
@@ -45,6 +46,12 @@ api_router.include_router(
     bulk.router,
     prefix="/bulk",
     tags=["bulk"],
+    dependencies=[Depends(get_current_user)],
+)
+api_router.include_router(
+    planning.router,
+    prefix="/planning",
+    tags=["planning"],
     dependencies=[Depends(get_current_user)],
 )
 api_router.include_router(
