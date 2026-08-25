@@ -173,6 +173,17 @@ const Map<String, String> _english = {
   'formations.participants': 'Participants',
   'formations.drafts': 'Drafts',
   'formations.missing': 'Missing data',
+  'formations.calendarTitle': 'Training calendar',
+  'formations.calendarSubtitle':
+      '{count} upcoming sessions from this planning.',
+  'formations.noCalendarSessions':
+      'Training sessions will appear here after a planning import.',
+  'formations.noSessionsForDay': 'No session scheduled for this day.',
+  'formations.calendarReady': 'ready',
+  'formations.calendarMissing': 'contacts',
+  'formations.unknownModule': 'Training session',
+  'formations.locationMissing': 'Location missing',
+  'formations.participantsShort': 'participants',
   'formations.reviewBeforeSend': 'Review before send',
   'formations.reviewBeforeSendHint':
       'Generated training emails stay blocked until you review, edit, and approve them.',
@@ -499,6 +510,16 @@ const Map<String, String> _french = {
   'formations.participants': 'Participants',
   'formations.drafts': 'Brouillons',
   'formations.missing': 'Données manquantes',
+  'formations.calendarTitle': 'Calendrier des formations',
+  'formations.calendarSubtitle': '{count} sessions a venir dans ce planning.',
+  'formations.noCalendarSessions':
+      'Les sessions de formation apparaitront ici apres l import du planning.',
+  'formations.noSessionsForDay': 'Aucune session programmee ce jour.',
+  'formations.calendarReady': 'pret',
+  'formations.calendarMissing': 'contacts',
+  'formations.unknownModule': 'Session de formation',
+  'formations.locationMissing': 'Lieu manquant',
+  'formations.participantsShort': 'participants',
   'formations.reviewBeforeSend': 'Verifier avant envoi',
   'formations.reviewBeforeSendHint':
       'Les emails de formation restent bloques jusqu a verification, modification et validation.',

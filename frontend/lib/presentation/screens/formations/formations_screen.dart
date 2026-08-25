@@ -231,6 +231,11 @@ class _FormationsScreenState extends State<FormationsScreen> {
               const SizedBox(height: 20),
               _MonthOverview(viewModel: _viewModel, tone: tone),
               const SizedBox(height: 20),
+              _TrainingCalendarSection(
+                sessions: _viewModel.trainingSessions,
+                tone: tone,
+              ),
+              const SizedBox(height: 20),
               _ActionPanel(
                 viewModel: _viewModel,
                 tone: tone,
@@ -801,6 +806,371 @@ class _MiniMetric extends StatelessWidget {
               color: tone.muted,
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrainingCalendarSection extends StatefulWidget {
+  const _TrainingCalendarSection({required this.sessions, required this.tone});
+
+  final List<TrainingCalendarSession> sessions;
+  final _FormationTone tone;
+
+  @override
+  State<_TrainingCalendarSection> createState() =>
+      _TrainingCalendarSectionState();
+}
+
+class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
+  DateTime? _selectedDate;
+
+  @override
+  void didUpdateWidget(covariant _TrainingCalendarSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.sessions != oldWidget.sessions &&
+        !_availableDays(widget.sessions).contains(_selectedDate)) {
+      _selectedDate = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final sessions = widget.sessions;
+    final days = _availableDays(sessions);
+    final selectedDate = _selectedDate ?? (days.isNotEmpty ? days.first : null);
+    final selectedSessions =
+        selectedDate == null
+            ? const <TrainingCalendarSession>[]
+            : sessions
+                .where(
+                  (session) => _sameDay(
+                    _parsePlanningDate(session.startDate),
+                    selectedDate,
+                  ),
+                )
+                .toList();
+    final upcomingCount =
+        sessions.where((session) {
+          final start = _parsePlanningDate(session.startDate);
+          if (start == null) return false;
+          return !start.isBefore(_todayDate());
+        }).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: l10n.t('formations.calendarTitle'),
+          count: sessions.length,
+          tone: widget.tone,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          l10n
+              .t('formations.calendarSubtitle')
+              .replaceAll('{count}', '$upcomingCount'),
+          style: TextStyle(
+            color: widget.tone.muted,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (sessions.isEmpty)
+          _InlineMessage(
+            icon: Icons.calendar_month_outlined,
+            message: l10n.t('formations.noCalendarSessions'),
+            tone: widget.tone,
+          )
+        else ...[
+          SizedBox(
+            height: 82,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: days.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final day = days[index];
+                final count =
+                    sessions
+                        .where(
+                          (session) => _sameDay(
+                            _parsePlanningDate(session.startDate),
+                            day,
+                          ),
+                        )
+                        .length;
+                return _CalendarDayChip(
+                  date: day,
+                  count: count,
+                  selected: _sameDay(day, selectedDate),
+                  tone: widget.tone,
+                  onTap: () => setState(() => _selectedDate = day),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (selectedSessions.isEmpty)
+            _InlineMessage(
+              icon: Icons.event_busy_outlined,
+              message: l10n.t('formations.noSessionsForDay'),
+              tone: widget.tone,
+            )
+          else
+            for (final session in selectedSessions) ...[
+              _TrainingSessionCard(session: session, tone: widget.tone),
+              const SizedBox(height: 10),
+            ],
+        ],
+      ],
+    );
+  }
+}
+
+class _CalendarDayChip extends StatelessWidget {
+  const _CalendarDayChip({
+    required this.date,
+    required this.count,
+    required this.selected,
+    required this.tone,
+    required this.onTap,
+  });
+
+  final DateTime date;
+  final int count;
+  final bool selected;
+  final _FormationTone tone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = selected ? AppPalette.deepTeal : tone.muted;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: 72,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color:
+              selected
+                  ? AppPalette.deepTeal.withValues(alpha: 0.12)
+                  : tone.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color:
+                selected
+                    ? AppPalette.deepTeal.withValues(alpha: 0.55)
+                    : tone.border,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _weekdayShort(context, date),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '${date.day}',
+              style: TextStyle(
+                color: accent,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '$count',
+              style: TextStyle(
+                color: accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrainingSessionCard extends StatelessWidget {
+  const _TrainingSessionCard({required this.session, required this.tone});
+
+  final TrainingCalendarSession session;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final dateLabel = _formatSessionDateRange(
+      context,
+      session.startDate,
+      session.endDate,
+    );
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppPalette.blue.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.school_rounded,
+                  color: AppPalette.blue,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      session.module.isEmpty
+                          ? l10n.t('formations.unknownModule')
+                          : session.module,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      dateLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.muted,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (session.hasMissingContacts)
+                _StatusPill(
+                  label: l10n.t('formations.calendarMissing'),
+                  color: AppPalette.clay,
+                )
+              else
+                _StatusPill(
+                  label: l10n.t('formations.calendarReady'),
+                  color: AppPalette.deepTeal,
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _SessionInfoPill(
+                icon: Icons.place_outlined,
+                label:
+                    session.location.isEmpty
+                        ? l10n.t('formations.locationMissing')
+                        : session.location,
+                tone: tone,
+              ),
+              _SessionInfoPill(
+                icon: Icons.groups_2_outlined,
+                label:
+                    '${session.participantCount} ${l10n.t('formations.participantsShort')}',
+                tone: tone,
+              ),
+              if (session.trainer.isNotEmpty)
+                _SessionInfoPill(
+                  icon: Icons.person_outline_rounded,
+                  label: session.trainer,
+                  tone: tone,
+                ),
+              if (session.schedule.isNotEmpty)
+                _SessionInfoPill(
+                  icon: Icons.schedule_rounded,
+                  label: session.schedule,
+                  tone: tone,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionInfoPill extends StatelessWidget {
+  const _SessionInfoPill({
+    required this.icon,
+    required this.label,
+    required this.tone,
+  });
+
+  final IconData icon;
+  final String label;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: tone.softSurface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: tone.muted),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -3124,6 +3494,97 @@ String _contactMatchLabel(BuildContext context, PlanningContactReview contact) {
     'planning' => l10n.t('formations.contactMatchPlanning'),
     _ => l10n.t('formations.contactMatchReview'),
   };
+}
+
+List<DateTime> _availableDays(List<TrainingCalendarSession> sessions) {
+  final days = <DateTime>{};
+  for (final session in sessions) {
+    final start = _parsePlanningDate(session.startDate);
+    if (start != null) days.add(start);
+  }
+  final sorted = days.toList()..sort();
+  final today = _todayDate();
+  final upcoming = sorted.where((day) => !day.isBefore(today)).toList();
+  return upcoming.isEmpty ? sorted : upcoming;
+}
+
+DateTime _todayDate() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+}
+
+DateTime? _parsePlanningDate(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return null;
+  final normalized = trimmed.replaceFirst(' ', 'T');
+  final parsed = DateTime.tryParse(normalized);
+  if (parsed != null) {
+    return DateTime(parsed.year, parsed.month, parsed.day);
+  }
+  final slashMatch = RegExp(
+    r'^(\d{1,2})/(\d{1,2})/(\d{4})$',
+  ).firstMatch(trimmed);
+  if (slashMatch == null) return null;
+  final day = int.tryParse(slashMatch.group(1) ?? '');
+  final month = int.tryParse(slashMatch.group(2) ?? '');
+  final year = int.tryParse(slashMatch.group(3) ?? '');
+  if (day == null || month == null || year == null) return null;
+  return DateTime(year, month, day);
+}
+
+bool _sameDay(DateTime? left, DateTime? right) {
+  if (left == null || right == null) return false;
+  return left.year == right.year &&
+      left.month == right.month &&
+      left.day == right.day;
+}
+
+String _weekdayShort(BuildContext context, DateTime date) {
+  final keys = const [
+    'date.monday',
+    'date.tuesday',
+    'date.wednesday',
+    'date.thursday',
+    'date.friday',
+    'date.saturday',
+    'date.sunday',
+  ];
+  final label = context.l10n.t(keys[date.weekday - 1]);
+  return label.length <= 3 ? label : label.substring(0, 3);
+}
+
+String _formatSessionDateRange(
+  BuildContext context,
+  String startValue,
+  String endValue,
+) {
+  final start = _parsePlanningDate(startValue);
+  final end = _parsePlanningDate(endValue);
+  if (start == null && end == null) {
+    return startValue.isEmpty ? '-' : startValue;
+  }
+  if (start != null && end != null && !_sameDay(start, end)) {
+    return '${_formatSessionDate(context, start)} - ${_formatSessionDate(context, end)}';
+  }
+  return _formatSessionDate(context, start ?? end!);
+}
+
+String _formatSessionDate(BuildContext context, DateTime date) {
+  final monthKeys = const [
+    'date.jan',
+    'date.feb',
+    'date.mar',
+    'date.apr',
+    'date.may',
+    'date.jun',
+    'date.jul',
+    'date.aug',
+    'date.sep',
+    'date.oct',
+    'date.nov',
+    'date.dec',
+  ];
+  return '${date.day} ${context.l10n.t(monthKeys[date.month - 1])} ${date.year}';
 }
 
 String _formatHistoryDate(String value) {

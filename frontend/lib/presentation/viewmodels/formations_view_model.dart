@@ -15,6 +15,7 @@ class FormationsViewModel extends ChangeNotifier {
   PlanningImportSummary? lastImportResult;
   TrainingAutomationSettings? automationSettings;
   List<PlanningImportSummary> imports = const [];
+  List<TrainingCalendarSession> trainingSessions = const [];
   List<TrainingDraft> drafts = const [];
   List<TrainingSendHistory> sendHistory = const [];
   List<MissingPlanningContact> missingContacts = const [];
@@ -324,12 +325,16 @@ class FormationsViewModel extends ChangeNotifier {
     final importId = activeImport?.importId;
     if (importId == null || importId.isEmpty) {
       drafts = const [];
+      trainingSessions = const [];
       sendHistory = const [];
       missingContacts = const [];
       contactReviewSummary = null;
       contactReviews = const [];
       return;
     }
+    trainingSessions = await _planningApiService.listSessions(
+      importId: importId,
+    );
     drafts = await _loadDraftsForImport(importId);
     sendHistory = await _planningApiService.listSendHistory(importId: importId);
     missingContacts = await _planningApiService.listMissingContacts(

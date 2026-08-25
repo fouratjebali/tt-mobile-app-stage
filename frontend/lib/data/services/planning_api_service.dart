@@ -181,6 +181,25 @@ class PlanningApiService {
     );
   }
 
+  Future<List<TrainingCalendarSession>> listSessions({String? importId}) async {
+    return _planningRequest(
+      action: _PlanningAction.loadPlanning,
+      request: () async {
+        final data = await _apiService.get(
+          '/planning/sessions',
+          queryParameters: {
+            if (importId != null && importId.isNotEmpty) 'import_id': importId,
+            'limit': 500,
+          },
+        );
+        final sessions = _list(_map(data)['sessions']);
+        return sessions
+            .map((item) => TrainingCalendarSession.fromJson(_map(item)))
+            .toList();
+      },
+    );
+  }
+
   Future<void> saveContact({
     required String matricule,
     required String fullName,

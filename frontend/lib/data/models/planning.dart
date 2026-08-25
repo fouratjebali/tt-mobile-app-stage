@@ -120,6 +120,64 @@ class TrainingAutomationSettings {
   }
 }
 
+class TrainingCalendarSession {
+  const TrainingCalendarSession({
+    required this.importId,
+    required this.sessionKey,
+    required this.codeSession,
+    required this.status,
+    required this.module,
+    required this.cabinet,
+    required this.trainer,
+    required this.trainingMode,
+    required this.startDate,
+    required this.endDate,
+    required this.schedule,
+    required this.location,
+    required this.participantCount,
+    required this.missingEmailCount,
+  });
+
+  final String importId;
+  final String sessionKey;
+  final String codeSession;
+  final String status;
+  final String module;
+  final String cabinet;
+  final String trainer;
+  final String trainingMode;
+  final String startDate;
+  final String endDate;
+  final String schedule;
+  final String location;
+  final int participantCount;
+  final int missingEmailCount;
+
+  bool get hasMissingContacts => missingEmailCount > 0;
+
+  factory TrainingCalendarSession.fromJson(Map<String, dynamic> json) {
+    return TrainingCalendarSession(
+      importId: _string(json['import_id']),
+      sessionKey: _string(json['session_key']),
+      codeSession: _string(json['code_session']),
+      status: _string(json['status']),
+      module: _string(json['module']),
+      cabinet: _string(json['cabinet']),
+      trainer:
+          _string(json['trainer']).isEmpty
+              ? _string(json['selected_trainer'])
+              : _string(json['trainer']),
+      trainingMode: _string(json['training_mode']),
+      startDate: _string(json['start_date']),
+      endDate: _string(json['end_date']),
+      schedule: _string(json['schedule']),
+      location: _string(json['location']),
+      participantCount: _int(json['participant_count']),
+      missingEmailCount: _int(json['missing_email_count']),
+    );
+  }
+}
+
 class TrainingDraft {
   const TrainingDraft({
     required this.id,
