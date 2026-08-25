@@ -189,6 +189,119 @@ class _FormationsScreenState extends State<FormationsScreen> {
     );
   }
 
+  Future<void> _openPlanningImportPage() async {
+    await _openFormationPage(
+      _FormationDetailPage(
+        viewModel: _viewModel,
+        titleKey: 'formations.importPageTitle',
+        subtitleKey: 'formations.importPageSubtitle',
+        builder:
+            (context, tone) => [
+              _UploadPanel(onUpload: _pickPlanningFiles, tone: tone),
+              const SizedBox(height: 14),
+              _ContactDirectoryPanel(onUpload: _pickContactFiles, tone: tone),
+              const SizedBox(height: 18),
+              _MonthOverview(viewModel: _viewModel, tone: tone),
+              if (_viewModel.activeImport == null) ...[
+                const SizedBox(height: 18),
+                _EmptyPlanningState(tone: tone),
+              ],
+            ],
+      ),
+    );
+  }
+
+  Future<void> _openCalendarPage() async {
+    await _openFormationPage(
+      _FormationDetailPage(
+        viewModel: _viewModel,
+        titleKey: 'formations.calendarPageTitle',
+        subtitleKey: 'formations.calendarPageSubtitle',
+        builder:
+            (context, tone) => [
+              _TrainingCalendarSection(
+                sessions: _viewModel.trainingSessions,
+                tone: tone,
+              ),
+            ],
+      ),
+    );
+  }
+
+  Future<void> _openDraftsPage() async {
+    await _openFormationPage(
+      _FormationDetailPage(
+        viewModel: _viewModel,
+        titleKey: 'formations.draftsPageTitle',
+        subtitleKey: 'formations.draftsPageSubtitle',
+        builder:
+            (context, tone) => [
+              _ActionPanel(
+                viewModel: _viewModel,
+                tone: tone,
+                onGenerate: _generateDrafts,
+                onSettings: _openAutomationSettings,
+              ),
+              const SizedBox(height: 18),
+              _DraftsSection(
+                drafts: _viewModel.drafts,
+                tone: tone,
+                statusFilter: _viewModel.draftStatusFilter,
+                emailTypeFilter: _viewModel.draftEmailTypeFilter,
+                onStatusFilterChanged: _viewModel.setDraftStatusFilter,
+                onEmailTypeFilterChanged: _viewModel.setDraftEmailTypeFilter,
+                onOpen: _openDraft,
+              ),
+            ],
+      ),
+    );
+  }
+
+  Future<void> _openContactsPage() async {
+    await _openFormationPage(
+      _FormationDetailPage(
+        viewModel: _viewModel,
+        titleKey: 'formations.contactsPageTitle',
+        subtitleKey: 'formations.contactsPageSubtitle',
+        builder:
+            (context, tone) => [
+              _ContactDirectoryPanel(onUpload: _pickContactFiles, tone: tone),
+              const SizedBox(height: 18),
+              _ContactMatchingReviewSection(
+                summary: _viewModel.contactReviewSummary,
+                contacts: _viewModel.contactReviews,
+                tone: tone,
+                onFix: _openContactReview,
+              ),
+            ],
+      ),
+    );
+  }
+
+  Future<void> _openSendHistoryPage() async {
+    await _openFormationPage(
+      _FormationDetailPage(
+        viewModel: _viewModel,
+        titleKey: 'formations.historyPageTitle',
+        subtitleKey: 'formations.historyPageSubtitle',
+        builder:
+            (context, tone) => [
+              _SendHistorySection(history: _viewModel.sendHistory, tone: tone),
+            ],
+      ),
+    );
+  }
+
+  Future<void> _openFormationPage(Widget page) async {
+    final selectedTab = await Navigator.push<int>(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+    );
+    if (selectedTab != null && mounted) {
+      Navigator.of(context).pop(selectedTab);
+    }
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(
       context,
@@ -225,41 +338,17 @@ class _FormationsScreenState extends State<FormationsScreen> {
                 ),
               ],
               const SizedBox(height: 18),
-              _UploadPanel(onUpload: _pickPlanningFiles, tone: tone),
-              const SizedBox(height: 12),
-              _ContactDirectoryPanel(onUpload: _pickContactFiles, tone: tone),
-              const SizedBox(height: 20),
-              _MonthOverview(viewModel: _viewModel, tone: tone),
-              const SizedBox(height: 20),
-              _TrainingCalendarSection(
-                sessions: _viewModel.trainingSessions,
-                tone: tone,
-              ),
-              const SizedBox(height: 20),
-              _ActionPanel(
+              _FormationHubSummary(viewModel: _viewModel, tone: tone),
+              const SizedBox(height: 18),
+              _FormationWorkflowSection(
                 viewModel: _viewModel,
                 tone: tone,
-                onGenerate: _generateDrafts,
+                onImport: _openPlanningImportPage,
+                onContacts: _openContactsPage,
+                onCalendar: _openCalendarPage,
+                onDrafts: _openDraftsPage,
+                onHistory: _openSendHistoryPage,
                 onSettings: _openAutomationSettings,
-              ),
-              const SizedBox(height: 20),
-              _DraftsSection(
-                drafts: _viewModel.drafts,
-                tone: tone,
-                statusFilter: _viewModel.draftStatusFilter,
-                emailTypeFilter: _viewModel.draftEmailTypeFilter,
-                onStatusFilterChanged: _viewModel.setDraftStatusFilter,
-                onEmailTypeFilterChanged: _viewModel.setDraftEmailTypeFilter,
-                onOpen: _openDraft,
-              ),
-              const SizedBox(height: 20),
-              _SendHistorySection(history: _viewModel.sendHistory, tone: tone),
-              const SizedBox(height: 20),
-              _ContactMatchingReviewSection(
-                summary: _viewModel.contactReviewSummary,
-                contacts: _viewModel.contactReviews,
-                tone: tone,
-                onFix: _openContactReview,
               ),
               if (_viewModel.activeImport == null) ...[
                 const SizedBox(height: 20),
@@ -273,28 +362,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
         selectedIndex: 0,
         reviewCount: 0,
         showAssistantSpace: false,
-        items: [
-          AppNavigationItemData(
-            label: l10n.t('nav.home'),
-            icon: Icons.home_outlined,
-            activeIcon: Icons.home_rounded,
-          ),
-          AppNavigationItemData(
-            label: l10n.t('nav.today'),
-            icon: Icons.calendar_today_outlined,
-            activeIcon: Icons.calendar_today_rounded,
-          ),
-          AppNavigationItemData(
-            label: l10n.t('nav.review'),
-            icon: Icons.mark_email_unread_outlined,
-            activeIcon: Icons.mark_email_unread_rounded,
-          ),
-          AppNavigationItemData(
-            label: l10n.t('nav.profile'),
-            icon: Icons.person_outline_rounded,
-            activeIcon: Icons.person_rounded,
-          ),
-        ],
+        items: _formationNavItems(l10n),
         onItemSelected: (index) => Navigator.of(context).pop(index),
       ),
     );
@@ -330,6 +398,165 @@ class _FormationTone {
           isDark
               ? Colors.white.withValues(alpha: 0.66)
               : AppPalette.pine.withValues(alpha: 0.72),
+    );
+  }
+}
+
+List<AppNavigationItemData> _formationNavItems(AppLocalizations l10n) {
+  return [
+    AppNavigationItemData(
+      label: l10n.t('nav.home'),
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home_rounded,
+    ),
+    AppNavigationItemData(
+      label: l10n.t('nav.today'),
+      icon: Icons.calendar_today_outlined,
+      activeIcon: Icons.calendar_today_rounded,
+    ),
+    AppNavigationItemData(
+      label: l10n.t('nav.review'),
+      icon: Icons.mark_email_unread_outlined,
+      activeIcon: Icons.mark_email_unread_rounded,
+    ),
+    AppNavigationItemData(
+      label: l10n.t('nav.profile'),
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
+    ),
+  ];
+}
+
+class _FormationDetailPage extends StatelessWidget {
+  const _FormationDetailPage({
+    required this.viewModel,
+    required this.titleKey,
+    required this.subtitleKey,
+    required this.builder,
+  });
+
+  final FormationsViewModel viewModel;
+  final String titleKey;
+  final String subtitleKey;
+  final List<Widget> Function(BuildContext context, _FormationTone tone)
+  builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final tone = _FormationTone.of(context);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: viewModel,
+          builder: (context, _) {
+            final isLoading = viewModel.state == LoadState.loading;
+            return RefreshIndicator(
+              onRefresh: viewModel.load,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
+                children: [
+                  _FormationDetailHeader(
+                    title: l10n.t(titleKey),
+                    subtitle: l10n.t(subtitleKey),
+                    onBack: () => Navigator.of(context).maybePop(),
+                    onRefresh: viewModel.load,
+                  ),
+                  const SizedBox(height: 18),
+                  if (isLoading) const LinearProgressIndicator(minHeight: 3),
+                  if (viewModel.errorMessage != null) ...[
+                    const SizedBox(height: 14),
+                    _InlineMessage(
+                      icon: Icons.error_outline_rounded,
+                      message: viewModel.errorMessage!,
+                      tone: tone,
+                      accent: AppPalette.clay,
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  ...builder(context, tone),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+      bottomNavigationBar: AppBottomNavigationBar(
+        selectedIndex: 0,
+        reviewCount: 0,
+        showAssistantSpace: false,
+        items: _formationNavItems(l10n),
+        onItemSelected: (index) => Navigator.of(context).pop(index),
+      ),
+    );
+  }
+}
+
+class _FormationDetailHeader extends StatelessWidget {
+  const _FormationDetailHeader({
+    required this.title,
+    required this.subtitle,
+    required this.onBack,
+    required this.onRefresh,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onBack;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _FormationTone.of(context);
+    final l10n = context.l10n;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        IconButton.filledTonal(
+          onPressed: onBack,
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: l10n.t('common.back'),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tone.text,
+                  fontSize: 23,
+                  fontWeight: FontWeight.w900,
+                  height: 1.08,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: tone.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: onRefresh,
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: l10n.t('formations.refresh'),
+        ),
+      ],
     );
   }
 }
@@ -390,6 +617,337 @@ class _FormationHeader extends StatelessWidget {
           tooltip: l10n.t('formations.refresh'),
         ),
       ],
+    );
+  }
+}
+
+class _FormationHubSummary extends StatelessWidget {
+  const _FormationHubSummary({required this.viewModel, required this.tone});
+
+  final FormationsViewModel viewModel;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final hasImport = viewModel.activeImport != null;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppPalette.deepTeal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.school_rounded,
+                  color: AppPalette.deepTeal,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hasImport
+                          ? l10n.t('formations.activePlan')
+                          : l10n.t('formations.noActivePlan'),
+                      style: TextStyle(
+                        color: tone.text,
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hasImport
+                          ? l10n.t('formations.activePlanHint')
+                          : l10n.t('formations.noActivePlanHint'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.muted,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniMetric(
+                  label: l10n.t('formations.sessions'),
+                  value: '${viewModel.sessions}',
+                  tone: tone,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MiniMetric(
+                  label: l10n.t('formations.drafts'),
+                  value: '${viewModel.draftsCount}',
+                  tone: tone,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MiniMetric(
+                  label: l10n.t('formations.missing'),
+                  value: '${viewModel.missingCount}',
+                  tone: tone,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FormationWorkflowSection extends StatelessWidget {
+  const _FormationWorkflowSection({
+    required this.viewModel,
+    required this.tone,
+    required this.onImport,
+    required this.onContacts,
+    required this.onCalendar,
+    required this.onDrafts,
+    required this.onHistory,
+    required this.onSettings,
+  });
+
+  final FormationsViewModel viewModel;
+  final _FormationTone tone;
+  final VoidCallback onImport;
+  final VoidCallback onContacts;
+  final VoidCallback onCalendar;
+  final VoidCallback onDrafts;
+  final VoidCallback onHistory;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.t('formations.workflowTitle'),
+          style: TextStyle(
+            color: tone.text,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _WorkflowTile(
+          icon: Icons.upload_file_rounded,
+          title: l10n.t('formations.importStepTitle'),
+          subtitle: l10n.t('formations.importStepSubtitle'),
+          metric: '${viewModel.imports.length}',
+          metricLabel: l10n.t('formations.imports'),
+          tone: tone,
+          color: AppPalette.deepTeal,
+          onTap: onImport,
+        ),
+        const SizedBox(height: 10),
+        _WorkflowTile(
+          icon: Icons.contact_mail_rounded,
+          title: l10n.t('formations.contactsStepTitle'),
+          subtitle: l10n.t('formations.contactsStepSubtitle'),
+          metric: '${viewModel.contactReviewCount}',
+          metricLabel: l10n.t('formations.toCheck'),
+          tone: tone,
+          color:
+              viewModel.contactReviewCount > 0
+                  ? AppPalette.amber
+                  : AppPalette.deepTeal,
+          onTap: onContacts,
+        ),
+        const SizedBox(height: 10),
+        _WorkflowTile(
+          icon: Icons.calendar_month_rounded,
+          title: l10n.t('formations.calendarStepTitle'),
+          subtitle: l10n.t('formations.calendarStepSubtitle'),
+          metric: '${viewModel.trainingSessions.length}',
+          metricLabel: l10n.t('formations.sessions'),
+          tone: tone,
+          color: AppPalette.blue,
+          onTap: onCalendar,
+        ),
+        const SizedBox(height: 10),
+        _WorkflowTile(
+          icon: Icons.edit_document,
+          title: l10n.t('formations.draftsStepTitle'),
+          subtitle: l10n.t('formations.draftsStepSubtitle'),
+          metric: '${viewModel.waitingReviewCount}',
+          metricLabel: l10n.t('formations.waitingReview'),
+          tone: tone,
+          color:
+              viewModel.waitingReviewCount > 0
+                  ? AppPalette.clay
+                  : AppPalette.deepTeal,
+          onTap: onDrafts,
+        ),
+        const SizedBox(height: 10),
+        _WorkflowTile(
+          icon: Icons.history_rounded,
+          title: l10n.t('formations.historyStepTitle'),
+          subtitle: l10n.t('formations.historyStepSubtitle'),
+          metric: '${viewModel.sentHistoryCount}',
+          metricLabel: l10n.t('formations.sent'),
+          tone: tone,
+          color: AppPalette.deepTeal,
+          onTap: onHistory,
+        ),
+        const SizedBox(height: 10),
+        _WorkflowTile(
+          icon: Icons.tune_rounded,
+          title: l10n.t('formations.settingsStepTitle'),
+          subtitle: l10n.t('formations.settingsStepSubtitle'),
+          metric: '',
+          metricLabel: '',
+          tone: tone,
+          color: AppPalette.pine,
+          onTap: onSettings,
+        ),
+      ],
+    );
+  }
+}
+
+class _WorkflowTile extends StatelessWidget {
+  const _WorkflowTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.metric,
+    required this.metricLabel,
+    required this.tone,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String metric;
+  final String metricLabel;
+  final _FormationTone tone;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasMetric = metric.isNotEmpty && metricLabel.isNotEmpty;
+
+    return Material(
+      color: tone.surface,
+      borderRadius: BorderRadius.circular(17),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(17),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(color: tone.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.text,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.muted,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (hasMetric)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      metric,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      metricLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: tone.muted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Icon(Icons.chevron_right_rounded, color: tone.muted),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

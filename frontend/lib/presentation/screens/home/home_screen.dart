@@ -751,45 +751,38 @@ class _ShortcutsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _ShortcutButton(
-                icon: Icons.rate_review_outlined,
-                label: context.l10n.t('home.reviewReplies'),
-                onTap: onReviewTap,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ShortcutButton(
-                icon: Icons.mail_outline,
-                label: context.l10n.t('home.groupDrafts'),
-
-                // =================================================
-                // BULK EMAIL S10
-                // =================================================
-                onTap: () async {
-                  final selectedTab = await Navigator.push<int>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const BulkEmailScreen(),
-                    ),
-                  );
-                  if (selectedTab != null && context.mounted) {
-                    onSelectTab?.call(selectedTab);
-                  }
-                },
-              ),
-            ),
-          ],
+        _ShortcutButton(
+          icon: Icons.rate_review_outlined,
+          label: l10n.t('home.reviewReplies'),
+          subtitle: l10n.t('home.reviewRepliesShortcut'),
+          color: AppPalette.deepTeal,
+          onTap: onReviewTap,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
+        _ShortcutButton(
+          icon: Icons.mail_outline_rounded,
+          label: l10n.t('home.groupDrafts'),
+          subtitle: l10n.t('home.groupDraftsShortcut'),
+          color: AppPalette.blue,
+          onTap: () async {
+            final selectedTab = await Navigator.push<int>(
+              context,
+              MaterialPageRoute(builder: (context) => const BulkEmailScreen()),
+            );
+            if (selectedTab != null && context.mounted) {
+              onSelectTab?.call(selectedTab);
+            }
+          },
+        ),
+        const SizedBox(height: 10),
         _ShortcutButton(
           icon: Icons.school_outlined,
-          label: context.l10n.t('home.formations'),
+          label: l10n.t('home.formations'),
+          subtitle: l10n.t('home.formationsShortcut'),
+          color: AppPalette.clay,
           onTap: () async {
             final selectedTab = await Navigator.push<int>(
               context,
@@ -809,11 +802,15 @@ class _ShortcutButton extends StatelessWidget {
   const _ShortcutButton({
     required this.icon,
     required this.label,
+    required this.subtitle,
+    required this.color,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
+  final String subtitle;
+  final Color color;
   final VoidCallback onTap;
 
   @override
@@ -821,34 +818,62 @@ class _ShortcutButton extends StatelessWidget {
     final tone = _HomeTone.of(context);
 
     return Material(
-      color: Colors.transparent,
+      color: tone.surface,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          constraints: const BoxConstraints(minHeight: 76),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: tone.softSurface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(color: tone.border),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: AppPalette.deepTeal, size: 20),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: tone.text,
-                  ),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        color: tone.text,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                        color: tone.muted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right_rounded, color: tone.muted),
             ],
           ),
         ),
