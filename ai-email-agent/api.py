@@ -559,6 +559,7 @@ def list_training_drafts(
     import_id: str | None = Query(default=None),
     session_key: str | None = Query(default=None),
     draft_status: str | None = Query(default=None),
+    email_type: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
@@ -566,6 +567,7 @@ def list_training_drafts(
         import_id=import_id,
         session_key=session_key,
         status=draft_status,
+        email_type=email_type,
         limit=limit,
         offset=offset,
     )

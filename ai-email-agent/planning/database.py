@@ -756,7 +756,8 @@ class PlanningDatabase:
         *,
         import_id: str | None = None,
         session_key: str | None = None,
-        status: str | None = None,
+        status: str | list[str] | None = None,
+        email_type: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -769,8 +770,18 @@ class PlanningDatabase:
             clauses.append("session_key = ?")
             params.append(session_key)
         if status:
-            clauses.append("status = ?")
-            params.append(status)
+            statuses = (
+                [status]
+                if isinstance(status, str)
+                else [item for item in status if item]
+            )
+            if statuses:
+                placeholders = ", ".join("?" for _ in statuses)
+                clauses.append(f"status IN ({placeholders})")
+                params.extend(statuses)
+        if email_type:
+            clauses.append("email_type = ?")
+            params.append(email_type)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         params.extend([limit, offset])
 

@@ -201,6 +201,10 @@ class _FormationsScreenState extends State<FormationsScreen> {
               _DraftsSection(
                 drafts: _viewModel.drafts,
                 tone: tone,
+                statusFilter: _viewModel.draftStatusFilter,
+                emailTypeFilter: _viewModel.draftEmailTypeFilter,
+                onStatusFilterChanged: _viewModel.setDraftStatusFilter,
+                onEmailTypeFilterChanged: _viewModel.setDraftEmailTypeFilter,
                 onOpen: _openDraft,
               ),
               const SizedBox(height: 20),
@@ -768,11 +772,19 @@ class _DraftsSection extends StatelessWidget {
   const _DraftsSection({
     required this.drafts,
     required this.tone,
+    required this.statusFilter,
+    required this.emailTypeFilter,
+    required this.onStatusFilterChanged,
+    required this.onEmailTypeFilterChanged,
     required this.onOpen,
   });
 
   final List<TrainingDraft> drafts;
   final _FormationTone tone;
+  final String statusFilter;
+  final String emailTypeFilter;
+  final ValueChanged<String> onStatusFilterChanged;
+  final ValueChanged<String> onEmailTypeFilterChanged;
   final ValueChanged<TrainingDraft> onOpen;
 
   @override
@@ -787,6 +799,14 @@ class _DraftsSection extends StatelessWidget {
           tone: tone,
         ),
         const SizedBox(height: 12),
+        _DraftFilterBar(
+          statusFilter: statusFilter,
+          emailTypeFilter: emailTypeFilter,
+          tone: tone,
+          onStatusFilterChanged: onStatusFilterChanged,
+          onEmailTypeFilterChanged: onEmailTypeFilterChanged,
+        ),
+        const SizedBox(height: 12),
         if (drafts.isEmpty)
           _InlineMessage(
             icon: Icons.drafts_outlined,
@@ -799,6 +819,140 @@ class _DraftsSection extends StatelessWidget {
             const SizedBox(height: 10),
           ],
       ],
+    );
+  }
+}
+
+class _DraftFilterBar extends StatelessWidget {
+  const _DraftFilterBar({
+    required this.statusFilter,
+    required this.emailTypeFilter,
+    required this.tone,
+    required this.onStatusFilterChanged,
+    required this.onEmailTypeFilterChanged,
+  });
+
+  final String statusFilter;
+  final String emailTypeFilter;
+  final _FormationTone tone;
+  final ValueChanged<String> onStatusFilterChanged;
+  final ValueChanged<String> onEmailTypeFilterChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusFilters = const [
+      'all',
+      'review',
+      'approved',
+      'sent',
+      'blocked',
+      'rejected',
+    ];
+    final emailTypeFilters = const [
+      'all',
+      'sensibilisation',
+      'confirmation_presence',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final filter in statusFilters) ...[
+                _FilterChipButton(
+                  label: _draftStatusFilterLabel(context, filter),
+                  selected: statusFilter == filter,
+                  tone: tone,
+                  onSelected: () => onStatusFilterChanged(filter),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          value: emailTypeFilter,
+          isExpanded: true,
+          dropdownColor: tone.surface,
+          decoration: InputDecoration(
+            labelText: context.l10n.t('formations.filterByType'),
+            filled: true,
+            fillColor: tone.surface,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: tone.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: tone.border),
+            ),
+          ),
+          items:
+              emailTypeFilters
+                  .map(
+                    (filter) => DropdownMenuItem<String>(
+                      value: filter,
+                      child: Text(_draftEmailTypeFilterLabel(context, filter)),
+                    ),
+                  )
+                  .toList(),
+          onChanged: (value) {
+            if (value != null) onEmailTypeFilterChanged(value);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterChipButton extends StatelessWidget {
+  const _FilterChipButton({
+    required this.label,
+    required this.selected,
+    required this.tone,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final _FormationTone tone;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppPalette.deepTeal : tone.surface;
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onSelected,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? AppPalette.deepTeal : tone.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? AppPalette.white : tone.text,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2003,6 +2157,23 @@ String _automationEmailTypeLabel(BuildContext context, String value) {
     'confirmation_presence' => l10n.t('formations.emailTypeConfirmation'),
     _ => l10n.t('formations.emailTypeAuto'),
   };
+}
+
+String _draftStatusFilterLabel(BuildContext context, String value) {
+  final l10n = context.l10n;
+  return switch (value) {
+    'review' => l10n.t('formations.filterReview'),
+    'approved' => l10n.t('formations.filterApproved'),
+    'sent' => l10n.t('formations.filterSent'),
+    'blocked' => l10n.t('formations.filterBlocked'),
+    'rejected' => l10n.t('formations.filterRejected'),
+    _ => l10n.t('formations.filterAll'),
+  };
+}
+
+String _draftEmailTypeFilterLabel(BuildContext context, String value) {
+  if (value == 'all') return context.l10n.t('formations.filterAllTypes');
+  return _automationEmailTypeLabel(context, value);
 }
 
 String _formatHistoryDate(String value) {

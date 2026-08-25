@@ -173,6 +173,14 @@ const Map<String, String> _english = {
   'formations.draftsToReview': 'Drafts to review',
   'formations.noDrafts':
       'No drafts yet. Import a planning file, then generate training emails.',
+  'formations.filterAll': 'All',
+  'formations.filterReview': 'Review',
+  'formations.filterApproved': 'Approved',
+  'formations.filterSent': 'Sent',
+  'formations.filterBlocked': 'Blocked',
+  'formations.filterRejected': 'Rejected',
+  'formations.filterByType': 'Email type',
+  'formations.filterAllTypes': 'All email types',
   'formations.sendHistory': 'Send history',
   'formations.noSendHistory':
       'Sent and failed Outlook attempts will appear here.',
@@ -437,6 +445,14 @@ const Map<String, String> _french = {
   'formations.draftsToReview': 'Brouillons a verifier',
   'formations.noDrafts':
       'Aucun brouillon. Importez un planning puis generez les emails de formation.',
+  'formations.filterAll': 'Tous',
+  'formations.filterReview': 'A verifier',
+  'formations.filterApproved': 'Valides',
+  'formations.filterSent': 'Envoyes',
+  'formations.filterBlocked': 'Bloques',
+  'formations.filterRejected': 'Refuses',
+  'formations.filterByType': 'Type d email',
+  'formations.filterAllTypes': 'Tous les types',
   'formations.sendHistory': 'Historique d envoi',
   'formations.noSendHistory':
       'Les envois Outlook et les echecs apparaitront ici.',

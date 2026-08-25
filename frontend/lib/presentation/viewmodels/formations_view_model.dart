@@ -18,6 +18,8 @@ class FormationsViewModel extends ChangeNotifier {
   List<TrainingSendHistory> sendHistory = const [];
   List<MissingPlanningContact> missingContacts = const [];
   Map<String, dynamic>? lastAutomation;
+  String draftStatusFilter = 'all';
+  String draftEmailTypeFilter = 'all';
 
   int get sessions => activeImport?.totalSessions ?? 0;
   int get participants => activeImport?.totalParticipants ?? 0;
@@ -118,7 +120,7 @@ class FormationsViewModel extends ChangeNotifier {
         importId: importId,
         emailType: emailType,
       );
-      drafts = await _planningApiService.listDrafts(importId: importId);
+      drafts = await _loadDraftsForImport(importId);
       state = LoadState.success;
     } catch (error) {
       errorMessage = error.toString();
@@ -150,6 +152,18 @@ class FormationsViewModel extends ChangeNotifier {
       state = LoadState.error;
     }
     notifyListeners();
+  }
+
+  Future<void> setDraftStatusFilter(String value) async {
+    if (draftStatusFilter == value) return;
+    draftStatusFilter = value;
+    await _reloadDrafts();
+  }
+
+  Future<void> setDraftEmailTypeFilter(String value) async {
+    if (draftEmailTypeFilter == value) return;
+    draftEmailTypeFilter = value;
+    await _reloadDrafts();
   }
 
   Future<void> saveAutomationSettings(
@@ -248,18 +262,76 @@ class FormationsViewModel extends ChangeNotifier {
       missingContacts = const [];
       return;
     }
-    drafts = await _planningApiService.listDrafts(importId: importId);
+    drafts = await _loadDraftsForImport(importId);
     sendHistory = await _planningApiService.listSendHistory(importId: importId);
     missingContacts = await _planningApiService.listMissingContacts(
       importId: importId,
     );
   }
 
-  void _replaceDraft(TrainingDraft updated) {
-    drafts =
-        drafts
-            .map((draft) => draft.id == updated.id ? updated : draft)
-            .toList();
+  Future<void> _reloadDrafts() async {
+    final importId = activeImport?.importId;
+    if (importId == null || importId.isEmpty) return;
+    state = LoadState.loading;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      drafts = await _loadDraftsForImport(importId);
+      state = LoadState.success;
+    } catch (error) {
+      errorMessage = error.toString();
+      state = LoadState.error;
+    }
     notifyListeners();
   }
+
+  Future<List<TrainingDraft>> _loadDraftsForImport(String importId) {
+    return _planningApiService.listDrafts(
+      importId: importId,
+      draftStatus: _draftStatusQuery(draftStatusFilter),
+      emailType: _draftEmailTypeQuery(draftEmailTypeFilter),
+    );
+  }
+
+  void _replaceDraft(TrainingDraft updated) {
+    if (_draftMatchesFilters(updated)) {
+      final exists = drafts.any((draft) => draft.id == updated.id);
+      drafts =
+          exists
+              ? drafts
+                  .map((draft) => draft.id == updated.id ? updated : draft)
+                  .toList()
+              : [updated, ...drafts];
+    } else {
+      drafts = drafts.where((draft) => draft.id != updated.id).toList();
+    }
+    notifyListeners();
+  }
+
+  bool _draftMatchesFilters(TrainingDraft draft) {
+    final statusQuery = _draftStatusQuery(draftStatusFilter);
+    if (statusQuery != null && !statusQuery.split(',').contains(draft.status)) {
+      return false;
+    }
+    final emailTypeQuery = _draftEmailTypeQuery(draftEmailTypeFilter);
+    if (emailTypeQuery != null && draft.emailType != emailTypeQuery) {
+      return false;
+    }
+    return true;
+  }
+}
+
+String? _draftStatusQuery(String filter) {
+  return switch (filter) {
+    'review' => 'WAITING_REVIEW,EDITED',
+    'approved' => 'APPROVED',
+    'sent' => 'SENT',
+    'blocked' => 'NEEDS_CONTACTS',
+    'rejected' => 'REJECTED',
+    _ => null,
+  };
+}
+
+String? _draftEmailTypeQuery(String filter) {
+  return filter == 'all' ? null : filter;
 }

@@ -440,6 +440,40 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
     assert list_response.status_code == 200
     assert list_response.json()["drafts"][0]["id"] == draft["id"]
 
+    type_filter_response = client.get(
+        "/planning/drafts",
+        params={
+            "import_id": import_id,
+            "email_type": "confirmation_presence",
+        },
+    )
+    assert type_filter_response.status_code == 200
+    assert type_filter_response.json()["count"] == 1
+    assert (
+        type_filter_response.json()["drafts"][0]["email_type"]
+        == "confirmation_presence"
+    )
+
+    missing_type_response = client.get(
+        "/planning/drafts",
+        params={
+            "import_id": import_id,
+            "email_type": "sensibilisation",
+        },
+    )
+    assert missing_type_response.status_code == 200
+    assert missing_type_response.json()["count"] == 0
+
+    review_filter_response = client.get(
+        "/planning/drafts",
+        params={
+            "import_id": import_id,
+            "draft_status": "WAITING_REVIEW,EDITED",
+        },
+    )
+    assert review_filter_response.status_code == 200
+    assert review_filter_response.json()["count"] == 1
+
     detail_response = client.get(f"/planning/drafts/{draft['id']}")
     assert detail_response.status_code == 200
     assert detail_response.json()["draft"]["body"] == draft["body"]

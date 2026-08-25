@@ -298,14 +298,26 @@ class PlanningImportService:
         import_id: str | None = None,
         session_key: str | None = None,
         status: str | None = None,
+        email_type: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         safe_import_id = sanitize_import_id(import_id) if import_id else None
+        statuses = (
+            [
+                item.strip().upper()
+                for item in status.split(",")
+                if item.strip()
+            ]
+            if status
+            else None
+        )
+        safe_email_type = email_type.strip().lower() if email_type else None
         return self.database.list_training_drafts(
             import_id=safe_import_id,
             session_key=session_key,
-            status=status,
+            status=statuses,
+            email_type=safe_email_type,
             limit=limit,
             offset=offset,
         )

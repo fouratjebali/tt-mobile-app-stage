@@ -129,11 +129,18 @@ class PlanningApiService {
     return _map(data);
   }
 
-  Future<List<TrainingDraft>> listDrafts({String? importId}) async {
+  Future<List<TrainingDraft>> listDrafts({
+    String? importId,
+    String? draftStatus,
+    String? emailType,
+  }) async {
     final data = await _apiService.get(
       '/planning/drafts',
       queryParameters: {
         if (importId != null && importId.isNotEmpty) 'import_id': importId,
+        if (draftStatus != null && draftStatus.isNotEmpty)
+          'draft_status': draftStatus,
+        if (emailType != null && emailType.isNotEmpty) 'email_type': emailType,
       },
     );
     final drafts = _list(_map(data)['drafts']);
