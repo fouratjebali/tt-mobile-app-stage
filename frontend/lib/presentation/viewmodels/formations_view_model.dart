@@ -230,6 +230,20 @@ class FormationsViewModel extends ChangeNotifier {
     return updated;
   }
 
+  Future<TrainingDraft> regenerateDraft(
+    TrainingDraft draft, {
+    String emailType = 'auto',
+    bool includePopulation = true,
+  }) async {
+    final updated = await _planningApiService.regenerateDraft(
+      draftId: draft.id,
+      emailType: emailType,
+      includePopulation: includePopulation,
+    );
+    _replaceDraft(updated);
+    return updated;
+  }
+
   Future<TrainingDraft> approveDraft(TrainingDraft draft) async {
     final updated = await _planningApiService.approveDraft(draft.id);
     _replaceDraft(updated);

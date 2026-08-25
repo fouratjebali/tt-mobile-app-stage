@@ -218,6 +218,11 @@ const Map<String, String> _english = {
   'formations.noSubject': '(No subject)',
   'formations.noRecipients': 'No recipient yet',
   'formations.reviewDraft': 'Review draft',
+  'formations.regenerateDraft': 'Regenerate draft',
+  'formations.regenerateAction': 'Regenerate',
+  'formations.regenerateWarning':
+      'This will replace the current subject, message, and recipients with a fresh generated version.',
+  'formations.regenerateDone': 'Draft regenerated. Review it before sending.',
   'formations.recipients': 'Recipients',
   'formations.cc': 'Cc',
   'formations.optional': 'Optional',
@@ -518,6 +523,11 @@ const Map<String, String> _french = {
   'formations.noSubject': '(Sans objet)',
   'formations.noRecipients': 'Aucun destinataire',
   'formations.reviewDraft': 'Verifier le brouillon',
+  'formations.regenerateDraft': 'Regenerer le brouillon',
+  'formations.regenerateAction': 'Regenerer',
+  'formations.regenerateWarning':
+      'Cette action remplacera l objet, le message et les destinataires par une nouvelle version generee.',
+  'formations.regenerateDone': 'Brouillon regenere. Verifiez le avant envoi.',
   'formations.recipients': 'Destinataires',
   'formations.cc': 'Cc',
   'formations.optional': 'Optionnel',

@@ -370,6 +370,38 @@ class PlanningImportService:
             cc=cc,
         )
 
+    def regenerate_training_draft(
+        self,
+        draft_id: int,
+        *,
+        email_type: str = "auto",
+        include_population: bool = True,
+    ) -> dict[str, Any] | None:
+        current = self.database.get_training_draft(draft_id)
+        if current is None:
+            return None
+        if current["status"] == "SENT":
+            raise ValueError("Sent drafts cannot be regenerated.")
+
+        safe_import_id = sanitize_import_id(current["import_id"])
+        if not safe_import_id:
+            raise ValueError("This draft is not linked to a planning import.")
+
+        self.database.apply_contact_mapping(import_id=safe_import_id)
+        session = self.database.get_session(
+            current["session_key"],
+            import_id=safe_import_id,
+        )
+        if session is None:
+            raise ValueError("The original training session was not found.")
+
+        draft = self.training_agent.generate_draft(
+            session,
+            email_type=email_type,
+            include_population=include_population,
+        )
+        return self.database.regenerate_training_draft(draft_id, draft)
+
     def approve_training_draft(self, draft_id: int) -> dict[str, Any] | None:
         return self.database.approve_training_draft(draft_id)
 

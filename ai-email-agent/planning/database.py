@@ -889,6 +889,59 @@ class PlanningDatabase:
             connection.commit()
         return self.get_training_draft(draft_id)
 
+    def regenerate_training_draft(
+        self,
+        draft_id: int,
+        draft: TrainingDraft,
+    ) -> dict[str, Any] | None:
+        current = self.get_training_draft(draft_id)
+        if current is None:
+            return None
+        if current["status"] == "SENT":
+            raise ValueError("Sent drafts cannot be regenerated.")
+
+        next_status = "WAITING_REVIEW" if draft.recipients else "NEEDS_CONTACTS"
+        metadata = {
+            **draft.metadata,
+            "ready_to_send": False,
+            "review_status": next_status.lower(),
+            "last_review_action": "regenerated",
+            "regenerated_at": _utc_now(),
+            "previous_status": current["status"],
+            "previous_email_type": current["email_type"],
+        }
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE training_email_drafts
+                SET
+                    email_type = ?,
+                    subject = ?,
+                    body = ?,
+                    html_body = ?,
+                    recipients_json = ?,
+                    cc_json = ?,
+                    status = ?,
+                    metadata_json = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    draft.email_type,
+                    draft.subject,
+                    draft.body,
+                    draft.html_body,
+                    _json(draft.recipients),
+                    _json(draft.cc),
+                    next_status,
+                    _json(metadata),
+                    draft_id,
+                ),
+            )
+            connection.commit()
+        return self.get_training_draft(draft_id)
+
     def approve_training_draft(self, draft_id: int) -> dict[str, Any] | None:
         draft = self.get_training_draft(draft_id)
         if draft is None:

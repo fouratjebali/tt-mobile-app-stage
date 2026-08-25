@@ -119,6 +119,11 @@ class UpdateTrainingDraftRequest(BaseModel):
     cc: list[str] | None = None
 
 
+class RegenerateTrainingDraftRequest(BaseModel):
+    email_type: str = "auto"
+    include_population: bool = True
+
+
 class RejectTrainingDraftRequest(BaseModel):
     reason: str = ""
 
@@ -647,6 +652,33 @@ def update_training_draft(
             html_body=request.html_body,
             recipients=request.recipients,
             cc=request.cc,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    if draft is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training draft {draft_id} not found.",
+        )
+    return {
+        "status": "ok",
+        "draft": draft,
+    }
+
+
+@app.post("/planning/drafts/{draft_id}/regenerate")
+def regenerate_training_draft(
+    draft_id: int,
+    request: RegenerateTrainingDraftRequest,
+) -> dict[str, Any]:
+    try:
+        draft = planning_import_service.regenerate_training_draft(
+            draft_id,
+            email_type=request.email_type,
+            include_population=request.include_population,
         )
     except ValueError as exc:
         raise HTTPException(

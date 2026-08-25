@@ -234,6 +234,19 @@ class PlanningApiService {
     return TrainingDraft.fromJson(_map(_map(data)['draft']));
   }
 
+  Future<TrainingDraft> regenerateDraft({
+    required int draftId,
+    String emailType = 'auto',
+    bool includePopulation = true,
+  }) async {
+    final data = await _apiService.post(
+      '/planning/drafts/$draftId/regenerate',
+      body: {'email_type': emailType, 'include_population': includePopulation},
+      timeout: _planningTimeout,
+    );
+    return TrainingDraft.fromJson(_map(_map(data)['draft']));
+  }
+
   Future<TrainingDraft> approveDraft(int draftId) async {
     final data = await _apiService.post('/planning/drafts/$draftId/approve');
     return TrainingDraft.fromJson(_map(_map(data)['draft']));

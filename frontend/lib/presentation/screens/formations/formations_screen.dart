@@ -2120,17 +2120,22 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
   late final TextEditingController _recipientsController;
   late final TextEditingController _ccController;
   late final TextEditingController _bodyController;
+  late TrainingDraft _draft;
+  late String _regenerateEmailType;
+  bool _regenerateWithPopulation = true;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _subjectController = TextEditingController(text: widget.draft.subject);
+    _draft = widget.draft;
+    _regenerateEmailType = widget.draft.emailType;
+    _subjectController = TextEditingController(text: _draft.subject);
     _recipientsController = TextEditingController(
-      text: widget.draft.recipients.join(', '),
+      text: _draft.recipients.join(', '),
     );
-    _ccController = TextEditingController(text: widget.draft.cc.join(', '));
-    _bodyController = TextEditingController(text: widget.draft.body);
+    _ccController = TextEditingController(text: _draft.cc.join(', '));
+    _bodyController = TextEditingController(text: _draft.body);
   }
 
   @override
@@ -2146,7 +2151,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
     setState(() => _saving = true);
     try {
       return await widget.viewModel.saveDraft(
-        draft: widget.draft,
+        draft: _draft,
         subject: _subjectController.text,
         body: _bodyController.text,
         recipients: _splitEmails(_recipientsController.text),
@@ -2177,7 +2182,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
   Future<void> _send() async {
     setState(() => _saving = true);
     try {
-      await widget.viewModel.sendDraft(widget.draft);
+      await widget.viewModel.sendDraft(_draft);
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
       if (mounted) _showSheetMessage(error.toString());
@@ -2190,7 +2195,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
     setState(() => _saving = true);
     try {
       await widget.viewModel.rejectDraft(
-        widget.draft,
+        _draft,
         reason: 'Rejected from mobile review',
       );
       if (mounted) Navigator.of(context).pop();
@@ -2199,6 +2204,56 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _regenerate() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(context.l10n.t('formations.regenerateDraft')),
+            content: Text(context.l10n.t('formations.regenerateWarning')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(context.l10n.t('settings.cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(context.l10n.t('formations.regenerateAction')),
+              ),
+            ],
+          ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _saving = true);
+    try {
+      final regenerated = await widget.viewModel.regenerateDraft(
+        _draft,
+        emailType: _regenerateEmailType,
+        includePopulation: _regenerateWithPopulation,
+      );
+      _applyDraft(regenerated);
+      if (mounted) {
+        _showSheetMessage(context.l10n.t('formations.regenerateDone'));
+      }
+    } catch (error) {
+      if (mounted) _showSheetMessage(error.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _applyDraft(TrainingDraft draft) {
+    setState(() {
+      _draft = draft;
+      _regenerateEmailType = draft.emailType;
+      _subjectController.text = draft.subject;
+      _recipientsController.text = draft.recipients.join(', ');
+      _ccController.text = draft.cc.join(', ');
+      _bodyController.text = draft.body;
+    });
   }
 
   void _showSheetMessage(String message) {
@@ -2212,8 +2267,9 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
     final l10n = context.l10n;
     final tone = _FormationTone.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final canEdit = widget.draft.canReview;
-    final canSend = widget.draft.isApproved;
+    final canEdit = _draft.canReview;
+    final canSend = _draft.isApproved;
+    final canRegenerate = !_draft.isSent;
 
     return Container(
       margin: EdgeInsets.only(bottom: bottomInset),
@@ -2251,10 +2307,22 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
                   ),
                 ),
                 _StatusPill(
-                  label: _statusLabel(context, widget.draft.status),
-                  color: _statusColor(widget.draft.status),
+                  label: _statusLabel(context, _draft.status),
+                  color: _statusColor(_draft.status),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            _RegenerateDraftPanel(
+              emailType: _regenerateEmailType,
+              includePopulation: _regenerateWithPopulation,
+              tone: tone,
+              enabled: !_saving && canRegenerate,
+              onEmailTypeChanged:
+                  (value) => setState(() => _regenerateEmailType = value),
+              onIncludePopulationChanged:
+                  (value) => setState(() => _regenerateWithPopulation = value),
+              onRegenerate: _regenerate,
             ),
             const SizedBox(height: 16),
             _LabeledField(
@@ -2295,8 +2363,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed:
-                        _saving || !widget.draft.canReview ? null : _reject,
+                    onPressed: _saving || !_draft.canReview ? null : _reject,
                     icon: const Icon(Icons.close_rounded),
                     label: Text(l10n.t('formations.reject')),
                   ),
@@ -2304,8 +2371,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed:
-                        _saving || !widget.draft.canReview ? null : _save,
+                    onPressed: _saving || !_draft.canReview ? null : _save,
                     icon: const Icon(Icons.save_outlined),
                     label: Text(l10n.t('formations.save')),
                   ),
@@ -2355,6 +2421,125 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RegenerateDraftPanel extends StatelessWidget {
+  const _RegenerateDraftPanel({
+    required this.emailType,
+    required this.includePopulation,
+    required this.tone,
+    required this.enabled,
+    required this.onEmailTypeChanged,
+    required this.onIncludePopulationChanged,
+    required this.onRegenerate,
+  });
+
+  final String emailType;
+  final bool includePopulation;
+  final _FormationTone tone;
+  final bool enabled;
+  final ValueChanged<String> onEmailTypeChanged;
+  final ValueChanged<bool> onIncludePopulationChanged;
+  final VoidCallback onRegenerate;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.softSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.refresh_rounded, color: tone.muted, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.t('formations.regenerateDraft'),
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: enabled ? onRegenerate : null,
+                icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+                label: Text(l10n.t('formations.regenerateAction')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            value:
+                [
+                      'auto',
+                      'sensibilisation',
+                      'confirmation_presence',
+                    ].contains(emailType)
+                    ? emailType
+                    : 'auto',
+            isExpanded: true,
+            dropdownColor: tone.surface,
+            decoration: InputDecoration(
+              labelText: l10n.t('formations.defaultEmailType'),
+              filled: true,
+              fillColor: tone.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: tone.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: tone.border),
+              ),
+            ),
+            items:
+                const ['auto', 'sensibilisation', 'confirmation_presence']
+                    .map(
+                      (value) => DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(_automationEmailTypeLabel(context, value)),
+                      ),
+                    )
+                    .toList(),
+            onChanged:
+                enabled
+                    ? (value) {
+                      if (value != null) onEmailTypeChanged(value);
+                    }
+                    : null,
+          ),
+          const SizedBox(height: 8),
+          CheckboxListTile(
+            value: includePopulation,
+            onChanged:
+                enabled
+                    ? (value) => onIncludePopulationChanged(value ?? true)
+                    : null,
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(
+              l10n.t('formations.includePopulation'),
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
