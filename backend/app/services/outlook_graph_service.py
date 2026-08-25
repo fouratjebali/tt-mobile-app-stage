@@ -193,7 +193,7 @@ class OutlookGraphService:
             )
         session = self._auth_repository.get_latest_session_for_user(user)
         token = session.google_access_token if session is not None else ""
-        if not token or token.count(".") < 2:
+        if not token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Please reconnect your Outlook account.",
