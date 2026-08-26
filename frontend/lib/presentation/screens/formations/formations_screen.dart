@@ -1384,8 +1384,19 @@ class _TrainingCalendarSection extends StatefulWidget {
 }
 
 class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
+  static const double _monthChipWidth = 112;
+  static const double _monthChipSpacing = 8;
+
+  final ScrollController _monthScrollController = ScrollController();
   DateTime? _selectedMonth;
   DateTime? _selectedDate;
+  String? _lastAlignedMonthKey;
+
+  @override
+  void dispose() {
+    _monthScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant _TrainingCalendarSection oldWidget) {
@@ -1395,6 +1406,7 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
     if (!_containsMonth(months, _selectedMonth)) {
       _selectedMonth = null;
       _selectedDate = null;
+      _lastAlignedMonthKey = null;
       return;
     }
     final selectedMonth = _selectedMonth ?? _defaultCalendarMonth(months);
@@ -1412,6 +1424,7 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
     final sessions = widget.sessions;
     final months = _availableMonths(sessions);
     final selectedMonth = _selectedMonth ?? _defaultCalendarMonth(months);
+    _alignSelectedMonth(months, selectedMonth);
     final monthSessions = _sessionsForMonth(sessions, selectedMonth);
     final days = _availableDays(monthSessions);
     final selectedDate = _selectedDate ?? (days.isNotEmpty ? days.first : null);
@@ -1464,9 +1477,11 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
           SizedBox(
             height: 44,
             child: ListView.separated(
+              controller: _monthScrollController,
               scrollDirection: Axis.horizontal,
               itemCount: months.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder:
+                  (_, __) => const SizedBox(width: _monthChipSpacing),
               itemBuilder: (context, index) {
                 final month = months[index];
                 final count = _sessionsForMonth(sessions, month).length;
@@ -1528,6 +1543,21 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
       ],
     );
   }
+
+  void _alignSelectedMonth(List<DateTime> months, DateTime? selectedMonth) {
+    if (selectedMonth == null || months.isEmpty) return;
+    final key = '${selectedMonth.year}-${selectedMonth.month}';
+    if (_lastAlignedMonthKey == key) return;
+    final index = months.indexWhere((month) => _sameMonth(month, selectedMonth));
+    if (index < 0) return;
+    _lastAlignedMonthKey = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_monthScrollController.hasClients) return;
+      final maxOffset = _monthScrollController.position.maxScrollExtent;
+      final target = index * (_monthChipWidth + _monthChipSpacing);
+      _monthScrollController.jumpTo(target.clamp(0.0, maxOffset));
+    });
+  }
 }
 
 class _CalendarMonthChip extends StatelessWidget {
@@ -1553,6 +1583,7 @@ class _CalendarMonthChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
+        width: _TrainingCalendarSectionState._monthChipWidth,
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
@@ -4217,6 +4248,13 @@ List<DateTime> _availableMonths(List<TrainingCalendarSession> sessions) {
 
 DateTime? _defaultCalendarMonth(List<DateTime> months) {
   if (months.isEmpty) return null;
+  const preferredYear = 2026;
+  const preferredMonth = 5;
+  for (final month in months) {
+    if (month.year == preferredYear && month.month == preferredMonth) {
+      return month;
+    }
+  }
   final now = _todayDate();
   final currentMonth = DateTime(now.year, now.month);
   for (final month in months) {
