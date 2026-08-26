@@ -218,9 +218,11 @@ const Map<String, String> _english = {
   'formations.noSessionsForDay': 'No session scheduled for this day.',
   'formations.calendarReady': 'ready',
   'formations.calendarMissing': 'contacts',
+  'formations.calendarPlanned': 'planned',
   'formations.unknownModule': 'Training session',
   'formations.locationMissing': 'Location missing',
   'formations.participantsShort': 'participants',
+  'formations.candidatesPlannedShort': 'candidates planned',
   'formations.reviewBeforeSend': 'Review before send',
   'formations.reviewBeforeSendHint':
       'Generated training emails stay blocked until you review, edit, and approve them.',
@@ -602,9 +604,11 @@ const Map<String, String> _french = {
   'formations.noSessionsForDay': 'Aucune session programmee ce jour.',
   'formations.calendarReady': 'pret',
   'formations.calendarMissing': 'contacts',
+  'formations.calendarPlanned': 'prevu',
   'formations.unknownModule': 'Session de formation',
   'formations.locationMissing': 'Lieu manquant',
   'formations.participantsShort': 'participants',
+  'formations.candidatesPlannedShort': 'candidats prevus',
   'formations.reviewBeforeSend': 'Verifier avant envoi',
   'formations.reviewBeforeSendHint':
       'Les emails de formation restent bloques jusqu a verification, modification et validation.',

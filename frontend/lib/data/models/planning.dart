@@ -135,6 +135,7 @@ class TrainingCalendarSession {
     required this.schedule,
     required this.location,
     required this.participantCount,
+    required this.plannedCandidateCount,
     required this.missingEmailCount,
   });
 
@@ -151,9 +152,15 @@ class TrainingCalendarSession {
   final String schedule;
   final String location;
   final int participantCount;
+  final int plannedCandidateCount;
   final int missingEmailCount;
 
   bool get hasMissingContacts => missingEmailCount > 0;
+  bool get hasDetailedParticipants => participantCount > 0;
+  bool get hasPlannedCandidatesOnly =>
+      participantCount == 0 && plannedCandidateCount > 0;
+  int get displayCandidateCount =>
+      participantCount > 0 ? participantCount : plannedCandidateCount;
 
   factory TrainingCalendarSession.fromJson(Map<String, dynamic> json) {
     return TrainingCalendarSession(
@@ -173,6 +180,7 @@ class TrainingCalendarSession {
       schedule: _string(json['schedule']),
       location: _string(json['location']),
       participantCount: _int(json['participant_count']),
+      plannedCandidateCount: _int(json['candidate_count']),
       missingEmailCount: _int(json['missing_email_count']),
     );
   }

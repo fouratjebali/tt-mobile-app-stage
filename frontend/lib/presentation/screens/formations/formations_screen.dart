@@ -1805,6 +1805,11 @@ class _TrainingSessionCard extends StatelessWidget {
                   label: l10n.t('formations.calendarMissing'),
                   color: AppPalette.clay,
                 )
+              else if (session.hasPlannedCandidatesOnly)
+                _StatusPill(
+                  label: l10n.t('formations.calendarPlanned'),
+                  color: AppPalette.amber,
+                )
               else
                 _StatusPill(
                   label: l10n.t('formations.calendarReady'),
@@ -1828,7 +1833,7 @@ class _TrainingSessionCard extends StatelessWidget {
               _SessionInfoPill(
                 icon: Icons.groups_2_outlined,
                 label:
-                    '${session.participantCount} ${l10n.t('formations.participantsShort')}',
+                    '${session.displayCandidateCount} ${l10n.t(session.hasDetailedParticipants ? 'formations.participantsShort' : 'formations.candidatesPlannedShort')}',
                 tone: tone,
               ),
               if (session.trainer.isNotEmpty)
