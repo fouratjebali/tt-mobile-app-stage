@@ -66,12 +66,18 @@ class PlanningApiService {
 
   Future<Map<String, dynamic>> importContactFiles({
     required List<PlanningPickedFile> files,
+    String? importId,
   }) async {
     return _planningRequest(
       action: _PlanningAction.importContacts,
       request: () async {
+        final encodedImportId = Uri.encodeQueryComponent(importId ?? '');
+        final path =
+            encodedImportId.isEmpty
+                ? '/planning/contacts/import'
+                : '/planning/contacts/import?import_id=$encodedImportId';
         final data = await _apiService.uploadFiles(
-          '/planning/contacts/import',
+          path,
           fieldName: 'files',
           files:
               files
@@ -473,7 +479,7 @@ class PlanningApiService {
       return 'You can upload up to 5 files at once. Remove extra files and try again.';
     }
     if (lower.contains('empty')) {
-      return 'One selected file is empty. Choose the exported planning or contact file again.';
+      return 'One selected file is empty. Choose the exported planning or candidate file again.';
     }
     if (lower.contains('only .xlsx planning') ||
         lower.contains('unsupported planning file') ||
@@ -482,7 +488,7 @@ class PlanningApiService {
     }
     if (lower.contains('only .xlsx and .csv contact') ||
         lower.contains('unsupported contact file')) {
-      return 'Contact import accepts .xlsx or .csv files only. Export the directory and upload it again.';
+      return 'Candidate import accepts .xlsx or .csv files only. Export the candidate list and upload it again.';
     }
     if (lower.contains('unable to read excel') ||
         lower.contains('could not be read')) {
@@ -494,10 +500,10 @@ class PlanningApiService {
     }
     if (lower.contains('no contact header') ||
         lower.contains('contact headers were not found')) {
-      return 'The contact columns were not found. The directory should include Email plus Nom & Prenom or Matricule.';
+      return 'The candidate columns were not found. The file should include Nom & Prenom or Matricule. Email can be completed later.';
     }
     if (lower.contains('no valid contacts')) {
-      return 'No valid contacts were found. Each contact needs an email and either a matricule or a name.';
+      return 'No valid candidates were found. Each row needs a matricule or a name. Email can be completed later.';
     }
     if (lower.contains('valid email')) {
       return 'Enter a valid email address before saving this contact.';
@@ -522,13 +528,13 @@ class PlanningApiService {
       _PlanningAction.importPlanning =>
         'Unable to import this planning file. Check the Excel format and try again.',
       _PlanningAction.importContacts =>
-        'Unable to import the contact directory. Check the columns and try again.',
+        'Unable to import the candidate list. Check the columns and try again.',
       _PlanningAction.generateDrafts =>
         'Unable to generate training drafts. Complete missing contacts, then try again.',
       _PlanningAction.runAutomation =>
         'Automation could not finish. Check contact matching and retry.',
       _PlanningAction.saveContact =>
-        'Unable to save this contact. Check the email and try again.',
+        'Unable to save this candidate email. Check the address and try again.',
       _PlanningAction.saveDraft =>
         'Unable to save this draft. Refresh it and try again.',
       _PlanningAction.regenerateDraft =>

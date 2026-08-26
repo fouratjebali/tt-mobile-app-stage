@@ -469,6 +469,7 @@ def list_planning_contact_review(
 @app.post("/planning/contacts/import")
 async def import_employee_contacts(
     files: list[UploadFile] = File(...),
+    import_id: str | None = Query(default=None),
 ) -> dict[str, Any]:
     if not files:
         raise HTTPException(
@@ -488,6 +489,11 @@ async def import_employee_contacts(
         loaded_files.append((filename, content))
 
     try:
+        if import_id:
+            return planning_import_service.import_candidates_for_import(
+                import_id=import_id,
+                files=loaded_files,
+            )
         return planning_import_service.import_contacts(loaded_files)
     except ValueError as exc:
         raise HTTPException(

@@ -41,7 +41,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
     final result = await FilePicker.pickFiles(
       allowMultiple: true,
       type: FileType.custom,
-      allowedExtensions: const ['xlsx', 'xls'],
+      allowedExtensions: const ['xlsx'],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
@@ -82,7 +82,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
     final result = await FilePicker.pickFiles(
       allowMultiple: true,
       type: FileType.custom,
-      allowedExtensions: const ['xlsx', 'xls', 'csv'],
+      allowedExtensions: const ['xlsx', 'csv'],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
@@ -199,7 +199,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
             (context, tone) => [
               _UploadPanel(onUpload: _pickPlanningFiles, tone: tone),
               const SizedBox(height: 14),
-              _ContactDirectoryPanel(onUpload: _pickContactFiles, tone: tone),
+              _CandidateListPanel(onUpload: _pickContactFiles, tone: tone),
               const SizedBox(height: 18),
               _MonthOverview(viewModel: _viewModel, tone: tone),
               if (_viewModel.activeImport == null) ...[
@@ -265,7 +265,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
         subtitleKey: 'formations.contactsPageSubtitle',
         builder:
             (context, tone) => [
-              _ContactDirectoryPanel(onUpload: _pickContactFiles, tone: tone),
+              _CandidateListPanel(onUpload: _pickContactFiles, tone: tone),
               const SizedBox(height: 18),
               _ContactMatchingReviewSection(
                 summary: _viewModel.contactReviewSummary,
@@ -1022,8 +1022,8 @@ class _UploadPanel extends StatelessWidget {
   }
 }
 
-class _ContactDirectoryPanel extends StatelessWidget {
-  const _ContactDirectoryPanel({required this.onUpload, required this.tone});
+class _CandidateListPanel extends StatelessWidget {
+  const _CandidateListPanel({required this.onUpload, required this.tone});
 
   final VoidCallback onUpload;
   final _FormationTone tone;
@@ -1049,7 +1049,7 @@ class _ContactDirectoryPanel extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
-              Icons.contact_mail_rounded,
+              Icons.groups_2_rounded,
               color: AppPalette.blue,
               size: 24,
             ),

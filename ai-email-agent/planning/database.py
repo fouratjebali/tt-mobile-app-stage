@@ -10,7 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from planning.contact_parser import EmployeeContact, normalize_name
-from planning.models import PlanningImportResult, TrainingSession
+from planning.models import (
+    PlanningFileResult,
+    PlanningImportResult,
+    PlanningParticipant,
+    TrainingSession,
+)
 from planning.training_agent import TrainingDraft
 
 
@@ -141,6 +146,7 @@ class PlanningDatabase:
                     normalized_name TEXT NOT NULL DEFAULT '',
                     full_name TEXT NOT NULL DEFAULT '',
                     email TEXT NOT NULL DEFAULT '',
+                    residence TEXT NOT NULL DEFAULT '',
                     direction TEXT NOT NULL DEFAULT '',
                     hr_responsible TEXT NOT NULL DEFAULT '',
                     source_file TEXT NOT NULL DEFAULT '',
@@ -213,6 +219,7 @@ class PlanningDatabase:
                 """
             )
             self._ensure_column(connection, "employee_contacts", "normalized_name", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "employee_contacts", "residence", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "employee_contacts", "source_file", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "employee_contacts", "source_row", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(connection, "training_email_drafts", "html_body", "TEXT NOT NULL DEFAULT ''")
@@ -364,6 +371,116 @@ class PlanningDatabase:
                     self._insert_session(connection, result.import_id, file_id, session)
 
             connection.commit()
+
+    def add_candidate_files(
+        self,
+        *,
+        import_id: str,
+        files: list[PlanningFileResult],
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            existing_import = connection.execute(
+                "SELECT import_id FROM planning_imports WHERE import_id = ?",
+                (import_id,),
+            ).fetchone()
+            if existing_import is None:
+                raise ValueError(f"Planning import {import_id} not found.")
+
+            session_rows = connection.execute(
+                """
+                SELECT id, session_key, code_session
+                FROM training_sessions
+                WHERE import_id = ?
+                """,
+                (import_id,),
+            ).fetchall()
+            by_code = {
+                str(row["code_session"]).strip().lower(): row
+                for row in session_rows
+                if str(row["code_session"] or "").strip()
+            }
+            by_key = {row["session_key"]: row for row in session_rows}
+
+            linked_sessions = 0
+            created_sessions = 0
+            participants_added = 0
+            participants_skipped = 0
+
+            connection.execute("BEGIN")
+            for file_result in files:
+                file_cursor = connection.execute(
+                    """
+                    INSERT INTO planning_files (
+                        import_id,
+                        filename,
+                        status,
+                        sheets_json,
+                        warnings_json,
+                        errors_json
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        import_id,
+                        file_result.filename,
+                        file_result.status,
+                        _json(file_result.sheets),
+                        _json(file_result.warnings),
+                        _json(file_result.errors),
+                    ),
+                )
+                file_id = int(file_cursor.lastrowid)
+                for session in file_result.sessions:
+                    key = str(session.code_session or "").strip().lower()
+                    target = by_code.get(key) if key else by_key.get(session.session_key)
+                    if target is None:
+                        session_id = self._insert_session(
+                            connection,
+                            import_id,
+                            file_id,
+                            session,
+                        )
+                        by_key[session.session_key] = {
+                            "id": session_id,
+                            "session_key": session.session_key,
+                            "code_session": session.code_session,
+                        }
+                        if key:
+                            by_code[key] = by_key[session.session_key]
+                        created_sessions += 1
+                        participants_added += len(session.participants)
+                        continue
+
+                    linked_sessions += 1
+                    for participant in session.participants:
+                        if self._participant_exists(
+                            connection,
+                            int(target["id"]),
+                            participant,
+                        ):
+                            participants_skipped += 1
+                            continue
+                        self._insert_participant(
+                            connection,
+                            import_id,
+                            int(target["id"]),
+                            str(target["session_key"]),
+                            participant,
+                            session.source_file,
+                        )
+                        participants_added += 1
+
+            self._refresh_import_counts(connection, import_id)
+            connection.commit()
+
+        return {
+            "import_id": import_id,
+            "files": len(files),
+            "linked_sessions": linked_sessions,
+            "created_sessions": created_sessions,
+            "participants_added": participants_added,
+            "participants_skipped": participants_skipped,
+        }
 
     def list_imports(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
@@ -596,6 +713,7 @@ class PlanningDatabase:
                     normalized_name,
                     full_name,
                     email,
+                    residence,
                     direction,
                     hr_responsible,
                     source_file,
@@ -717,7 +835,7 @@ class PlanningDatabase:
         with self._connect() as connection:
             for contact in contacts:
                 contact_key = _contact_key(contact)
-                if not contact_key or not contact.email:
+                if not contact_key:
                     skipped += 1
                     continue
                 connection.execute(
@@ -727,19 +845,33 @@ class PlanningDatabase:
                         normalized_name,
                         full_name,
                         email,
+                        residence,
                         direction,
                         hr_responsible,
                         source_file,
                         source_row,
                         updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(matricule) DO UPDATE SET
                         normalized_name = excluded.normalized_name,
                         full_name = excluded.full_name,
-                        email = excluded.email,
-                        direction = excluded.direction,
-                        hr_responsible = excluded.hr_responsible,
+                        email = CASE
+                            WHEN excluded.email != '' THEN excluded.email
+                            ELSE employee_contacts.email
+                        END,
+                        residence = CASE
+                            WHEN excluded.residence != '' THEN excluded.residence
+                            ELSE employee_contacts.residence
+                        END,
+                        direction = CASE
+                            WHEN excluded.direction != '' THEN excluded.direction
+                            ELSE employee_contacts.direction
+                        END,
+                        hr_responsible = CASE
+                            WHEN excluded.hr_responsible != '' THEN excluded.hr_responsible
+                            ELSE employee_contacts.hr_responsible
+                        END,
                         source_file = excluded.source_file,
                         source_row = excluded.source_row,
                         updated_at = CURRENT_TIMESTAMP
@@ -749,6 +881,7 @@ class PlanningDatabase:
                         contact.normalized_name,
                         contact.full_name,
                         contact.email,
+                        contact.residence,
                         contact.direction,
                         contact.hr_responsible,
                         contact.source_file,
@@ -771,6 +904,7 @@ class PlanningDatabase:
                     normalized_name,
                     full_name,
                     email,
+                    residence,
                     direction,
                     hr_responsible,
                     source_file,
@@ -788,7 +922,7 @@ class PlanningDatabase:
         with self._connect() as connection:
             contacts = connection.execute(
                 """
-                SELECT matricule, normalized_name, email, direction, hr_responsible
+                SELECT matricule, normalized_name, email, residence, direction, hr_responsible
                 FROM employee_contacts
                 WHERE email != ''
                 """
@@ -847,6 +981,7 @@ class PlanningDatabase:
                     UPDATE training_participants
                     SET
                         email = ?,
+                        residence = COALESCE(NULLIF(residence, ''), ?),
                         direction = COALESCE(NULLIF(direction, ''), ?),
                         hr_responsible = COALESCE(NULLIF(hr_responsible, ''), ?),
                         missing_fields_json = ?
@@ -854,6 +989,7 @@ class PlanningDatabase:
                     """,
                     (
                         contact["email"],
+                        contact["residence"],
                         contact["direction"],
                         contact["hr_responsible"],
                         _json(missing_fields),
@@ -1297,7 +1433,7 @@ class PlanningDatabase:
         import_id: str,
         file_id: int,
         session: TrainingSession,
-    ) -> None:
+    ) -> int:
         cursor = connection.execute(
             """
             INSERT INTO training_sessions (
@@ -1382,73 +1518,148 @@ class PlanningDatabase:
         )
         session_id = int(cursor.lastrowid)
         for participant in session.participants:
+            self._insert_participant(
+                connection,
+                import_id,
+                session_id,
+                session.session_key,
+                participant,
+                session.source_file,
+            )
+        return session_id
+
+    def _insert_participant(
+        self,
+        connection: sqlite3.Connection,
+        import_id: str,
+        session_id: int,
+        session_key: str,
+        participant: PlanningParticipant,
+        source_file: str,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT INTO training_participants (
+                import_id,
+                session_id,
+                session_key,
+                matricule,
+                full_name,
+                email,
+                residence,
+                direction,
+                hr_responsible,
+                source_row,
+                missing_fields_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                import_id,
+                session_id,
+                session_key,
+                participant.matricule,
+                participant.full_name,
+                participant.email,
+                participant.residence,
+                participant.direction,
+                participant.hr_responsible,
+                participant.source_row,
+                _json(participant.missing_fields),
+            ),
+        )
+        if participant.matricule and participant.email:
             connection.execute(
                 """
-                INSERT INTO training_participants (
-                    import_id,
-                    session_id,
-                    session_key,
+                INSERT INTO employee_contacts (
                     matricule,
+                    normalized_name,
                     full_name,
                     email,
                     residence,
                     direction,
                     hr_responsible,
+                    source_file,
                     source_row,
-                    missing_fields_json
+                    updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(matricule) DO UPDATE SET
+                    normalized_name = excluded.normalized_name,
+                    full_name = excluded.full_name,
+                    email = CASE
+                        WHEN excluded.email != '' THEN excluded.email
+                        ELSE employee_contacts.email
+                    END,
+                    residence = CASE
+                        WHEN excluded.residence != '' THEN excluded.residence
+                        ELSE employee_contacts.residence
+                    END,
+                    direction = CASE
+                        WHEN excluded.direction != '' THEN excluded.direction
+                        ELSE employee_contacts.direction
+                    END,
+                    hr_responsible = CASE
+                        WHEN excluded.hr_responsible != '' THEN excluded.hr_responsible
+                        ELSE employee_contacts.hr_responsible
+                    END,
+                    source_file = excluded.source_file,
+                    source_row = excluded.source_row,
+                    updated_at = CURRENT_TIMESTAMP
                 """,
                 (
-                    import_id,
-                    session_id,
-                    session.session_key,
                     participant.matricule,
+                    _normalize_participant_name(participant.full_name),
                     participant.full_name,
                     participant.email,
                     participant.residence,
                     participant.direction,
                     participant.hr_responsible,
+                    source_file,
                     participant.source_row,
-                    _json(participant.missing_fields),
                 ),
             )
-            if participant.matricule and participant.email:
-                connection.execute(
-                    """
-                    INSERT INTO employee_contacts (
-                        matricule,
-                        normalized_name,
-                        full_name,
-                        email,
-                        direction,
-                        hr_responsible,
-                        source_file,
-                        source_row,
-                        updated_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(matricule) DO UPDATE SET
-                        normalized_name = excluded.normalized_name,
-                        full_name = excluded.full_name,
-                        email = excluded.email,
-                        direction = excluded.direction,
-                        hr_responsible = excluded.hr_responsible,
-                        source_file = excluded.source_file,
-                        source_row = excluded.source_row,
-                        updated_at = CURRENT_TIMESTAMP
-                    """,
-                    (
-                        participant.matricule,
-                        _normalize_participant_name(participant.full_name),
-                        participant.full_name,
-                        participant.email,
-                        participant.direction,
-                        participant.hr_responsible,
-                        session.source_file,
-                        participant.source_row,
-                    ),
-                )
+
+    def _participant_exists(
+        self,
+        connection: sqlite3.Connection,
+        session_id: int,
+        participant: PlanningParticipant,
+    ) -> bool:
+        if participant.matricule:
+            row = connection.execute(
+                """
+                SELECT id
+                FROM training_participants
+                WHERE session_id = ? AND matricule = ?
+                LIMIT 1
+                """,
+                (session_id, participant.matricule),
+            ).fetchone()
+            return row is not None
+        if participant.email:
+            row = connection.execute(
+                """
+                SELECT id
+                FROM training_participants
+                WHERE session_id = ? AND lower(email) = lower(?)
+                LIMIT 1
+                """,
+                (session_id, participant.email),
+            ).fetchone()
+            return row is not None
+        if participant.full_name:
+            row = connection.execute(
+                """
+                SELECT id
+                FROM training_participants
+                WHERE session_id = ? AND full_name = ?
+                LIMIT 1
+                """,
+                (session_id, participant.full_name),
+            ).fetchone()
+            return row is not None
+        return False
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -1498,6 +1709,14 @@ class PlanningDatabase:
             """,
             (import_id,),
         ).fetchone()
+        session_count = connection.execute(
+            """
+            SELECT COUNT(*) AS total_sessions
+            FROM training_sessions
+            WHERE import_id = ?
+            """,
+            (import_id,),
+        ).fetchone()
         missing_email_count = int(counts["missing_email_count"] or 0)
         current = connection.execute(
             """
@@ -1519,12 +1738,14 @@ class PlanningDatabase:
             """
             UPDATE planning_imports
             SET
+                total_sessions = ?,
                 total_participants = ?,
                 missing_email_count = ?,
                 status = ?
             WHERE import_id = ?
             """,
             (
+                int(session_count["total_sessions"] or 0),
                 int(counts["total_participants"] or 0),
                 missing_email_count,
                 status,
@@ -1715,6 +1936,7 @@ def _contact_row(row: sqlite3.Row) -> dict[str, Any]:
         "normalized_name": row["normalized_name"],
         "full_name": row["full_name"],
         "email": row["email"],
+        "residence": row["residence"],
         "direction": row["direction"],
         "hr_responsible": row["hr_responsible"],
         "source_file": row["source_file"],

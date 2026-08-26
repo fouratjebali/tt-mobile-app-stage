@@ -375,6 +375,246 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
     assert "email" not in participant["missing_fields"]
 
 
+def test_combined_session_and_candidate_workbooks_are_merged(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+
+    sessions = workbook_bytes(
+        [
+            [
+                "Code session",
+                "N Session LMS",
+                "Etat",
+                "Module",
+                "Cabinet",
+                "Formateur designe",
+                "Date Debut",
+                "Date Fin",
+                "Horaire",
+                "Lieu de formation",
+                "Nbre Candidats",
+            ],
+            [
+                "S7",
+                "25362",
+                "PC",
+                "Accueil et Communication",
+                "Cabinet TT",
+                "Olfa Ben Saad",
+                "2026-09-08",
+                "2026-09-10",
+                "de 08h30 a 14h30",
+                "Salle formation Tunis",
+                1,
+            ],
+        ]
+    )
+    candidates = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Grande residence",
+                "resp RH",
+                "DIR C/R",
+            ],
+            [
+                "S7",
+                "Accueil et Communication",
+                "2026-09-08",
+                "2026-09-10",
+                "Salle formation Tunis",
+                "76052",
+                "JABRI Jawher",
+                "Tunis",
+                "Responsable RH Tunis",
+                "DR Tunis",
+            ],
+        ]
+    )
+
+    response = client.post(
+        "/planning/import",
+        files=[
+            (
+                "files",
+                (
+                    "sessions.xlsx",
+                    sessions,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ),
+            ),
+            (
+                "files",
+                (
+                    "candidates.xlsx",
+                    candidates,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ),
+            ),
+        ],
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_sessions"] == 1
+    assert payload["total_participants"] == 1
+    assert payload["missing_email_count"] == 1
+
+    sessions_response = client.get(
+        "/planning/sessions",
+        params={"import_id": payload["import_id"]},
+    )
+    assert sessions_response.status_code == 200
+    stored_sessions = sessions_response.json()["sessions"]
+    assert len(stored_sessions) == 1
+    assert stored_sessions[0]["candidate_count"] == "1"
+    assert stored_sessions[0]["participant_count"] == 1
+
+
+def test_candidate_workbook_can_enrich_existing_import(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+
+    sessions = workbook_bytes(
+        [
+            ["Code session", "Module", "Date Debut", "Date Fin", "Lieu de formation"],
+            ["S8", "Gestion des reclamations", "2026-10-01", "2026-10-02", "Tunis"],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "sessions.xlsx",
+                sessions,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert import_response.status_code == 200
+    import_id = import_response.json()["import_id"]
+
+    candidates = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Grande residence",
+            ],
+            [
+                "S8",
+                "Gestion des reclamations",
+                "2026-10-01",
+                "2026-10-02",
+                "Tunis",
+                "88110",
+                "BEN ALI Sarra",
+                "Tunis",
+            ],
+        ]
+    )
+    candidate_response = client.post(
+        "/planning/contacts/import",
+        params={"import_id": import_id},
+        files={
+            "files": (
+                "candidates.xlsx",
+                candidates,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert candidate_response.status_code == 200
+    candidate_payload = candidate_response.json()
+    assert candidate_payload["linked_sessions"] == 1
+    assert candidate_payload["created_sessions"] == 0
+    assert candidate_payload["participants_added"] == 1
+
+    sessions_response = client.get(
+        "/planning/sessions",
+        params={"import_id": import_id},
+    )
+    stored_sessions = sessions_response.json()["sessions"]
+    assert len(stored_sessions) == 1
+    assert stored_sessions[0]["participant_count"] == 1
+
+    detail_response = client.get(
+        f"/planning/sessions/{stored_sessions[0]['session_key']}",
+        params={"import_id": import_id},
+    )
+    participant = detail_response.json()["session"]["participants"][0]
+    assert participant["full_name"] == "BEN ALI Sarra"
+    assert participant["residence"] == "Tunis"
+
+
+def test_candidate_import_accepts_missing_email_without_clearing_known_contact(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+
+    contacts = workbook_bytes(
+        [
+            ["Matricule", "Nom et Prenom", "Email", "Direction"],
+            ["76052", "JABRI Jawher", "jawher.jabri@tunisietelecom.tn", "DR Gabes"],
+        ]
+    )
+    candidates = workbook_bytes(
+        [
+            ["Matricules", "Nom & Prenom", "Grande residence", "resp RH", "DIR C/R"],
+            ["76052", "JABRI Jawher", "Gabes", "Responsable RH Gabes", "DR Gabes"],
+        ]
+    )
+
+    contact_response = client.post(
+        "/planning/contacts/import",
+        files={
+            "files": (
+                "contacts.xlsx",
+                contacts,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert contact_response.status_code == 200
+    assert contact_response.json()["imported"] == 1
+
+    candidate_response = client.post(
+        "/planning/contacts/import",
+        files={
+            "files": (
+                "candidates.xlsx",
+                candidates,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert candidate_response.status_code == 200
+    assert candidate_response.json()["imported"] == 1
+
+    saved_contacts = client.get("/planning/contacts")
+    assert saved_contacts.status_code == 200
+    saved = saved_contacts.json()["contacts"][0]
+    assert saved["email"] == "jawher.jabri@tunisietelecom.tn"
+    assert saved["residence"] == "Gabes"
+
+
 def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path):
     from api import planning_import_service
 
