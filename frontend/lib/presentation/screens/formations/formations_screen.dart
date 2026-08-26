@@ -1585,7 +1585,7 @@ class _CalendarMonthChip extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         width: _TrainingCalendarSectionState._monthChipWidth,
         height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color:
               selected
@@ -1600,20 +1600,23 @@ class _CalendarMonthChip extends StatelessWidget {
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              _formatMonthLabel(context, month),
-              style: TextStyle(
-                color: accent,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
+            Expanded(
+              child: Text(
+                _formatMonthLabel(context, month),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Container(
-              constraints: const BoxConstraints(minWidth: 24),
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              constraints: const BoxConstraints(minWidth: 22),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: selected ? 0.16 : 0.10),
                 borderRadius: BorderRadius.circular(999),
