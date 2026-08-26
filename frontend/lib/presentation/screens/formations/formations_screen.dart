@@ -1384,13 +1384,24 @@ class _TrainingCalendarSection extends StatefulWidget {
 }
 
 class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
+  DateTime? _selectedMonth;
   DateTime? _selectedDate;
 
   @override
   void didUpdateWidget(covariant _TrainingCalendarSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.sessions != oldWidget.sessions &&
-        !_availableDays(widget.sessions).contains(_selectedDate)) {
+    if (widget.sessions == oldWidget.sessions) return;
+    final months = _availableMonths(widget.sessions);
+    if (!_containsMonth(months, _selectedMonth)) {
+      _selectedMonth = null;
+      _selectedDate = null;
+      return;
+    }
+    final selectedMonth = _selectedMonth ?? _defaultCalendarMonth(months);
+    final days = _availableDays(
+      _sessionsForMonth(widget.sessions, selectedMonth),
+    );
+    if (!_containsDay(days, _selectedDate)) {
       _selectedDate = null;
     }
   }
@@ -1399,12 +1410,15 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final sessions = widget.sessions;
-    final days = _availableDays(sessions);
+    final months = _availableMonths(sessions);
+    final selectedMonth = _selectedMonth ?? _defaultCalendarMonth(months);
+    final monthSessions = _sessionsForMonth(sessions, selectedMonth);
+    final days = _availableDays(monthSessions);
     final selectedDate = _selectedDate ?? (days.isNotEmpty ? days.first : null);
     final selectedSessions =
         selectedDate == null
             ? const <TrainingCalendarSession>[]
-            : sessions
+            : monthSessions
                 .where(
                   (session) => _sameDay(
                     _parsePlanningDate(session.startDate),
@@ -1413,7 +1427,7 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
                 )
                 .toList();
     final upcomingCount =
-        sessions.where((session) {
+        monthSessions.where((session) {
           final start = _parsePlanningDate(session.startDate);
           if (start == null) return false;
           return !start.isBefore(_todayDate());
@@ -1447,6 +1461,30 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
             tone: widget.tone,
           )
         else ...[
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: months.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final month = months[index];
+                final count = _sessionsForMonth(sessions, month).length;
+                return _CalendarMonthChip(
+                  month: month,
+                  count: count,
+                  selected: _sameMonth(month, selectedMonth),
+                  tone: widget.tone,
+                  onTap:
+                      () => setState(() {
+                        _selectedMonth = month;
+                        _selectedDate = null;
+                      }),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             height: 76,
             child: ListView.separated(
@@ -1488,6 +1526,81 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
             ],
         ],
       ],
+    );
+  }
+}
+
+class _CalendarMonthChip extends StatelessWidget {
+  const _CalendarMonthChip({
+    required this.month,
+    required this.count,
+    required this.selected,
+    required this.tone,
+    required this.onTap,
+  });
+
+  final DateTime month;
+  final int count;
+  final bool selected;
+  final _FormationTone tone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = selected ? AppPalette.deepTeal : tone.muted;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color:
+              selected
+                  ? AppPalette.deepTeal.withValues(alpha: 0.12)
+                  : tone.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color:
+                selected
+                    ? AppPalette.deepTeal.withValues(alpha: 0.55)
+                    : tone.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _formatMonthLabel(context, month),
+              style: TextStyle(
+                color: accent,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              constraints: const BoxConstraints(minWidth: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: selected ? 0.16 : 0.10),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$count',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -4090,6 +4203,39 @@ List<DateTime> _availableDays(List<TrainingCalendarSession> sessions) {
   return upcoming.isEmpty ? sorted : upcoming;
 }
 
+List<DateTime> _availableMonths(List<TrainingCalendarSession> sessions) {
+  final months = <DateTime>{};
+  for (final session in sessions) {
+    final start = _parsePlanningDate(session.startDate);
+    if (start != null) {
+      months.add(DateTime(start.year, start.month));
+    }
+  }
+  final sorted = months.toList()..sort();
+  return sorted;
+}
+
+DateTime? _defaultCalendarMonth(List<DateTime> months) {
+  if (months.isEmpty) return null;
+  final now = _todayDate();
+  final currentMonth = DateTime(now.year, now.month);
+  for (final month in months) {
+    if (!month.isBefore(currentMonth)) return month;
+  }
+  return months.last;
+}
+
+List<TrainingCalendarSession> _sessionsForMonth(
+  List<TrainingCalendarSession> sessions,
+  DateTime? month,
+) {
+  if (month == null) return sessions;
+  return sessions.where((session) {
+    final start = _parsePlanningDate(session.startDate);
+    return _sameMonth(start, month);
+  }).toList();
+}
+
 DateTime _todayDate() {
   final now = DateTime.now();
   return DateTime(now.year, now.month, now.day);
@@ -4121,6 +4267,21 @@ bool _sameDay(DateTime? left, DateTime? right) {
       left.day == right.day;
 }
 
+bool _sameMonth(DateTime? left, DateTime? right) {
+  if (left == null || right == null) return false;
+  return left.year == right.year && left.month == right.month;
+}
+
+bool _containsMonth(List<DateTime> months, DateTime? selectedMonth) {
+  return selectedMonth != null &&
+      months.any((month) => _sameMonth(month, selectedMonth));
+}
+
+bool _containsDay(List<DateTime> days, DateTime? selectedDay) {
+  return selectedDay != null &&
+      days.any((day) => _sameDay(day, selectedDay));
+}
+
 String _weekdayShort(BuildContext context, DateTime date) {
   final keys = const [
     'date.monday',
@@ -4133,6 +4294,24 @@ String _weekdayShort(BuildContext context, DateTime date) {
   ];
   final label = context.l10n.t(keys[date.weekday - 1]);
   return label.length <= 3 ? label : label.substring(0, 3);
+}
+
+String _formatMonthLabel(BuildContext context, DateTime date) {
+  final monthKeys = const [
+    'date.jan',
+    'date.feb',
+    'date.mar',
+    'date.apr',
+    'date.may',
+    'date.jun',
+    'date.jul',
+    'date.aug',
+    'date.sep',
+    'date.oct',
+    'date.nov',
+    'date.dec',
+  ];
+  return '${context.l10n.t(monthKeys[date.month - 1])} ${date.year}';
 }
 
 String _formatSessionDateRange(
