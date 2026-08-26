@@ -170,11 +170,16 @@ const Map<String, String> _english = {
       'Planning was imported, but a few items need attention.',
   'formations.importPreviewNeedsReview':
       'Review these points before saving the planning.',
+  'formations.importNoEmailsDetectedSummary':
+      'Candidate rows were found, but no email addresses were detected yet.',
   'formations.importPreviewNotSaved':
       'This is only a preview. Confirm to save the planning and prepare drafts if automation is enabled.',
   'formations.confirmImport': 'Import planning',
   'formations.feedbackFiles': 'Files',
   'formations.feedbackMissingEmails': 'Missing emails',
+  'formations.feedbackEmailsDetected': 'Emails detected',
+  'formations.feedbackNoEmailsDetected':
+      '0 candidate emails detected for now. This is expected if the candidate planning is not completed yet. Import the completed Excel later to prepare and send emails.',
   'formations.feedbackAutomationRan':
       'Automation prepared {generated} drafts and skipped {skipped} existing ones.',
   'formations.feedbackAutomationSkipped':
@@ -549,11 +554,16 @@ const Map<String, String> _french = {
       'Le planning est importe, mais certains points demandent attention.',
   'formations.importPreviewNeedsReview':
       'Verifiez ces points avant d enregistrer le planning.',
+  'formations.importNoEmailsDetectedSummary':
+      'Les candidats ont ete trouves, mais aucun email n est encore detecte.',
   'formations.importPreviewNotSaved':
       'Ceci est seulement un apercu. Confirmez pour enregistrer le planning et preparer les brouillons si l automatisation est activee.',
   'formations.confirmImport': 'Importer le planning',
   'formations.feedbackFiles': 'Fichiers',
   'formations.feedbackMissingEmails': 'Emails manquants',
+  'formations.feedbackEmailsDetected': 'Emails detectes',
+  'formations.feedbackNoEmailsDetected':
+      '0 email candidat detecte pour le moment. C est normal si le planning candidats n est pas encore complete. Importez plus tard le fichier Excel complete pour preparer et envoyer les emails.',
   'formations.feedbackAutomationRan':
       'L automatisation a prepare {generated} brouillons et ignore {skipped} existants.',
   'formations.feedbackAutomationSkipped':

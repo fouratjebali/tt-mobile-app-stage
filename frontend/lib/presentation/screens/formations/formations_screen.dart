@@ -2448,6 +2448,10 @@ class _ImportFeedbackSheet extends StatelessWidget {
     final skipped = _intFromMap(automation, 'skipped_existing');
     final autoRan = automation != null;
     final isPreview = mode == _ImportFeedbackMode.preview;
+    final detectedEmails =
+        summary.totalParticipants - summary.missingEmailCount;
+    final noCandidateEmailsYet =
+        summary.totalParticipants > 0 && detectedEmails <= 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -2497,7 +2501,9 @@ class _ImportFeedbackSheet extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              summary.hasIssues
+              noCandidateEmailsYet
+                  ? l10n.t('formations.importNoEmailsDetectedSummary')
+                  : summary.hasIssues
                   ? l10n.t(
                     isPreview
                         ? 'formations.importPreviewNeedsReview'
@@ -2543,18 +2549,25 @@ class _ImportFeedbackSheet extends StatelessWidget {
                   tone: tone,
                 ),
                 _FeedbackMetric(
-                  label: l10n.t('formations.feedbackMissingEmails'),
-                  value: '${summary.missingEmailCount}',
+                  label: l10n.t('formations.feedbackEmailsDetected'),
+                  value: '$detectedEmails',
                   icon: Icons.person_search_rounded,
                   tone: tone,
                   accent:
-                      summary.missingEmailCount > 0
-                          ? AppPalette.clay
-                          : AppPalette.deepTeal,
+                      noCandidateEmailsYet ? AppPalette.amber : AppPalette.deepTeal,
                 ),
               ],
             ),
             const SizedBox(height: 16),
+            if (noCandidateEmailsYet) ...[
+              _InlineMessage(
+                icon: Icons.info_outline_rounded,
+                message: l10n.t('formations.feedbackNoEmailsDetected'),
+                tone: tone,
+                accent: AppPalette.amber,
+              ),
+              const SizedBox(height: 12),
+            ],
             if (isPreview)
               _InlineMessage(
                 icon: Icons.visibility_outlined,
