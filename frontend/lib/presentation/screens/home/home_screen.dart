@@ -1,217 +1,170 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
+import 'package:tt_mail_assistant/core/utils/avatar_image_provider.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
-import 'package:tt_mail_assistant/domain/repositories/auth_repository.dart';
-import 'package:tt_mail_assistant/domain/repositories/settings_repository.dart';
-import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
-import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/bulk_email/bulk_email_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/email_detail/email_detail_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/notifications/notifications_screen.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onSelectTab});
+
+  final ValueChanged<int>? onSelectTab;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final EmailUseCase _emailUseCase;
-  late final SettingsRepository _settingsRepository;
-  late final AuthRepository _authRepository;
-
-  String userName = 'User';
-  String? userEmail;
-  String? userPhotoUrl;
-  bool agentActive = true;
-  bool isLoading = true;
-  String? errorMessage;
-  List<Email> recentEmails = [];
-
-  int processedToday = 0;
-  int autoSent = 0;
-  int needReview = 0;
-  double accuracyRate = 0;
+  late final HomeViewModel _viewModel;
 
   @override
   void initState() {
     super.initState();
-    _emailUseCase = getIt<EmailUseCase>();
-    _settingsRepository = getIt<SettingsRepository>();
-    _authRepository = getIt<AuthRepository>();
-    _loadDashboardData();
+    _viewModel = getIt<HomeViewModel>();
+    _viewModel.addListener(_onChanged);
+    _viewModel.loadSummary();
   }
 
-  Future<void> _loadDashboardData() async {
-    try {
-      final user = await _authRepository.getCurrentUser();
-      final emails = await _emailUseCase.getEmails();
-      final autoProcessing =
-      await _settingsRepository.getAutoProcessing();
-
-      if (!mounted) return;
-
-      final processed =
-          emails.where((e) => e.status == Status.DONE).length;
-
-      final review = emails
-          .where((e) => e.status == Status.PENDING_USER_REVIEW)
-          .length;
-
-      final confident = emails
-          .where((e) => (e.analysis?.confidence ?? 0) >= 0.8)
-          .length;
-
-      final accuracy =
-      emails.isEmpty ? 0.0 : (processed / emails.length) * 100;
-
-      setState(() {
-        userName =
-        (user?.displayName?.trim().isNotEmpty ?? false)
-            ? user!.displayName!.trim().split(' ').first
-            : 'User';
-
-        userEmail = user?.email;
-        userPhotoUrl = _cleanPhotoUrl(user?.photoUrl);
-        agentActive = autoProcessing;
-        processedToday = processed;
-        autoSent = confident;
-        needReview = review;
-        accuracyRate = accuracy;
-        recentEmails = emails.take(3).toList(growable: false);
-        isLoading = false;
-        errorMessage = null;
-      });
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        isLoading = false;
-        errorMessage =
-        'Activity could not be refreshed. Pull down to retry.';
-      });
-    }
+  @override
+  void dispose() {
+    _viewModel.removeListener(_onChanged);
+    super.dispose();
   }
 
-  Future<void> _toggleAgent(bool value) async {
-    setState(() => agentActive = value);
-    await _settingsRepository.setAutoProcessing(value);
-  }
-
-  String? _cleanPhotoUrl(String? value) {
-    final trimmed = value?.trim();
-    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  void _onChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLoading =
+        _viewModel.state == LoadState.loading ||
+        _viewModel.state == LoadState.idle;
+
     return Scaffold(
-      backgroundColor:
-      Theme.of(context).scaffoldBackgroundColor,
-
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: isLoading
-            ? const Center(
-          child: CircularProgressIndicator(),
-        )
-            : RefreshIndicator(
-          onRefresh: _loadDashboardData,
-
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              12,
-              16,
-              28,
-            ),
-
-            children: [
-              _GreetingHeader(
-                userName: userName,
-                userEmail: userEmail,
-                userPhotoUrl: userPhotoUrl,
-              ),
-
-              const SizedBox(height: 20),
-
-              _KPIGrid(
-                processedToday: processedToday,
-                autoSent: autoSent,
-                needReview: needReview,
-                accuracyRate: accuracyRate,
-              ),
-
-              const SizedBox(height: 16),
-
-              _AgentStatusCard(
-                isActive: agentActive,
-                onChanged: _toggleAgent,
-              ),
-
-              if (errorMessage != null) ...[
-                const SizedBox(height: 16),
-
-                _InlineNotice(
-                  icon: Icons.cloud_off_outlined,
-                  message: errorMessage!,
-                  color: Colors.orange,
-                ),
-              ],
-
-              if (needReview > 0) ...[
-                const SizedBox(height: 16),
-
-                _ActionRequiredBanner(
-                  count: needReview,
-                ),
-              ],
-
-              const SizedBox(height: 24),
-
-              const _SectionTitle(
-                title: 'Recent Activity',
-              ),
-
-              const SizedBox(height: 12),
-
-              if (recentEmails.isEmpty)
-                const _EmptyPanel(
-                  icon: Icons.inbox_outlined,
-                  title: 'No recent activity',
-                  subtitle:
-                  'Processed emails will appear here.',
-                )
-              else
-                ...recentEmails.map(
-                      (email) => _ActivityCard(
-                    email: email,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              EmailDetailScreen(
-                                email: email,
-                              ),
+        child:
+            isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                  onRefresh: _viewModel.refresh,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                    children: [
+                      _GreetingHeader(
+                        userName: _viewModel.userName,
+                        userEmail: _viewModel.userEmail,
+                        userPhotoUrl: _viewModel.userPhotoUrl,
+                        notificationCount: _viewModel.needReview,
+                        onNotificationsTap: _openNotifications,
+                      ),
+                      const SizedBox(height: 20),
+                      _ReviewSummaryCard(count: _viewModel.needReview),
+                      const SizedBox(height: 18),
+                      _KPIGrid(
+                        processedToday: _viewModel.processedToday,
+                        autoSent: _viewModel.autoSent,
+                        needReview: _viewModel.needReview,
+                        accuracyRate: _viewModel.accuracyRate,
+                      ),
+                      if (_viewModel.state == LoadState.error) ...[
+                        const SizedBox(height: 16),
+                        _InlineNotice(
+                          icon: Icons.cloud_off_outlined,
+                          message: _viewModel.errorMessage ?? 'Error',
+                          color: Colors.orange,
                         ),
-                      );
-                    },
+                      ],
+                      const SizedBox(height: 28),
+                      const _SectionTitle(
+                        title: 'Recent activity',
+                        actionLabel: 'Today',
+                      ),
+                      const SizedBox(height: 12),
+                      if (_viewModel.recentEmails.isEmpty)
+                        const _EmptyPanel(
+                          icon: Icons.inbox_outlined,
+                          title: 'No recent activity',
+                          subtitle: 'Processed emails will appear here.',
+                        )
+                      else
+                        ..._viewModel.recentEmails.map(
+                          (email) => _ActivityCard(
+                            email: email,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder:
+                                      (_) => EmailDetailScreen(email: email),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      const SizedBox(height: 28),
+                      const _SectionTitle(
+                        title: 'Shortcuts',
+                        actionLabel: 'Tools',
+                      ),
+                      const SizedBox(height: 12),
+                      _ShortcutsRow(
+                        onReviewTap: () => widget.onSelectTab?.call(2),
+                        onSelectTab: widget.onSelectTab,
+                      ),
+                    ],
                   ),
                 ),
-
-              const SizedBox(height: 24),
-
-              const _SectionTitle(
-                title: 'Quick Actions',
-              ),
-
-              const SizedBox(height: 12),
-
-              const _ShortcutsRow(),
-            ],
-          ),
-        ),
       ),
+    );
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+    );
+    if (mounted) {
+      _viewModel.refresh();
+    }
+  }
+}
+
+class _HomeTone {
+  const _HomeTone({
+    required this.surface,
+    required this.softSurface,
+    required this.border,
+    required this.text,
+    required this.muted,
+  });
+
+  final Color surface;
+  final Color softSurface;
+  final Color border;
+  final Color text;
+  final Color muted;
+
+  static _HomeTone of(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return _HomeTone(
+      surface: isDark ? const Color(0xFF151C1A) : AppPalette.paper,
+      softSurface:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.06)
+              : AppPalette.sage.withValues(alpha: 0.65),
+      border:
+          isDark ? AppPalette.white.withValues(alpha: 0.08) : AppPalette.line,
+      text: isDark ? AppPalette.white : AppPalette.ink,
+      muted:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.64)
+              : AppPalette.pine.withValues(alpha: 0.68),
     );
   }
 }
@@ -221,36 +174,43 @@ class _GreetingHeader extends StatelessWidget {
     required this.userName,
     required this.userEmail,
     required this.userPhotoUrl,
+    required this.notificationCount,
+    required this.onNotificationsTap,
   });
 
   final String userName;
   final String? userEmail;
   final String? userPhotoUrl;
+  final int notificationCount;
+  final VoidCallback onNotificationsTap;
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    final theme = Theme.of(context);
+    final tone = _HomeTone.of(context);
+    final avatarImage = avatarImageProvider(userPhotoUrl);
 
-    final greeting = now.hour < 12
-        ? 'Good morning'
-        : now.hour < 18
-        ? 'Good afternoon'
-        : 'Good evening';
+    final greeting =
+        now.hour < 12
+            ? 'Good morning'
+            : now.hour < 18
+            ? 'Good afternoon'
+            : 'Good evening';
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Column(
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 '$greeting, $userName',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 24,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontSize: 25,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
                 ),
@@ -262,8 +222,8 @@ class _GreetingHeader extends StatelessWidget {
                 _formatDate(now),
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
+                  color: tone.muted,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -272,34 +232,34 @@ class _GreetingHeader extends StatelessWidget {
 
         const SizedBox(width: 12),
 
+        _NotificationIconButton(
+          count: notificationCount,
+          onTap: onNotificationsTap,
+        ),
+
+        const SizedBox(width: 10),
+
         CircleAvatar(
-          radius: 24,
-          backgroundColor:
-          AppPalette.lavender.withValues(alpha: 0.22),
-
-          backgroundImage: userPhotoUrl == null
-              ? null
-              : NetworkImage(userPhotoUrl!),
-
-          child: userPhotoUrl == null
-              ? Text(
-            _initials(userName, userEmail),
-            style: const TextStyle(
-              color: AppPalette.pine,
-              fontWeight: FontWeight.w800,
-            ),
-          )
-              : null,
+          radius: 25,
+          backgroundColor: tone.softSurface,
+          backgroundImage: avatarImage,
+          child:
+              avatarImage == null
+                  ? Text(
+                    _initials(userName, userEmail),
+                    style: TextStyle(
+                      color: tone.text,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  )
+                  : null,
         ),
       ],
     );
   }
 
   String _initials(String name, String? email) {
-    final source =
-    name.trim().isNotEmpty
-        ? name.trim()
-        : (email ?? '').trim();
+    final source = name.trim().isNotEmpty ? name.trim() : (email ?? '').trim();
 
     if (source.isEmpty) return '?';
 
@@ -309,8 +269,7 @@ class _GreetingHeader extends StatelessWidget {
       return parts.first[0].toUpperCase();
     }
 
-    return '${parts.first[0]}${parts.last[0]}'
-        .toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   String _formatDate(DateTime date) {
@@ -344,6 +303,148 @@ class _GreetingHeader extends StatelessWidget {
   }
 }
 
+class _NotificationIconButton extends StatelessWidget {
+  const _NotificationIconButton({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _HomeTone.of(context);
+
+    return Tooltip(
+      message: 'Notifications',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: tone.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: tone.border),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  Icons.notifications_none_rounded,
+                  color: tone.text,
+                  size: 23,
+                ),
+                if (count > 0)
+                  Positioned(
+                    right: 7,
+                    top: 7,
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 17,
+                        minHeight: 17,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: AppPalette.clay,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: tone.surface, width: 2),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        count > 99 ? '99+' : '$count',
+                        style: const TextStyle(
+                          color: AppPalette.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewSummaryCard extends StatelessWidget {
+  const _ReviewSummaryCard({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasReview = count > 0;
+    final accent = hasReview ? AppPalette.clay : AppPalette.deepTeal;
+    final tone = _HomeTone.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              hasReview
+                  ? Icons.mark_email_unread_outlined
+                  : Icons.task_alt_outlined,
+              color: accent,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasReview
+                      ? '$count replies need review'
+                      : 'Inbox is under control',
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  hasReview
+                      ? 'Open Review to check drafts before sending.'
+                      : 'New unread emails will appear here after the agents process them.',
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 13,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _KPIGrid extends StatelessWidget {
   const _KPIGrid({
     required this.processedToday,
@@ -361,40 +462,38 @@ class _KPIGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return GridView.count(
       crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
       shrinkWrap: true,
-      physics:
-      const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.28,
+      physics: const NeverScrollableScrollPhysics(),
+      childAspectRatio: 1.55,
 
       children: [
         _KPICard(
-          title: 'Processed',
+          title: 'Processed today',
           value: processedToday.toString(),
-          color: Colors.green,
+          color: AppPalette.deepTeal,
           icon: Icons.check_circle_outline,
         ),
 
         _KPICard(
-          title: 'Auto-ready',
+          title: 'Sent',
           value: autoSent.toString(),
-          color: AppPalette.teal,
-          icon: Icons.auto_awesome,
+          color: AppPalette.blue,
+          icon: Icons.send_outlined,
         ),
 
         _KPICard(
           title: 'Need review',
           value: needReview.toString(),
-          color: Colors.red,
-          icon: Icons.priority_high,
+          color: AppPalette.clay,
+          icon: Icons.rate_review_outlined,
         ),
 
         _KPICard(
           title: 'Completion',
-          value:
-          '${accuracyRate.toStringAsFixed(0)}%',
-          color: Colors.indigo,
+          value: '${accuracyRate.toStringAsFixed(0)}%',
+          color: AppPalette.amber,
           icon: Icons.trending_up,
         ),
       ],
@@ -417,178 +516,56 @@ class _KPICard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+    final tone = _HomeTone.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tone.border),
       ),
-
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-
-        child: Column(
-          crossAxisAlignment:
-          CrossAxisAlignment.start,
-          mainAxisAlignment:
-          MainAxisAlignment.spaceBetween,
-
-          children: [
-            Row(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 19, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow:
-                    TextOverflow.ellipsis,
-
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey[600],
-                    ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    height: 1,
                   ),
                 ),
-
-                Icon(
-                  icon,
-                  size: 20,
-                  color: color,
+                const SizedBox(height: 5),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: tone.muted,
+                  ),
                 ),
               ],
-            ),
-
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AgentStatusCard extends StatelessWidget {
-  const _AgentStatusCard({
-    required this.isActive,
-    required this.onChanged,
-  });
-
-  final bool isActive;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-    isActive ? Colors.green : Colors.orange;
-
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-
-        child: Row(
-          children: [
-            Icon(
-              isActive
-                  ? Icons.check_circle_outline
-                  : Icons.pause_circle_outline,
-              color: color,
-            ),
-
-            const SizedBox(width: 12),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-
-                children: [
-                  const Text(
-                    'Agent Status',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    isActive ? 'Active' : 'Paused',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            Switch(
-              value: isActive,
-              onChanged: onChanged,
-              activeColor: AppPalette.lavender,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionRequiredBanner
-    extends StatelessWidget {
-  const _ActionRequiredBanner({
-    required this.count,
-  });
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.red.shade200,
-        ),
-      ),
-
-      child: Row(
-        children: [
-          Icon(
-            Icons.warning_amber,
-            color: Colors.red.shade600,
-            size: 22,
-          ),
-
-          const SizedBox(width: 10),
-
-          Expanded(
-            child: Text(
-              '$count email${count > 1 ? 's' : ''} '
-                  'need${count > 1 ? '' : 's'} '
-                  'your attention',
-
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Colors.red.shade700,
-              ),
             ),
           ),
         ],
@@ -598,144 +575,147 @@ class _ActionRequiredBanner
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.title,
-  });
+  const _SectionTitle({required this.title, required this.actionLabel});
 
   final String title;
+  final String actionLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w800,
-      ),
+    final tone = _HomeTone.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Text(
+          actionLabel,
+          style: TextStyle(
+            color: tone.muted,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({
-    required this.email,
-    required this.onTap,
-  });
+  const _ActivityCard({required this.email, required this.onTap});
 
   final Email email;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final priority =
-        email.analysis?.priority ?? Priority.NORMAL;
+    final priority = email.analysis?.priority ?? Priority.NORMAL;
 
-    final category =
-        email.analysis?.category ??
-            EmailCategory.INFORMATION;
+    final category = email.analysis?.category ?? EmailCategory.INFORMATION;
+    final tone = _HomeTone.of(context);
 
-    return Card(
-      elevation: 1,
-      margin:
-      const EdgeInsets.only(bottom: 12),
-
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tone.border),
       ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
 
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(15),
 
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
 
-          child: Column(
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
 
-            children: [
-              Row(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
 
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            email.subject.isEmpty
+                                ? '(No subject)'
+                                : email.subject,
 
-                      children: [
-                        Text(
-                          email.subject.isEmpty
-                              ? '(No subject)'
-                              : email.subject,
+                            maxLines: 2,
 
-                          maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
 
-                          overflow:
-                          TextOverflow.ellipsis,
-
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                            FontWeight.w800,
-                            height: 1.3,
+                            style: TextStyle(
+                              color: tone.text,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              height: 1.3,
+                            ),
                           ),
-                        ),
 
-                        const SizedBox(height: 6),
+                          const SizedBox(height: 6),
 
-                        Text(
-                          _senderLabel(email.from),
+                          Text(
+                            _senderLabel(email.from),
 
-                          maxLines: 1,
+                            maxLines: 1,
 
-                          overflow:
-                          TextOverflow.ellipsis,
+                            overflow: TextOverflow.ellipsis,
 
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: tone.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 8),
 
-                  _Badge(
-                    label:
-                    _categoryLabel(category),
-                    color:
-                    _categoryColor(category),
-                  ),
-                ],
-              ),
+                    _Badge(
+                      label: _categoryLabel(category),
+                      color: _categoryColor(category),
+                    ),
+                  ],
+                ),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
 
-                children: [
-                  _Badge(
-                    label:
-                    _priorityLabel(priority),
-                    color:
-                    _priorityColor(priority),
-                  ),
+                  children: [
+                    _Badge(
+                      label: _priorityLabel(priority),
+                      color: _priorityColor(priority),
+                    ),
 
-                  _Badge(
-                    label:
-                    _statusLabel(email.status),
-                    color: AppPalette.teal,
-                  ),
-                ],
-              ),
-            ],
+                    _Badge(
+                      label: _statusLabel(email.status),
+                      color: AppPalette.deepTeal,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -756,7 +736,10 @@ class _ActivityCard extends StatelessWidget {
 }
 
 class _ShortcutsRow extends StatelessWidget {
-  const _ShortcutsRow();
+  const _ShortcutsRow({required this.onReviewTap, this.onSelectTab});
+
+  final VoidCallback onReviewTap;
+  final ValueChanged<int>? onSelectTab;
 
   @override
   Widget build(BuildContext context) {
@@ -764,9 +747,9 @@ class _ShortcutsRow extends StatelessWidget {
       children: [
         Expanded(
           child: _ShortcutButton(
-            icon: Icons.dashboard_outlined,
-            label: 'Dashboard',
-            onTap: () => _showPending(context),
+            icon: Icons.rate_review_outlined,
+            label: 'Review replies',
+            onTap: onReviewTap,
           ),
         ),
 
@@ -775,33 +758,25 @@ class _ShortcutsRow extends StatelessWidget {
         Expanded(
           child: _ShortcutButton(
             icon: Icons.mail_outline,
-            label: 'Bulk Email',
+            label: 'Group drafts',
 
             // =================================================
             // BULK EMAIL S10
             // =================================================
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              final selectedTab = await Navigator.push<int>(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                  const BulkEmailScreen(),
+                  builder: (context) => const BulkEmailScreen(),
                 ),
               );
+              if (selectedTab != null && context.mounted) {
+                onSelectTab?.call(selectedTab);
+              }
             },
           ),
         ),
       ],
-    );
-  }
-
-  void _showPending(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'This workspace is being prepared.',
-        ),
-      ),
     );
   }
 }
@@ -819,51 +794,39 @@ class _ShortcutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
+    final tone = _HomeTone.of(context);
 
-      child: Container(
-        padding:
-        const EdgeInsets.symmetric(vertical: 16),
-
-        decoration: BoxDecoration(
-          color:
-          AppPalette.lavender.withValues(
-            alpha: 0.12,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: tone.softSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: tone.border),
           ),
-
-          borderRadius:
-          BorderRadius.circular(8),
-
-          border: Border.all(
-            color:
-            AppPalette.lavender.withValues(
-              alpha: 0.24,
-            ),
-          ),
-        ),
-
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: AppPalette.teal,
-              size: 26,
-            ),
-
-            const SizedBox(height: 8),
-
-            Text(
-              label,
-
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppPalette.pine,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: AppPalette.deepTeal, size: 20),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: tone.text,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -888,19 +851,13 @@ class _InlineNotice extends StatelessWidget {
 
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withValues(alpha: 0.25),
-        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
 
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 20,
-            color: color,
-          ),
+          Icon(icon, size: 20, color: color),
 
           const SizedBox(width: 10),
 
@@ -934,40 +891,30 @@ class _EmptyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _HomeTone.of(context);
+
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 28,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
 
       decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surface
-            .withValues(alpha: 0.72),
+        color: tone.surface,
 
-        borderRadius:
-        BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
 
-        border: Border.all(
-          color: Colors.black.withValues(alpha: 0.06),
-        ),
+        border: Border.all(color: tone.border),
       ),
 
       child: Column(
         children: [
-          Icon(
-            icon,
-            size: 38,
-            color: Colors.grey[500],
-          ),
+          Icon(icon, size: 38, color: tone.muted.withValues(alpha: 0.62)),
 
           const SizedBox(height: 12),
 
           Text(
             title,
 
-            style: const TextStyle(
+            style: TextStyle(
+              color: tone.text,
               fontSize: 15,
               fontWeight: FontWeight.w800,
             ),
@@ -979,10 +926,7 @@ class _EmptyPanel extends StatelessWidget {
             subtitle,
             textAlign: TextAlign.center,
 
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 13, color: tone.muted),
           ),
         ],
       ),
@@ -991,10 +935,7 @@ class _EmptyPanel extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({
-    required this.label,
-    required this.color,
-  });
+  const _Badge({required this.label, required this.color});
 
   final String label;
   final Color color;
@@ -1002,18 +943,13 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints:
-      const BoxConstraints(maxWidth: 132),
+      constraints: const BoxConstraints(maxWidth: 132),
 
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
 
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius:
-        BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
       ),
 
       child: Text(
@@ -1021,8 +957,7 @@ class _Badge extends StatelessWidget {
 
         maxLines: 1,
 
-        overflow:
-        TextOverflow.ellipsis,
+        overflow: TextOverflow.ellipsis,
 
         style: TextStyle(
           fontSize: 11,
@@ -1034,9 +969,7 @@ class _Badge extends StatelessWidget {
   }
 }
 
-String _categoryLabel(
-    EmailCategory category,
-    ) {
+String _categoryLabel(EmailCategory category) {
   switch (category) {
     case EmailCategory.RECLAMATION:
       return 'RECLAMATION';
@@ -1052,27 +985,23 @@ String _categoryLabel(
   }
 }
 
-Color _categoryColor(
-    EmailCategory category,
-    ) {
+Color _categoryColor(EmailCategory category) {
   switch (category) {
     case EmailCategory.RECLAMATION:
-      return Colors.red;
+      return AppPalette.clay;
 
     case EmailCategory.COMMERCIAL:
-      return Colors.green;
+      return AppPalette.deepTeal;
 
     case EmailCategory.SUPPORT:
-      return Colors.orange;
+      return AppPalette.amber;
 
     case EmailCategory.INFORMATION:
-      return Colors.blue;
+      return AppPalette.blue;
   }
 }
 
-String _priorityLabel(
-    Priority priority,
-    ) {
+String _priorityLabel(Priority priority) {
   switch (priority) {
     case Priority.URGENT:
       return 'URGENT';
@@ -1085,24 +1014,20 @@ String _priorityLabel(
   }
 }
 
-Color _priorityColor(
-    Priority priority,
-    ) {
+Color _priorityColor(Priority priority) {
   switch (priority) {
     case Priority.URGENT:
-      return Colors.red;
+      return AppPalette.clay;
 
     case Priority.NORMAL:
-      return Colors.orange;
+      return AppPalette.amber;
 
     case Priority.LOW:
-      return Colors.green;
+      return AppPalette.deepTeal;
   }
 }
 
-String _statusLabel(
-    Status status,
-    ) {
+String _statusLabel(Status status) {
   switch (status) {
     case Status.DONE:
       return 'DONE';

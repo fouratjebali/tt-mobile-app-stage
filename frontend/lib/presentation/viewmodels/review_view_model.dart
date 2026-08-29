@@ -1,0 +1,177 @@
+import 'package:flutter/foundation.dart';
+import 'package:tt_mail_assistant/core/errors/error_message.dart';
+import 'package:tt_mail_assistant/core/state/load_state.dart';
+import 'package:tt_mail_assistant/domain/entities/email.dart';
+import 'package:tt_mail_assistant/domain/usecases/email_usecase.dart';
+
+class ReviewViewModel extends ChangeNotifier {
+  ReviewViewModel({required EmailUseCase emailUseCase})
+    : _emailUseCase = emailUseCase;
+
+  final EmailUseCase _emailUseCase;
+
+  LoadState state = LoadState.idle;
+  String? errorMessage;
+  String? actionErrorMessage;
+  String? actionSuccessMessage;
+  bool isSubmittingAction = false;
+  List<Email> emails = [];
+  Future<void> Function()? _lastFailedAction;
+
+  int get pendingCount => emails.length;
+
+  /// Emails sorted: URGENT first, then NORMAL, then LOW.
+  List<Email> get sortedEmails {
+    final sorted = List<Email>.from(emails);
+    sorted.sort((a, b) {
+      final pa = a.analysis?.priority ?? Priority.NORMAL;
+      final pb = b.analysis?.priority ?? Priority.NORMAL;
+      return _priorityOrder(pa).compareTo(_priorityOrder(pb));
+    });
+    return sorted;
+  }
+
+  int _priorityOrder(Priority p) {
+    switch (p) {
+      case Priority.URGENT:
+        return 0;
+      case Priority.NORMAL:
+        return 1;
+      case Priority.LOW:
+        return 2;
+    }
+  }
+
+  Future<void> loadReviewEmails() async {
+    state = LoadState.loading;
+    notifyListeners();
+    try {
+      emails = await _loadVisibleReviewEmails();
+      state = LoadState.success;
+      errorMessage = null;
+    } catch (_) {
+      state = LoadState.error;
+      errorMessage = 'Unable to load review emails. Pull down to retry.';
+    }
+    notifyListeners();
+  }
+
+  Future<void> refreshSilently() async {
+    if (state == LoadState.loading || isSubmittingAction) return;
+    try {
+      emails = await _loadVisibleReviewEmails();
+      state = LoadState.success;
+      errorMessage = null;
+      notifyListeners();
+    } catch (_) {
+      // Keep the current list on background refresh failures.
+    }
+  }
+
+  Future<void> refresh() => loadReviewEmails();
+
+  Future<List<Email>> _loadVisibleReviewEmails() async {
+    return _emailUseCase.getReviewList();
+  }
+
+  Future<void> validateAndSend(String emailId) async {
+    final body = _resolveReplyBody(emailId);
+    await _runActionWithRetry(
+      actionLabel: 'send this reply',
+      successMessage: 'Reply sent.',
+      completedEmailId: emailId,
+      action: () => _emailUseCase.validateAndSend(emailId: emailId, body: body),
+    );
+  }
+
+  Future<void> editAndSend(String emailId, String editedBody) async {
+    final body = editedBody.trim();
+    if (body.isEmpty) {
+      actionErrorMessage = 'Reply cannot be empty.';
+      notifyListeners();
+      return;
+    }
+    await _runActionWithRetry(
+      actionLabel: 'send edited reply',
+      successMessage: 'Edited reply sent.',
+      completedEmailId: emailId,
+      action: () => _emailUseCase.editAndSend(emailId: emailId, body: body),
+    );
+  }
+
+  Future<void> reject(String emailId) async {
+    await _runActionWithRetry(
+      actionLabel: 'mark this email as no response needed',
+      successMessage: 'Email skipped.',
+      completedEmailId: emailId,
+      action: () => _emailUseCase.reject(emailId: emailId),
+    );
+  }
+
+  void clearActionMessages() {
+    actionErrorMessage = null;
+    actionSuccessMessage = null;
+    notifyListeners();
+  }
+
+  Future<void> retryLastAction() async {
+    final retry = _lastFailedAction;
+    if (retry == null || isSubmittingAction) return;
+    await retry();
+  }
+
+  Future<void> _runActionWithRetry({
+    required String actionLabel,
+    required String successMessage,
+    required String completedEmailId,
+    required Future<void> Function() action,
+  }) async {
+    actionErrorMessage = null;
+    actionSuccessMessage = null;
+    isSubmittingAction = true;
+    notifyListeners();
+    try {
+      await action();
+      _lastFailedAction = null;
+      emails = emails.where((email) => email.id != completedEmailId).toList();
+      actionSuccessMessage = successMessage;
+      await loadReviewEmails();
+    } catch (error) {
+      _lastFailedAction =
+          () => _runActionWithRetry(
+            actionLabel: actionLabel,
+            successMessage: successMessage,
+            completedEmailId: completedEmailId,
+            action: action,
+          );
+      actionErrorMessage = 'Unable to $actionLabel. ${_toUserMessage(error)}';
+    } finally {
+      isSubmittingAction = false;
+      notifyListeners();
+    }
+  }
+
+  String _resolveReplyBody(String emailId) {
+    Email? target;
+    for (final email in emails) {
+      if (email.id == emailId) {
+        target = email;
+        break;
+      }
+    }
+    if (target == null) {
+      return 'Hi,\n\nThanks for your message. We will get back to you shortly.\n\nBest regards,';
+    }
+    final suggested = target.analysis?.suggestedReply.trim() ?? '';
+    if (suggested.isNotEmpty) return suggested;
+
+    final plainBody = target.body.plain.trim();
+    if (plainBody.isNotEmpty) return plainBody;
+
+    return 'Hi,\n\nThanks for your message. We will get back to you shortly.\n\nBest regards,';
+  }
+
+  String _toUserMessage(Object error) {
+    return ErrorMessage.fromException(error);
+  }
+}

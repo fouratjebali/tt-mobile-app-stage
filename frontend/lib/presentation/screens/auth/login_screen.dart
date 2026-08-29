@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
 import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
@@ -67,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Spacer(),
                 const _LoginHero(),
                 const SizedBox(height: 34),
-                _GoogleButton(isLoading: isLoading, onPressed: _signIn),
+                _OutlookButton(isLoading: isLoading, onPressed: _signIn),
                 if (_viewModel.errorMessage != null) ...[
                   const SizedBox(height: 14),
                   _ErrorBanner(message: _viewModel.errorMessage!),
@@ -132,7 +131,7 @@ class _LoginHero extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         Text(
-          'Connect Gmail to classify messages, prepare safe drafts, and keep every action under your control.',
+          'Connect Outlook to classify messages, prepare safe drafts, and keep every action under your control.',
           style: TextStyle(
             color: AppPalette.mist.withValues(alpha: 0.78),
             fontSize: 16,
@@ -145,8 +144,8 @@ class _LoginHero extends StatelessWidget {
   }
 }
 
-class _GoogleButton extends StatelessWidget {
-  const _GoogleButton({required this.isLoading, required this.onPressed});
+class _OutlookButton extends StatelessWidget {
+  const _OutlookButton({required this.isLoading, required this.onPressed});
 
   final bool isLoading;
   final VoidCallback onPressed;
@@ -173,13 +172,9 @@ class _GoogleButton extends StatelessWidget {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2.4),
                 )
-                : const HugeIcon(
-                  icon: HugeIcons.strokeRoundedGoogle,
-                  color: AppPalette.ink,
-                  size: 22,
-                ),
+                : const Icon(Icons.mail_outline_rounded, size: 22),
         label: Text(
-          isLoading ? 'Connecting...' : 'Continue with Google',
+          isLoading ? 'Connecting...' : 'Continue with Outlook',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
       ),

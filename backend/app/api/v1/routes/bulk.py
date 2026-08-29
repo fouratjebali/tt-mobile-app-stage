@@ -1,7 +1,14 @@
-from fastapi import APIRouter, Depends
+from typing import Any
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.api.dependencies import get_current_user
+from app.db.session import get_db
+from app.models.auth import User
 from app.schemas.bulk import BulkRequest, BulkResponse
 from app.services.agent_bridge import AgentBridge, get_agent_bridge
+from app.services.outlook_graph_service import OutlookGraphService
 from app.utils.json_tools import list_from_payload
 
 
@@ -21,11 +28,23 @@ async def generate_bulk(
     request: BulkRequest,
     bridge: AgentBridge = Depends(get_agent_bridge),
 ) -> BulkResponse:
-    result = await bridge.generate_bulk(
-        recipients=request.recipients_payload(),
-        topic=request.topic,
-        instructions=request.instructions,
-    )
+    recipients = request.recipients_payload()
+    try:
+        result = await bridge.generate_bulk(
+            recipients=recipients,
+            topic=request.topic,
+            instructions=request.instructions,
+        )
+    except HTTPException as exc:
+        if exc.status_code != 502:
+            raise
+        return _fallback_bulk_response(
+            recipients=recipients,
+            topic=request.topic,
+            instructions=request.instructions,
+            raw_result=str(exc.detail),
+        )
+
     return _to_bulk_response(result.payload, result.raw_result)
 
 
@@ -35,19 +54,46 @@ async def generate_bulk(
     summary="Send bulk emails",
     description=(
         "Generates and sends personalized emails to the provided recipients "
-        "through the email agent and Gmail sender."
+        "through the email agent and the user's Outlook mailbox."
     ),
 )
 async def send_bulk(
     request: BulkRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     bridge: AgentBridge = Depends(get_agent_bridge),
 ) -> BulkResponse:
-    result = await bridge.send_bulk(
+    result = await bridge.generate_bulk(
         recipients=request.recipients_payload(),
         topic=request.topic,
         instructions=request.instructions,
     )
-    return _to_bulk_response(result.payload, result.raw_result)
+    response = _to_bulk_response(result.payload, result.raw_result)
+    return await _send_drafts_with_outlook(
+        db=db,
+        user=user,
+        drafts=response.details,
+        raw_result=response.raw_result,
+    )
+
+
+@router.post(
+    "/send-drafts",
+    response_model=BulkResponse,
+    summary="Send edited group drafts",
+    description="Sends edited draft emails after the mobile preview step.",
+)
+async def send_edited_bulk_drafts(
+    request: dict[str, list[dict[str, Any]]],
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> BulkResponse:
+    return await _send_drafts_with_outlook(
+        db=db,
+        user=user,
+        drafts=request.get("drafts", []),
+        raw_result="",
+    )
 
 
 def _to_bulk_response(payload: dict, raw_result: str) -> BulkResponse:
@@ -59,4 +105,136 @@ def _to_bulk_response(payload: dict, raw_result: str) -> BulkResponse:
         errors=int(payload.get("errors", 0) or 0),
         details=details,
         raw_result=raw_result,
+    )
+
+
+def _fallback_bulk_response(
+    *,
+    recipients: list[dict[str, Any]],
+    topic: str,
+    instructions: str,
+    raw_result: str,
+) -> BulkResponse:
+    details = []
+    language = _fallback_language(instructions)
+    short = "short" in instructions.lower() or "brief" in instructions.lower()
+    for index, recipient in enumerate(recipients, start=1):
+        name = str(recipient.get("name") or "there").strip()
+        email = str(recipient.get("email") or "").strip()
+        role = str(recipient.get("role") or "Recipient").strip()
+        body = _fallback_body(name=name, topic=topic, language=language, short=short)
+        details.append(
+            {
+                "id": f"draft-{index}",
+                "to": email,
+                "recipient": name,
+                "subject": topic,
+                "body": body,
+                "status": "draft",
+                "personalization_note": f"Fallback draft for {role}.",
+            }
+        )
+
+    return BulkResponse(
+        status="fallback",
+        total=len(details),
+        sent=0,
+        errors=0,
+        details=details,
+        raw_result=raw_result,
+    )
+
+
+async def _send_drafts_with_outlook(
+    *,
+    db: Session,
+    user: User,
+    drafts: list[dict[str, Any]],
+    raw_result: str,
+) -> BulkResponse:
+    outlook = OutlookGraphService(db)
+    details: list[dict[str, Any]] = []
+
+    for draft in drafts:
+        recipient = str(
+            draft.get("to") or draft.get("email") or draft.get("recipient") or ""
+        ).strip()
+        subject = str(draft.get("subject") or "").strip()
+        body = str(draft.get("body") or "").strip()
+
+        if "@" not in recipient or not subject or not body:
+            details.append(
+                {
+                    **draft,
+                    "to": recipient,
+                    "status": "error",
+                    "error": "Recipient, subject and body are required.",
+                }
+            )
+            continue
+
+        try:
+            await outlook.send_mail(
+                user=user,
+                to=recipient,
+                subject=subject,
+                body=body,
+            )
+            details.append({**draft, "to": recipient, "status": "sent"})
+        except HTTPException as error:
+            details.append(
+                {
+                    **draft,
+                    "to": recipient,
+                    "status": "error",
+                    "error": str(error.detail),
+                }
+            )
+
+    sent = sum(1 for detail in details if detail.get("status") == "sent")
+    errors = len(details) - sent
+    return BulkResponse(
+        status="ok" if errors == 0 else "partial",
+        total=len(details),
+        sent=sent,
+        errors=errors,
+        details=details,
+        raw_result=raw_result,
+    )
+
+
+def _fallback_language(instructions: str) -> str:
+    return "French" if "french" in instructions.lower() else "English"
+
+
+def _fallback_body(*, name: str, topic: str, language: str, short: bool) -> str:
+    if language == "French":
+        if short:
+            return (
+                f"Bonjour {name},\n\n"
+                f"Je vous contacte au sujet de {topic}.\n\n"
+                "Pouvez-vous me confirmer votre retour ?\n\n"
+                "Cordialement,"
+            )
+        return (
+            f"Bonjour {name},\n\n"
+            f"Je vous contacte au sujet de {topic}. "
+            "Je souhaitais partager ce message avec vous et recueillir votre retour.\n\n"
+            "N'hesitez pas a me dire si vous avez besoin de plus d'informations.\n\n"
+            "Cordialement,"
+        )
+
+    if short:
+        return (
+            f"Hello {name},\n\n"
+            f"I am contacting you about {topic}.\n\n"
+            "Please let me know if this works for you.\n\n"
+            "Best regards,"
+        )
+    return (
+        f"Hello {name},\n\n"
+        f"I am contacting you about {topic}. "
+        "I wanted to share this with you and hear your thoughts.\n\n"
+        "Please let me know if you need any additional details.\n\n"
+        "Best regards,"
     )

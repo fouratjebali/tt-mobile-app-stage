@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/services/launch_preferences.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
+import 'package:tt_mail_assistant/domain/usecases/auth_usecase.dart';
+import 'package:tt_mail_assistant/presentation/screens/auth/login_screen.dart';
+import 'package:tt_mail_assistant/presentation/screens/auth/onboarding_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/navigation/main_navigation_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -22,15 +27,35 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _openNextScreen() async {
-    await Future<void>.delayed(_minimumSplashDuration);
+    Object? user;
+    var hasSeenOnboarding = true;
+
+    try {
+      final results = await Future.wait<Object?>([
+        Future<void>.delayed(_minimumSplashDuration),
+        getIt<AuthUseCase>().getCurrentUser(),
+        LaunchPreferences.hasSeenOnboarding(),
+      ]);
+      user = results[1];
+      hasSeenOnboarding = results[2] as bool? ?? false;
+    } catch (_) {
+      await Future<void>.delayed(_minimumSplashDuration);
+    }
 
     if (!mounted) return;
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const MainNavigationScreen(),
-      ),
-    );
+    final Widget nextScreen;
+    if (user != null) {
+      nextScreen = const MainNavigationScreen();
+    } else if (hasSeenOnboarding) {
+      nextScreen = const LoginScreen();
+    } else {
+      nextScreen = const OnboardingScreen();
+    }
+
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => nextScreen));
   }
 
   @override
@@ -41,11 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppPalette.ink,
-              AppPalette.pine,
-              AppPalette.teal,
-            ],
+            colors: [AppPalette.ink, AppPalette.pine, AppPalette.teal],
           ),
         ),
         child: Center(
@@ -81,8 +102,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 child: CircularProgressIndicator(
                   strokeWidth: 3.2,
                   color: AppPalette.lavender,
-                  backgroundColor:
-                  AppPalette.mist.withValues(alpha: 0.18),
+                  backgroundColor: AppPalette.mist.withValues(alpha: 0.18),
                 ),
               ),
             ],

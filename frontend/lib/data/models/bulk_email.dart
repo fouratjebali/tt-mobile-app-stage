@@ -12,11 +12,32 @@ class BulkEmail {
   });
 
   factory BulkEmail.fromJson(Map<String, dynamic> json) {
+    final recipientData = json['recipient'];
+    final recipientEmail =
+        recipientData is Map ? recipientData['email']?.toString() : null;
+
     return BulkEmail(
-      id: json['id']?.toString() ?? '',
-      recipient: json['recipient']?.toString() ?? '',
+      id:
+          json['id']?.toString() ??
+          json['email_id']?.toString() ??
+          json['message_id']?.toString() ??
+          json['to']?.toString() ??
+          json['email']?.toString() ??
+          recipientEmail ??
+          '',
+      recipient:
+          recipientEmail ??
+          json['to']?.toString() ??
+          json['email']?.toString() ??
+          json['recipient']?.toString() ??
+          '',
       subject: json['subject']?.toString() ?? '',
-      body: json['body']?.toString() ?? '',
+      body:
+          json['body']?.toString() ??
+          json['body_preview']?.toString() ??
+          json['reply_body']?.toString() ??
+          json['suggested_reply']?.toString() ??
+          '',
     );
   }
 
@@ -24,6 +45,8 @@ class BulkEmail {
     return {
       'id': id,
       'recipient': recipient,
+      'to': recipient,
+      'email': recipient,
       'subject': subject,
       'body': body,
     };

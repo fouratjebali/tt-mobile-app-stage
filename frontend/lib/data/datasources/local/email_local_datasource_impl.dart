@@ -8,9 +8,7 @@ import 'package:tt_mail_assistant/domain/entities/email.dart';
 class EmailLocalDataSourceImpl implements EmailLocalDataSource {
   final DatabaseHelper databaseHelper;
 
-  EmailLocalDataSourceImpl({
-    required this.databaseHelper,
-  });
+  EmailLocalDataSourceImpl({required this.databaseHelper});
 
   @override
   Future<void> saveEmails(List<Email> emails) async {
@@ -23,58 +21,49 @@ class EmailLocalDataSourceImpl implements EmailLocalDataSource {
   Future<void> saveEmail(Email email) async {
     final db = await databaseHelper.database;
 
-    await db.insert(
-      'emails',
-      {
-        'id': email.id,
-        'threadId': email.threadId,
-        'subject': email.subject,
-        'sender': email.from.name,
-        'senderEmail': email.from.email,
-        'recipients': jsonEncode(
-          email.to
-              .map(
-                (e) => {
-              'name': e.name,
-              'email': e.email,
-            },
-          )
-              .toList(),
-        ),
-        'body': email.body.plain,
-        'date': email.date.toIso8601String(),
-        'status': email.status.name,
-        'attachments': jsonEncode(
-          email.attachments
-              .map(
-                (a) => {
-              'id': a.id,
-              'filename': a.filename,
-              'mimeType': a.mimeType,
-              'size': a.size,
-            },
-          )
-              .toList(),
-        ),
-        'analysis': email.analysis == null
-            ? null
-            : jsonEncode({
-          'summary': email.analysis!.summary,
-          'suggestedReply': email.analysis!.suggestedReply,
-          'priority': email.analysis!.priority.name,
-          'confidence': email.analysis!.confidence,
-          'category': email.analysis!.category?.name,
-        }),
-        'jury': email.jury == null
-            ? null
-            : jsonEncode({
-          'verdict': email.jury!.verdict.name,
-          'reasoning': email.jury!.reasoning,
-        }),
-        'isRead': email.status == Status.DONE ? 1 : 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('emails', {
+      'id': email.id,
+      'threadId': email.threadId,
+      'subject': email.subject,
+      'sender': email.from.name,
+      'senderEmail': email.from.email,
+      'recipients': jsonEncode(
+        email.to.map((e) => {'name': e.name, 'email': e.email}).toList(),
+      ),
+      'body': email.body.plain,
+      'date': email.date.toIso8601String(),
+      'status': email.status.name,
+      'attachments': jsonEncode(
+        email.attachments
+            .map(
+              (a) => {
+                'id': a.id,
+                'filename': a.filename,
+                'mimeType': a.mimeType,
+                'size': a.size,
+              },
+            )
+            .toList(),
+      ),
+      'analysis':
+          email.analysis == null
+              ? null
+              : jsonEncode({
+                'summary': email.analysis!.summary,
+                'suggestedReply': email.analysis!.suggestedReply,
+                'priority': email.analysis!.priority.name,
+                'confidence': email.analysis!.confidence,
+                'category': email.analysis!.category?.name,
+              }),
+      'jury':
+          email.jury == null
+              ? null
+              : jsonEncode({
+                'verdict': email.jury!.verdict.name,
+                'reasoning': email.jury!.reasoning,
+              }),
+      'isRead': email.status == Status.DONE ? 1 : 0,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   @override
@@ -112,11 +101,7 @@ class EmailLocalDataSourceImpl implements EmailLocalDataSource {
   Future<Email?> getEmailById(String id) async {
     final db = await databaseHelper.database;
 
-    final result = await db.query(
-      'emails',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final result = await db.query('emails', where: 'id = ?', whereArgs: [id]);
 
     if (result.isEmpty) {
       return null;
@@ -129,36 +114,31 @@ class EmailLocalDataSourceImpl implements EmailLocalDataSource {
   Future<void> markAsRead(String id) async {
     final db = await databaseHelper.database;
 
-    await db.update(
-      'emails',
-      {'isRead': 1},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.update('emails', {'isRead': 1}, where: 'id = ?', whereArgs: [id]);
   }
 
   Email _mapToEmail(Map<String, dynamic> map) {
     final recipients =
-    (jsonDecode(map['recipients'] ?? '[]') as List)
-        .map(
-          (e) => Sender(
-        name: e['name'] as String,
-        email: e['email'] as String,
-      ),
-    )
-        .toList();
+        (jsonDecode(map['recipients'] ?? '[]') as List)
+            .map(
+              (e) => Sender(
+                name: e['name'] as String,
+                email: e['email'] as String,
+              ),
+            )
+            .toList();
 
     final attachments =
-    (jsonDecode(map['attachments'] ?? '[]') as List)
-        .map(
-          (e) => Attachment(
-        id: e['id'] as String,
-        filename: e['filename'] as String,
-        mimeType: e['mimeType'] as String,
-        size: (e['size'] as num).toInt(),
-      ),
-    )
-        .toList();
+        (jsonDecode(map['attachments'] ?? '[]') as List)
+            .map(
+              (e) => Attachment(
+                id: e['id'] as String,
+                filename: e['filename'] as String,
+                mimeType: e['mimeType'] as String,
+                size: (e['size'] as num).toInt(),
+              ),
+            )
+            .toList();
 
     Analysis? analysis;
 
@@ -169,16 +149,17 @@ class EmailLocalDataSourceImpl implements EmailLocalDataSource {
         summary: a['summary'] ?? '',
         suggestedReply: a['suggestedReply'] ?? '',
         priority: Priority.values.firstWhere(
-              (p) => p.name == a['priority'],
+          (p) => p.name == a['priority'],
           orElse: () => Priority.NORMAL,
         ),
         confidence: (a['confidence'] as num?)?.toDouble() ?? 0,
-        category: a['category'] == null
-            ? null
-            : EmailCategory.values.firstWhere(
-              (c) => c.name == a['category'],
-          orElse: () => EmailCategory.INFORMATION,
-        ),
+        category:
+            a['category'] == null
+                ? null
+                : EmailCategory.values.firstWhere(
+                  (c) => c.name == a['category'],
+                  orElse: () => EmailCategory.INFORMATION,
+                ),
       );
     }
 
@@ -189,7 +170,7 @@ class EmailLocalDataSourceImpl implements EmailLocalDataSource {
 
       jury = Jury(
         verdict: JuryVerdict.values.firstWhere(
-              (v) => v.name == j['verdict'],
+          (v) => v.name == j['verdict'],
           orElse: () => JuryVerdict.UNCERTAIN,
         ),
         reasoning: j['reasoning'],
@@ -205,15 +186,13 @@ class EmailLocalDataSourceImpl implements EmailLocalDataSource {
         email: map['senderEmail'] as String? ?? '',
       ),
       to: recipients,
-      date: DateTime.tryParse(map['date'] as String? ?? '') ??
+      date:
+          DateTime.tryParse(map['date'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
-      body: EmailBody(
-        plain: map['body'] as String? ?? '',
-        html: '',
-      ),
+      body: EmailBody(plain: map['body'] as String? ?? '', html: ''),
       attachments: attachments,
       status: Status.values.firstWhere(
-            (s) => s.name == map['status'],
+        (s) => s.name == map['status'],
         orElse: () => Status.PENDING_ANALYSIS,
       ),
       analysis: analysis,

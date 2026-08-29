@@ -30,6 +30,7 @@ class EmailAgent:
             model=settings.OLLAMA_MODEL,
             temperature=0.1,
             num_predict=settings.OLLAMA_NUM_PREDICT,
+            num_gpu=settings.OLLAMA_NUM_GPU,
             client_kwargs={"timeout": settings.OLLAMA_TIMEOUT_SECONDS},
         )
         self.llm_with_tools = self.llm.bind_tools(ALL_TOOLS)

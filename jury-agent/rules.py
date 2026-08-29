@@ -21,6 +21,7 @@ RISKY_PHRASES = (
 
 URGENCY_WORDS = (
     "urgent",
+    "urgence",
     "immediately",
     "as soon as possible",
     "priority",
@@ -28,9 +29,25 @@ URGENCY_WORDS = (
     "emergency",
     "important",
     "dans les plus brefs delais",
+    "dans les plus brefs délais",
+    "des que possible",
+    "dès que possible",
+    "immediatement",
+    "immédiatement",
+    "aujourd'hui",
+    "ce soir",
+    "date limite",
+    "delai",
+    "délai",
+    "panne",
+    "incident",
+    "ne fonctionne pas",
     "urgence",
     "urgent",
     "prioritaire",
+    "priorité",
+    "priorite",
+    "rapidement",
 )
 
 POLITE_WORDS = (
@@ -43,6 +60,8 @@ POLITE_WORDS = (
     "merci",
     "cordialement",
     "salutations",
+    "s'il vous plait",
+    "s'il vous plaît",
 )
 
 STOP_WORDS = {
@@ -65,7 +84,18 @@ STOP_WORDS = {
     "have",
     "will",
     "not",
+    "bonjour",
+    "merci",
+    "cordialement",
 }
+
+GENERIC_REPLY_PHRASES = (
+    "reviendrai vers vous si nécessaire",
+    "reviendrai vers vous si necessaire",
+    "get back to you if any action is needed",
+    "take note of this information",
+    "prends note de cette information",
+)
 
 
 @dataclass
@@ -99,6 +129,13 @@ def evaluate_rules(
     if len(reply_text.split()) < 12:
         result.penalize(0.25, "The proposed response is too short.", "short_response")
 
+    if _contains_any(reply_text, GENERIC_REPLY_PHRASES) and _requires_action(analysis):
+        result.penalize(
+            0.20,
+            "The response is too generic for an email that requires action.",
+            "generic_response",
+        )
+
     risky_hits = _contains_any(reply_text, RISKY_PHRASES)
     if risky_hits:
         result.penalize(
@@ -122,6 +159,8 @@ def evaluate_rules(
         )
 
     relevance = _token_overlap(email_text, reply_text)
+    if _has_contextual_match(email_text, reply_text):
+        relevance = max(relevance, 0.18)
     if relevance < 0.08:
         result.penalize(
             0.35,
@@ -220,10 +259,46 @@ def _token_overlap(left: str, right: str) -> float:
     return len(left_tokens & right_tokens) / max(len(left_tokens), 1)
 
 
+def _has_contextual_match(email_text: str, reply_text: str) -> bool:
+    email_lower = email_text.lower()
+    reply_lower = reply_text.lower()
+    complaint_context = any(
+        phrase in email_lower
+        for phrase in (
+            "ne fonctionne pas",
+            "not working",
+            "panne",
+            "incident",
+            "problème",
+            "probleme",
+            "réclamation",
+            "reclamation",
+        )
+    ) and any(
+        phrase in reply_lower
+        for phrase in ("problème", "probleme", "issue", "incident", "examiner", "review")
+    )
+    career_context = any(
+        phrase in email_lower
+        for phrase in ("offre d'emploi", "emploi", "stage", "candidature", "job", "internship")
+    ) and any(
+        phrase in reply_lower
+        for phrase in ("opportunité", "opportunite", "opportunity", "profil", "profile", "role")
+    )
+    invitation_context = any(
+        phrase in email_lower
+        for phrase in ("invitation", "event", "événement", "evenement", "meeting", "rendez-vous")
+    ) and any(
+        phrase in reply_lower
+        for phrase in ("invitation", "availability", "disponibilité", "disponibilite", "agenda")
+    )
+    return complaint_context or career_context or invitation_context
+
+
 def _tokens(text: str) -> set[str]:
     return {
         token
-        for token in re.findall(r"[a-zA-Z]{4,}", text.lower())
+        for token in re.findall(r"[^\W\d_]{4,}", text.lower(), flags=re.UNICODE)
         if token not in STOP_WORDS
     }
 
@@ -239,7 +314,22 @@ def _language_mismatch(email_text: str, reply_text: str) -> bool:
 
 def _looks_french(text: str) -> bool:
     lowered = text.lower()
-    return any(word in lowered for word in ("bonjour", "merci", "veuillez", "nous", "votre"))
+    return any(
+        word in lowered
+        for word in (
+            "bonjour",
+            "merci",
+            "veuillez",
+            "nous",
+            "votre",
+            "réponse",
+            "reponse",
+            "délai",
+            "delai",
+            "candidature",
+            "emploi",
+        )
+    )
 
 
 def _looks_english(text: str) -> bool:

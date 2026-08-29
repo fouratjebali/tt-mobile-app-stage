@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
+import 'package:tt_mail_assistant/core/utils/avatar_image_provider.dart';
 import 'package:tt_mail_assistant/core/theme/theme_controller.dart';
 import 'package:tt_mail_assistant/domain/repositories/auth_repository.dart';
 import 'package:tt_mail_assistant/domain/repositories/settings_repository.dart';
@@ -26,8 +27,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool notifications = true;
   bool darkMode = false;
   bool dailySummary = true;
-  double confidenceThreshold = 80.0;
-  double urgencyThreshold = 7.0;
   String replyLanguage = 'English';
 
   bool isLoading = true;
@@ -47,8 +46,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final notif = await _settingsRepository.getNotifications();
       final darkM = await _settingsRepository.getDarkMode();
       final dailySumm = await _settingsRepository.getDailySummary();
-      final confThresh = await _settingsRepository.getConfidenceThreshold();
-      final urgThresh = await _settingsRepository.getUrgencyThreshold();
       final language = await _settingsRepository.getReplyLanguage();
       final currentUser = await _authRepository.getCurrentUser();
 
@@ -58,8 +55,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           notifications = notif;
           darkMode = darkM;
           dailySummary = dailySumm;
-          confidenceThreshold = confThresh;
-          urgencyThreshold = urgThresh;
           replyLanguage = _normalizedLanguage(language);
 
           // Set user info
@@ -108,20 +103,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       dailySummary = value;
     });
     await _settingsRepository.setDailySummary(value);
-  }
-
-  Future<void> _updateConfidenceThreshold(double value) async {
-    setState(() {
-      confidenceThreshold = value;
-    });
-    await _settingsRepository.setConfidenceThreshold(value);
-  }
-
-  Future<void> _updateUrgencyThreshold(double value) async {
-    setState(() {
-      urgencyThreshold = value;
-    });
-    await _settingsRepository.setUrgencyThreshold(value);
   }
 
   Future<void> _updateReplyLanguage(String value) async {
@@ -188,7 +169,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return AlertDialog(
           title: const Text('Sign out?'),
           content: const Text(
-            'You will need to connect your Gmail account again.',
+            'You will need to connect your Outlook account again.',
           ),
           actions: [
             TextButton(
@@ -219,137 +200,119 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile & Settings')),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
+    final tone = _ProfileTone.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile & Settings'),
-        elevation: 0,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        children: [
-          // ACCOUNT SECTION
-          _SectionHeader(title: 'Account'),
-          const SizedBox(height: 12),
-          _AccountCard(
-            userName: userName ?? 'User',
-            userEmail: userEmail ?? 'user@email.com',
-            userPhotoUrl: userPhotoUrl,
-          ),
-          const SizedBox(height: 32),
-
-          // AGENT SETTINGS SECTION
-          _SectionHeader(title: 'Agent Settings'),
-          const SizedBox(height: 12),
-          _ThresholdCard(
-            title: 'Auto-processing',
-            subtitle: 'Agent automatically processes emails',
-            value: autoProcessing,
-            onChanged: (val) => _updateAutoProcessing(val as bool),
-            isSwitch: true,
-          ),
-          const SizedBox(height: 12),
-          _SliderSettingCard(
-            title: 'Urgency Threshold',
-            subtitle: 'Score: ${urgencyThreshold.toStringAsFixed(1)}',
-            value: urgencyThreshold,
-            min: 1,
-            max: 10,
-            divisions: 9,
-            onChanged: _updateUrgencyThreshold,
-          ),
-          const SizedBox(height: 12),
-          _SliderSettingCard(
-            title: 'Jury Confidence Min',
-            subtitle: 'Score: ${confidenceThreshold.toStringAsFixed(0)}%',
-            value: confidenceThreshold,
-            min: 0,
-            max: 100,
-            divisions: 10,
-            onChanged: _updateConfidenceThreshold,
-          ),
-          const SizedBox(height: 32),
-
-          // APP PREFERENCES SECTION
-          _SectionHeader(title: 'App Preferences'),
-          const SizedBox(height: 12),
-          _PreferenceToggle(
-            title: 'Push notifications',
-            value: notifications,
-            onChanged: _updateNotifications,
-          ),
-          const SizedBox(height: 12),
-          _PreferenceToggle(
-            title: 'Daily summary',
-            value: dailySummary,
-            onChanged: _updateDailySummary,
-          ),
-          const SizedBox(height: 12),
-          _PreferenceToggle(
-            title: 'Dark mode',
-            value: darkMode,
-            onChanged: _updateDarkMode,
-          ),
-          const SizedBox(height: 12),
-          InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: _showReplyLanguagePicker,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Reply language',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        replyLanguage,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
-                ],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+          children: [
+            Text(
+              'Settings',
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                height: 1.05,
               ),
             ),
-          ),
-          const SizedBox(height: 40),
-
-          // LOGOUT BUTTON
-          ElevatedButton.icon(
-            onPressed: _signOut,
-            icon: const Icon(Icons.logout),
-            label: const Text('Sign Out'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 8),
+            Text(
+              'Manage your account and email preferences.',
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-        ],
+            const SizedBox(height: 18),
+            _AccountCard(
+              userName: userName ?? 'User',
+              userEmail: userEmail ?? 'user@email.com',
+              userPhotoUrl: userPhotoUrl,
+            ),
+            const SizedBox(height: 24),
+            const _SectionHeader(title: 'Email handling'),
+            const SizedBox(height: 10),
+            _AssistantControlPanel(
+              isActive: autoProcessing,
+              onChanged: _updateAutoProcessing,
+            ),
+            const SizedBox(height: 12),
+            _LanguageTile(
+              language: replyLanguage,
+              onTap: _showReplyLanguagePicker,
+            ),
+            const SizedBox(height: 24),
+            const _SectionHeader(title: 'Preferences'),
+            const SizedBox(height: 10),
+            _PreferenceToggle(
+              icon: Icons.notifications_none_rounded,
+              title: 'Notifications',
+              subtitle: 'Get alerts when a reply is ready to review.',
+              value: notifications,
+              onChanged: _updateNotifications,
+            ),
+            const SizedBox(height: 10),
+            _PreferenceToggle(
+              icon: Icons.summarize_outlined,
+              title: 'Daily summary',
+              subtitle: 'Receive a short recap of handled emails.',
+              value: dailySummary,
+              onChanged: _updateDailySummary,
+            ),
+            const SizedBox(height: 10),
+            _PreferenceToggle(
+              icon: Icons.dark_mode_outlined,
+              title: 'Dark mode',
+              subtitle: 'Use the app with a darker appearance.',
+              value: darkMode,
+              onChanged: _updateDarkMode,
+            ),
+            const SizedBox(height: 28),
+            _SignOutButton(onPressed: _signOut),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _ProfileTone {
+  const _ProfileTone({
+    required this.surface,
+    required this.softSurface,
+    required this.border,
+    required this.text,
+    required this.muted,
+  });
+
+  final Color surface;
+  final Color softSurface;
+  final Color border;
+  final Color text;
+  final Color muted;
+
+  static _ProfileTone of(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return _ProfileTone(
+      surface: isDark ? const Color(0xFF151C1A) : AppPalette.paper,
+      softSurface:
+          isDark ? AppPalette.white.withValues(alpha: 0.07) : AppPalette.sage,
+      border:
+          isDark ? AppPalette.white.withValues(alpha: 0.08) : AppPalette.line,
+      text: isDark ? AppPalette.white : AppPalette.ink,
+      muted:
+          isDark
+              ? AppPalette.white.withValues(alpha: 0.62)
+              : AppPalette.pine.withValues(alpha: 0.68),
     );
   }
 }
@@ -360,12 +323,15 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
+        color: tone.text,
         fontSize: 16,
         fontWeight: FontWeight.w700,
-        letterSpacing: 0.5,
+        letterSpacing: 0,
       ),
     );
   }
@@ -384,23 +350,24 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    final tone = _ProfileTone.of(context);
+    final avatarImage = avatarImageProvider(userPhotoUrl);
+
+    return _SettingCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             CircleAvatar(
               radius: 32,
-              backgroundColor: AppPalette.lavender.withValues(alpha: 0.2),
-              backgroundImage:
-                  userPhotoUrl != null ? NetworkImage(userPhotoUrl!) : null,
+              backgroundColor: tone.softSurface,
+              backgroundImage: avatarImage,
               child:
-                  userPhotoUrl == null
+                  avatarImage == null
                       ? Text(
                         _initials(userName, userEmail),
-                        style: const TextStyle(
+                        style: TextStyle(
+                          color: tone.text,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
@@ -414,7 +381,8 @@ class _AccountCard extends StatelessWidget {
                 children: [
                   Text(
                     userName,
-                    style: const TextStyle(
+                    style: TextStyle(
+                      color: tone.text,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),
@@ -422,7 +390,7 @@ class _AccountCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     userEmail,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 14, color: tone.muted),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
@@ -432,14 +400,14 @@ class _AccountCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(6),
+                      color: AppPalette.teal.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Gmail connected',
+                      'Outlook connected',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.green.shade700,
+                        color: AppPalette.deepTeal,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -462,167 +430,254 @@ class _AccountCard extends StatelessWidget {
   }
 }
 
-class _ThresholdCard extends StatelessWidget {
-  const _ThresholdCard({
-    required this.title,
-    required this.subtitle,
-    required this.value,
+class _AssistantControlPanel extends StatelessWidget {
+  const _AssistantControlPanel({
+    required this.isActive,
     required this.onChanged,
-    required this.isSwitch,
   });
 
-  final String title;
-  final String subtitle;
-  final dynamic value;
-  final Function(dynamic) onChanged;
-  final bool isSwitch;
+  final bool isActive;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
+    final color = isActive ? AppPalette.deepTeal : AppPalette.amber;
+    final tone = _ProfileTone.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 16),
-            if (isSwitch)
-              Switch(
-                value: value as bool,
-                onChanged: (newValue) async {
-                  await onChanged(newValue);
-                },
-                activeColor: AppPalette.lavender,
+            child: Icon(
+              isActive
+                  ? Icons.mark_email_read_outlined
+                  : Icons.pause_circle_outline,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Prepare replies automatically',
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isActive
+                      ? 'New unread emails are turned into drafts for review.'
+                      : 'New emails will wait until this is turned back on.',
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 13,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(value: isActive, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _LanguageTile extends StatelessWidget {
+  const _LanguageTile({required this.language, required this.onTap});
+
+  final String language;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
+    return _SettingCard(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppPalette.blue.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.language_rounded,
+                  color: AppPalette.blue,
+                  size: 21,
+                ),
               ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Reply language',
+                      style: TextStyle(
+                        color: tone.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      language,
+                      style: TextStyle(
+                        color: tone.muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: tone.muted, size: 24),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _SliderSettingCard extends StatelessWidget {
-  const _SliderSettingCard({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-  });
+class _SettingCard extends StatelessWidget {
+  const _SettingCard({required this.child});
 
-  final String title;
-  final String subtitle;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Text(
-                  subtitle.replaceFirst('Score: ', ''),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AppPalette.teal,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Slider(
-              value: value.clamp(min, max),
-              onChanged: onChanged,
-              min: min,
-              max: max,
-              divisions: divisions,
-              activeColor: AppPalette.lavender,
-            ),
-          ],
-        ),
+    final tone = _ProfileTone.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.border),
       ),
+      child: child,
     );
   }
 }
 
 class _PreferenceToggle extends StatelessWidget {
   const _PreferenceToggle({
+    required this.icon,
     required this.title,
+    required this.subtitle,
     required this.value,
     required this.onChanged,
   });
 
+  final IconData icon;
   final String title;
+  final String subtitle;
   final bool value;
   final Function(bool) onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    final tone = _ProfileTone.of(context);
+    final color = value ? AppPalette.deepTeal : tone.muted;
+
+    return _SettingCard(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: color, size: 21),
             ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: tone.text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: tone.muted,
+                      fontSize: 12.5,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
             Switch(
               value: value,
               onChanged: (newValue) async {
                 await onChanged(newValue);
               },
-              activeColor: AppPalette.lavender,
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SignOutButton extends StatelessWidget {
+  const _SignOutButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.logout_rounded, size: 19),
+      label: const Text('Sign out'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppPalette.clay,
+        side: BorderSide(color: AppPalette.clay.withValues(alpha: 0.38)),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
@@ -641,6 +696,8 @@ class _LanguageOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = _ProfileTone.of(context);
+
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
@@ -648,19 +705,15 @@ class _LanguageOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color:
-                selected
-                    ? AppPalette.teal
-                    : Colors.black.withValues(alpha: 0.08),
-          ),
+          border: Border.all(color: selected ? AppPalette.teal : tone.border),
         ),
         child: Row(
           children: [
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
+                  color: tone.text,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),

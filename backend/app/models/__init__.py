@@ -10,6 +10,7 @@ from app.models.email import (
     Stat,
     UserSetting,
 )
+from app.models.notification import UserNotification
 
 __all__ = [
     "AppSettings",
@@ -23,4 +24,5 @@ __all__ = [
     "Stat",
     "User",
     "UserSetting",
+    "UserNotification",
 ]

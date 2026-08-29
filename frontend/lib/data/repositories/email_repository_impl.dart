@@ -2,6 +2,7 @@ import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/domain/entities/email.dart';
 import 'package:tt_mail_assistant/domain/repositories/email_repository.dart';
 import 'package:tt_mail_assistant/data/datasources/local/email_local_datasource.dart';
+
 class EmailRepositoryImpl implements EmailRepository {
   EmailRepositoryImpl({
     required this.apiService,
@@ -24,11 +25,39 @@ class EmailRepositoryImpl implements EmailRepository {
   }
 
   @override
-  Future<void> sendReply({
+  Future<void> sendReply({required String emailId, required String body}) =>
+      validateAndSend(emailId: emailId, body: body);
+
+  @override
+  Future<void> validateAndSend({
     required String emailId,
     required String body,
   }) async {
-    await apiService.post('/email/$emailId/send', body: {'body': body});
+    final payload = await apiService.post(
+      '/email/$emailId/send',
+      body: {'body': body},
+    );
+    final map = _asMap(payload);
+    final status = _string(map['status']).toLowerCase();
+    final messageId = _string(map['message_id'] ?? map['messageId']);
+    if (status != 'sent' || messageId.isEmpty) {
+      throw ApiException(
+        statusCode: status == 'sent' ? 502 : 409,
+        message:
+            status.isEmpty
+                ? 'Reply was not sent. Please retry.'
+                : 'Reply was not sent: $status.',
+      );
+    }
+  }
+
+  @override
+  Future<void> editAndSend({required String emailId, required String body}) =>
+      validateAndSend(emailId: emailId, body: body);
+
+  @override
+  Future<void> reject({required String emailId}) async {
+    await apiService.post('/email/$emailId/reject');
   }
 
   @override
@@ -60,6 +89,29 @@ class EmailRepositoryImpl implements EmailRepository {
       return await localDataSource.getReviewEmails();
     }
   }
+
+  @override
+  Future<Map<String, dynamic>> getDashboardStats({
+    required String period,
+  }) async {
+    final payload = await apiService.get(
+      '/dashboard/stats',
+      queryParameters: {'period': period},
+    );
+    return _asMap(payload);
+  }
+
+  @override
+  Future<Map<String, dynamic>> exportDashboardReport({
+    required String period,
+  }) async {
+    final payload = await apiService.post(
+      '/dashboard/export',
+      body: {'period': period},
+    );
+    return _asMap(payload);
+  }
+
   @override
   Future<Email?> getEmailById(String id) async {
     try {
@@ -132,10 +184,15 @@ class EmailRepositoryImpl implements EmailRepository {
       from: _parseSender(json['from'] ?? json['sender']),
       to: _parseRecipients(json['to'] ?? json['recipients']),
       date: _parseDate(json['date'] ?? json['received_at']),
-      body: _parseBody(json['body'] ?? json['body_text'] ?? json['preview']),
+      body: _parseBody(
+        json['body'] ??
+            json['body_text'] ??
+            json['body_preview'] ??
+            json['preview'],
+      ),
       attachments: _parseAttachments(json['attachments']),
       status: _parseStatus(json['status']),
-      analysis: _parseAnalysis(json['analysis']),
+      analysis: _parseAnalysis(_analysisSource(json)),
       jury: _parseJury(json['jury'] ?? json['jury_verdict']),
     );
   }
@@ -209,6 +266,25 @@ class EmailRepositoryImpl implements EmailRepository {
     );
   }
 
+  Object? _analysisSource(Map<String, dynamic> json) {
+    if (json['analysis'] is Map) return json['analysis'];
+
+    const analysisKeys = [
+      'summary',
+      'suggested_reply',
+      'suggestedReply',
+      'priority',
+      'confidence',
+      'confidence_score',
+      'category',
+    ];
+    final hasTopLevelAnalysis = analysisKeys.any(
+      (key) => json.containsKey(key) && json[key] != null,
+    );
+
+    return hasTopLevelAnalysis ? json : null;
+  }
+
   Jury? _parseJury(Object? value) {
     if (value is! Map) return null;
     final map = _asMap(value);
@@ -279,6 +355,7 @@ class EmailRepositoryImpl implements EmailRepository {
     if (value is num) return value.toDouble();
     return double.tryParse(_string(value)) ?? 0;
   }
+
   @override
   Future<void> markAsRead(String id) async {
     await localDataSource.markAsRead(id);

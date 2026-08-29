@@ -1,107 +1,92 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
+import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 
 import '../models/bulk_email.dart';
 import '../models/bulk_email_result.dart';
 
 class BulkEmailApiService {
-  final String baseUrl;
+  BulkEmailApiService({required ApiService apiService})
+    : _apiService = apiService;
 
-  BulkEmailApiService({
-    required this.baseUrl,
-  });
+  final ApiService _apiService;
+  static const Duration _generationTimeout = Duration(minutes: 5);
 
   Future<List<BulkEmail>> generateEmails({
-    required List<String> recipients,
+    required List<Map<String, String>> recipients,
     required String topic,
+    String instructions = '',
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/bulk-email/generate'),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
+    final data = await _apiService.post(
+      '/bulk/generate',
+      body: {
         'recipients': recipients,
         'topic': topic,
-      }),
+        'instructions': instructions,
+      },
+      timeout: _generationTimeout,
     );
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        'Generation failed: ${response.statusCode}',
-      );
-    }
-
-    final data = jsonDecode(response.body);
-
-    final List<dynamic> emails = data['emails'] ?? [];
+    final emails = _listFromResponse(data, 'details', 'emails');
 
     return emails
-        .map(
-          (email) => BulkEmail.fromJson(
-        email as Map<String, dynamic>,
-      ),
-    )
+        .map((email) => BulkEmail.fromJson(email as Map<String, dynamic>))
         .toList();
-  }
-
-  Future<BulkEmail> editGenerated({
-    required String id,
-    required String newBody,
-  }) async {
-    final response = await http.patch(
-      Uri.parse('$baseUrl/api/bulk-email/$id'),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'body': newBody,
-      }),
-    );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        'Edit failed: ${response.statusCode}',
-      );
-    }
-
-    final data = jsonDecode(response.body);
-
-    return BulkEmail.fromJson(
-      data as Map<String, dynamic>,
-    );
   }
 
   Future<List<BulkEmailResult>> sendAll({
-    required List<BulkEmail> emails,
+    required List<Map<String, String>> recipients,
+    required String topic,
+    String instructions = '',
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/bulk-email/send-all'),
-      headers: {
-        'Content-Type': 'application/json',
+    final data = await _apiService.post(
+      '/bulk/send',
+      body: {
+        'recipients': recipients,
+        'topic': topic,
+        'instructions': instructions,
       },
-      body: jsonEncode({
-        'emails': emails.map((email) => email.toJson()).toList(),
-      }),
+      timeout: _generationTimeout,
     );
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        'Send failed: ${response.statusCode}',
-      );
-    }
-
-    final data = jsonDecode(response.body);
-
-    final List<dynamic> results = data['results'] ?? [];
+    final results = _listFromResponse(data, 'details', 'results');
 
     return results
         .map(
-          (result) => BulkEmailResult.fromJson(
-        result as Map<String, dynamic>,
-      ),
-    )
+          (result) => BulkEmailResult.fromJson(result as Map<String, dynamic>),
+        )
         .toList();
+  }
+
+  Future<List<BulkEmailResult>> sendDrafts({
+    required List<BulkEmail> drafts,
+  }) async {
+    final data = await _apiService.post(
+      '/bulk/send-drafts',
+      body: {'drafts': drafts.map((draft) => draft.toJson()).toList()},
+      timeout: _generationTimeout,
+    );
+
+    final results = _listFromResponse(data, 'details', 'results');
+
+    return results
+        .map(
+          (result) => BulkEmailResult.fromJson(result as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  List<dynamic> _listFromResponse(
+    dynamic data,
+    String primary,
+    String fallback,
+  ) {
+    if (data is Map<String, dynamic>) {
+      final value = data[primary] ?? data[fallback];
+      if (value is List) return value;
+    }
+    if (data is Map) {
+      final value = data[primary] ?? data[fallback];
+      if (value is List) return value;
+    }
+    return const [];
   }
 }

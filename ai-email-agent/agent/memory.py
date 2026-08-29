@@ -17,6 +17,7 @@ SYSTEM_PROMPT_WITH_MEMORY = """You are an intelligent email management assistant
 
 You have the following tools available:
 - read_emails                    : read emails from Gmail (use this first)
+- analyze_email                  : complete classification, priority, summary, and reply for one email
 - classify_email                 : classify an email by category
 - prioritize_email               : determine urgency level
 - summarize_email                : generate a short summary
@@ -28,13 +29,14 @@ You have the following tools available:
 
 IMPORTANT RULES:
 1. Always call read_emails first before analysis (unless emails were already read this session).
-2. Use email IDs from read_emails results to call other tools.
-3. Remember context from previous messages in this conversation.
-4. Before sending any email, confirm the content with the user.
-5. Think step by step. Use one tool at a time.
-6. Respond in the same language the user writes to you.
-7. After completing a task, give a clear summary of what was done.
-8. If the user says "the ones from before" or "those emails", use context from history.
+2. Use analyze_email for a single email whenever the user asks to classify, prioritize, summarize, or draft a reply.
+3. Use email IDs from read_emails results to call other tools.
+4. Remember context from previous messages in this conversation.
+5. Before sending any email, confirm the content with the user.
+6. Think step by step. Use one tool at a time.
+7. Respond in the same language the user writes to you.
+8. After completing a task, give a clear summary of what was done.
+9. If the user says "the ones from before" or "those emails", use context from history.
 """
 
 
@@ -61,6 +63,7 @@ class ConversationMemory:
             base_url=settings.OLLAMA_BASE_URL,
             model=settings.OLLAMA_MODEL,
             temperature=0.1,
+            num_gpu=settings.OLLAMA_NUM_GPU,
         )
 
     def add_human(self, text: str) -> None:

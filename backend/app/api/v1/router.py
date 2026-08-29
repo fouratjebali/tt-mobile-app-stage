@@ -1,7 +1,17 @@
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import get_current_user
-from app.api.v1.routes import agent, auth, bulk, dashboard, email, health, jury, sentiment
+from app.api.v1.routes import (
+    agent,
+    auth,
+    bulk,
+    dashboard,
+    email,
+    health,
+    jury,
+    notifications,
+    sentiment,
+)
 
 
 api_router = APIRouter()
@@ -41,5 +51,11 @@ api_router.include_router(
     dashboard.router,
     prefix="/dashboard",
     tags=["dashboard"],
+    dependencies=[Depends(get_current_user)],
+)
+api_router.include_router(
+    notifications.router,
+    prefix="/notifications",
+    tags=["notifications"],
     dependencies=[Depends(get_current_user)],
 )

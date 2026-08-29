@@ -20,9 +20,14 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = Field(default="http://host.docker.internal:11434")
     GOOGLE_OAUTH_CLIENT_ID: str = ""
     GOOGLE_OAUTH_SERVER_CLIENT_ID: str = ""
+    MICROSOFT_CLIENT_ID: str = ""
+    MICROSOFT_TENANT_ID: str = "common"
 
     HTTP_TIMEOUT_SECONDS: float = 120.0
     HEALTHCHECK_TIMEOUT_SECONDS: float = 4.0
+    EMAIL_PIPELINE_ENABLED: bool = True
+    EMAIL_PIPELINE_INTERVAL_SECONDS: float = 60.0
+    EMAIL_PIPELINE_MAX_EMAILS: int = 10
 
     @model_validator(mode="after")
     def normalize_database_url(self) -> "Settings":

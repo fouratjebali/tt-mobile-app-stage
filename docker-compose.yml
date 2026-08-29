@@ -65,6 +65,7 @@ services:
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      OLLAMA_NUM_GPU: ${OLLAMA_NUM_GPU:-0}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -101,6 +102,7 @@ services:
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      OLLAMA_NUM_GPU: ${OLLAMA_NUM_GPU:-0}
       HF_HOME: /root/.cache/huggingface
       TRANSFORMERS_CACHE: /root/.cache/huggingface
     extra_hosts:

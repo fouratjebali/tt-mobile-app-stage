@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = "llama3.1"
     OLLAMA_TIMEOUT_SECONDS: float = 180.0
     OLLAMA_NUM_PREDICT: int = 256
+    OLLAMA_NUM_GPU: int = 0
     MAX_EMAILS: int = 10
     LOG_LEVEL: str = "INFO"
     client_id: str | None = None

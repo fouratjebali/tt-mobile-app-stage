@@ -10,10 +10,21 @@ class BulkEmailResult {
   });
 
   factory BulkEmailResult.fromJson(Map<String, dynamic> json) {
+    final recipientData = json['recipient'];
+    final recipientEmail =
+        recipientData is Map ? recipientData['email']?.toString() : null;
+    final rawStatus = json['status']?.toString() ?? 'error';
+
     return BulkEmailResult(
-      recipient: json['recipient']?.toString() ?? '',
-      status: json['status']?.toString() ?? 'error',
-      errorMessage: json['errorMessage']?.toString(),
+      recipient:
+          json['recipient']?.toString() ??
+          json['to']?.toString() ??
+          json['email']?.toString() ??
+          recipientEmail ??
+          '',
+      status: rawStatus == 'sent' ? 'success' : rawStatus,
+      errorMessage:
+          json['errorMessage']?.toString() ?? json['error']?.toString(),
     );
   }
 

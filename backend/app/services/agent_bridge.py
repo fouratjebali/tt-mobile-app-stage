@@ -67,57 +67,40 @@ class AgentBridge:
         )
 
     async def read_today_emails(self, max_results: int = 10) -> AgentBridgeResult:
-        return await self._chat_json(
-            task=(
-                "Read today's Gmail inbox messages using read_emails.\n"
-                f"max_results={max_results}"
-            ),
-            expected_schema=(
-                '{"status":"ok","count":0,"emails":[{"id":"","subject":"",'
-                '"sender":"","date":"","is_read":false,"body_preview":""}]}'
-            ),
+        return await self._get_agent_json(
+            path="/emails/unread",
+            params={"max_results": max_results},
         )
 
     async def read_review_emails(self, max_results: int = 10) -> AgentBridgeResult:
-        return await self._chat_json(
-            task=(
-                "Find emails that need user review. Use get_urgent_emails first.\n"
-                f"max_results={max_results}"
-            ),
-            expected_schema=(
-                '{"status":"ok","count":0,"urgent_emails":[{"id":"","subject":"",'
-                '"sender":"","category":"","priority":"URGENT","urgency_score":0,'
-                '"body_preview":""}]}'
-            ),
+        return await self._get_agent_json(
+            path="/emails/review",
+            params={"max_results": max_results},
         )
 
     async def get_email_detail(self, email_id: str) -> AgentBridgeResult:
-        return await self._chat_json(
-            task=(
-                "Analyze this Gmail message for the mobile detail screen. "
-                "Use classify_email, prioritize_email, summarize_email and "
-                "suggest_reply.\n"
-                f"email_id={email_id}"
-            ),
-            expected_schema=(
-                '{"email":{"id":"","subject":"","sender":"","date":"",'
-                '"body_preview":""},"category":"","confidence":0.0,'
-                '"priority":"","urgency_score":0,"summary":"",'
-                '"action_required":"","language":"","suggested_reply":"",'
-                '"reply_subject":""}'
-            ),
+        return await self._get_agent_json(
+            path=f"/emails/{email_id}",
+            params=None,
         )
 
+    async def analyze_email(self, email: dict[str, Any]) -> AgentBridgeResult:
+        payload = await self._post(
+            service_name="Email Agent",
+            url=f"{self._agent_url}/emails/analyze",
+            json=email,
+        )
+        return AgentBridgeResult(payload=payload, raw_result="")
+
     async def send_email_reply(self, email_id: str, body: str) -> AgentBridgeResult:
-        return await self._chat_json(
-            task=(
-                "Send the following reply for the selected Gmail message. "
-                "Use the email id to identify the recipient if needed, then send "
-                "with send_single_email.\n"
-                f"email_id={email_id}\n"
-                f"body={body}"
-            ),
-            expected_schema='{"status":"sent","message_id":""}',
+        payload = await self._post(
+            service_name="Email Agent",
+            url=f"{self._agent_url}/emails/{email_id}/send",
+            json={"body": body},
+        )
+        return AgentBridgeResult(
+            payload=payload,
+            raw_result="",
         )
 
     async def generate_bulk(
@@ -162,15 +145,32 @@ class AgentBridge:
             ),
         )
 
-    async def dashboard_stats(self) -> AgentBridgeResult:
-        return await self._chat_json(
-            task="Build dashboard stats from recent Gmail activity.",
-            expected_schema=(
-                '{"processed_count":0,"urgent_count":0,"review_count":0,'
-                '"sent_count":0,"categories":{"RECLAMATION":0,"INFORMATION":0,'
-                '"SUPPORT":0,"COMMERCIAL":0}}'
-            ),
+    async def send_bulk_drafts(self, *, drafts: list[dict[str, Any]]) -> AgentBridgeResult:
+        payload = await self._post(
+            service_name="Email Agent",
+            url=f"{self._agent_url}/bulk/send-drafts",
+            json={"drafts": drafts},
         )
+        return AgentBridgeResult(payload=payload, raw_result="")
+
+    async def dashboard_stats(self) -> AgentBridgeResult:
+        return await self._get_agent_json(
+            path="/dashboard/stats",
+            params=None,
+        )
+
+    async def _get_agent_json(
+        self,
+        *,
+        path: str,
+        params: dict[str, Any] | None,
+    ) -> AgentBridgeResult:
+        payload = await self._get(
+            service_name="Email Agent",
+            url=f"{self._agent_url}{path}",
+            params=params,
+        )
+        return AgentBridgeResult(payload=payload, raw_result="")
 
     async def _chat_json(self, *, task: str, expected_schema: str) -> AgentBridgeResult:
         raw_result = await self.chat(
@@ -195,6 +195,37 @@ class AgentBridge:
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 response = await client.post(url, json=json)
+                response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=exc.response.status_code,
+                detail=exc.response.text,
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"{service_name} is unavailable: {exc}",
+            ) from exc
+
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"{service_name} returned an invalid response.",
+            )
+
+        return payload
+
+    async def _get(
+        self,
+        *,
+        service_name: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get(url, params=params)
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             raise HTTPException(

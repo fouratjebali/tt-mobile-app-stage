@@ -1,3 +1,9 @@
+import 'package:tt_mail_assistant/domain/usecases/settings_usecase.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/activity_view_model.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/dashboard_view_model.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/notification_center_view_model.dart';
+import 'package:tt_mail_assistant/presentation/viewmodels/review_view_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,7 +16,7 @@ import 'package:tt_mail_assistant/data/datasources/local/email_local_datasource_
 import 'package:tt_mail_assistant/data/datasources/remote/agent_remote_data_source.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/api_service.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/backend_auth_data_source.dart';
-import 'package:tt_mail_assistant/data/datasources/remote/google_auth_data_source.dart';
+import 'package:tt_mail_assistant/data/datasources/remote/outlook_auth_data_source.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/jury_remote_data_source.dart';
 import 'package:tt_mail_assistant/data/datasources/remote/sentiment_remote_data_source.dart';
 import 'package:tt_mail_assistant/data/repositories/agent_repository_impl.dart';
@@ -58,7 +64,7 @@ Future<void> init() async {
   getIt.registerLazySingleton<EmailLocalDataSource>(
     () => EmailLocalDataSourceImpl(databaseHelper: getIt<DatabaseHelper>()),
   );
-  getIt.registerLazySingleton<GoogleAuthDataSource>(GoogleAuthDataSource.new);
+  getIt.registerLazySingleton<OutlookAuthDataSource>(OutlookAuthDataSource.new);
   getIt.registerLazySingleton<BackendAuthDataSource>(
     () => BackendAuthDataSource(getIt<ApiService>()),
   );
@@ -75,7 +81,7 @@ Future<void> init() async {
   getIt.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       secureStorage: getIt<AuthSecureStorage>(),
-      googleAuthDataSource: getIt<GoogleAuthDataSource>(),
+      outlookAuthDataSource: getIt<OutlookAuthDataSource>(),
       backendAuthDataSource: getIt<BackendAuthDataSource>(),
     ),
   );
@@ -112,5 +118,31 @@ Future<void> init() async {
   );
   getIt.registerLazySingleton<SentimentUseCase>(
     () => SentimentUseCase(getIt<SentimentRepository>()),
+  );
+  getIt.registerLazySingleton<SettingsUseCase>(
+    () => SettingsUseCase(getIt<SettingsRepository>()),
+  );
+  getIt.registerLazySingleton<HomeViewModel>(
+    () => HomeViewModel(
+      emailUseCase: getIt<EmailUseCase>(),
+      settingsUseCase: getIt<SettingsUseCase>(),
+      authUseCase: getIt<AuthUseCase>(),
+    ),
+  );
+
+  getIt.registerFactory<ActivityViewModel>(
+    () => ActivityViewModel(emailUseCase: getIt<EmailUseCase>()),
+  );
+
+  getIt.registerFactory<DashboardViewModel>(
+    () => DashboardViewModel(emailUseCase: getIt<EmailUseCase>()),
+  );
+
+  getIt.registerFactory<NotificationCenterViewModel>(
+    () => NotificationCenterViewModel(emailUseCase: getIt<EmailUseCase>()),
+  );
+
+  getIt.registerLazySingleton<ReviewViewModel>(
+    () => ReviewViewModel(emailUseCase: getIt<EmailUseCase>()),
   );
 }
