@@ -129,10 +129,7 @@ class FormationsViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       final importId = activeImport?.importId;
-      await _planningApiService.importContactFiles(
-        files: files,
-        importId: importId,
-      );
+      await _planningApiService.importContactFiles(files: files);
       if (importId != null && importId.isNotEmpty) {
         await _planningApiService.applyContactMapping(importId: importId);
       }

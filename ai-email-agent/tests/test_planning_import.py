@@ -619,6 +619,107 @@ def test_candidate_import_accepts_missing_email_without_clearing_known_contact(t
     assert saved["residence"] == "Gabes"
 
 
+def test_responsible_directory_import_maps_by_residence_and_lists_ready_first(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Grande residence",
+            ],
+            [
+                "S31",
+                "Exploitation IPMSAN",
+                "2026-09-01",
+                "2026-09-02",
+                "El Ghazela",
+                "75266",
+                "BOUNEB Zied",
+                "Direction Centrale des Services",
+            ],
+            [
+                "S31",
+                "Exploitation IPMSAN",
+                "2026-09-01",
+                "2026-09-02",
+                "El Ghazela",
+                "76052",
+                "JABRI Jawher",
+                "Direction Regionale Gabes",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert import_response.status_code == 200
+    import_id = import_response.json()["import_id"]
+
+    directory = workbook_bytes(
+        [
+            ["Grande résidence", "resp RH", "DIR C/R"],
+            [
+                "Direction Centrale des Services",
+                "saloua.benkhoud@tunisietelecom.tn",
+                "abdallah.abaza@tunisietelecom.tn",
+            ],
+        ]
+    )
+    contacts_response = client.post(
+        "/planning/contacts/import",
+        files={
+            "files": (
+                "annuaire.xlsx",
+                directory,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert contacts_response.status_code == 200
+    assert contacts_response.json()["imported"] == 2
+
+    apply_response = client.post(
+        "/planning/contacts/apply",
+        params={"import_id": import_id},
+    )
+    assert apply_response.status_code == 200
+    assert apply_response.json()["mapped"] == 1
+
+    review = client.get(
+        "/planning/contact-review",
+        params={"import_id": import_id},
+    ).json()
+    assert review["matched"] == 1
+    assert review["missing"] == 1
+    assert review["contacts"][0]["email"] == "saloua.benkhoud@tunisietelecom.tn"
+    assert review["contacts"][0]["status"] == "matched"
+    assert review["contacts"][1]["status"] == "missing"
+
+    generated = client.post(
+        "/planning/drafts/generate",
+        json={"import_id": import_id, "email_type": "confirmation_presence"},
+    ).json()
+    recipients = [draft["recipients"] for draft in generated["drafts"]]
+    assert ["saloua.benkhoud@tunisietelecom.tn"] in recipients
+
+
 def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path):
     from api import planning_import_service
 

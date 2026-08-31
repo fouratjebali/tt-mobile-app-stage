@@ -754,7 +754,12 @@ class PlanningDatabase:
             contact = self._match_responsible_contact(participant, lookup)
             suggested_email = contact["email"] if contact is not None else ""
 
-            if not email:
+            if not email and suggested_email:
+                status_value = "review"
+                match_method = _responsible_role(contact) or "directory"
+                needs_review = True
+                reason = "Responsible recipient found in imported directory. Please verify."
+            elif not email:
                 status_value = "missing"
                 match_method = "none"
                 needs_review = True
@@ -804,7 +809,14 @@ class PlanningDatabase:
             item["session_count"] = len(item["sessions"])
 
         items = list(grouped.values())
-        items.sort(key=lambda item: (not item["needs_review"], item["full_name"], item["matricule"]))
+        items.sort(
+            key=lambda item: (
+                not bool(item["email"] or item["suggested_email"]),
+                item["needs_review"],
+                item["full_name"],
+                item["matricule"],
+            )
+        )
         counts = {
             "total": len(items),
             "matched": sum(1 for item in items if item["status"] == "matched"),
@@ -900,7 +912,10 @@ class PlanningDatabase:
                     source_row,
                     updated_at
                 FROM employee_contacts
-                ORDER BY full_name, matricule
+                ORDER BY
+                    CASE WHEN email != '' THEN 0 ELSE 1 END,
+                    full_name,
+                    matricule
                 LIMIT ? OFFSET ?
                 """,
                 (limit, offset),
@@ -913,15 +928,23 @@ class PlanningDatabase:
     ) -> dict[str, Any]:
         name_counts: dict[str, int] = {}
         by_name: dict[str, sqlite3.Row] = {}
+        by_residence_role: dict[str, dict[str, list[sqlite3.Row]]] = {}
         for row in contacts:
             normalized_name = row["normalized_name"]
             if not normalized_name:
-                continue
-            name_counts[normalized_name] = name_counts.get(normalized_name, 0) + 1
-            by_name[normalized_name] = row
+                normalized_name = ""
+            if normalized_name:
+                name_counts[normalized_name] = name_counts.get(normalized_name, 0) + 1
+                by_name[normalized_name] = row
+
+            role = _responsible_role(row)
+            residence_key = _normalize_participant_name(row["residence"] or row["direction"] or "")
+            if role and residence_key:
+                by_residence_role.setdefault(residence_key, {}).setdefault(role, []).append(row)
         return {
             "by_name": by_name,
             "name_counts": name_counts,
+            "by_residence_role": by_residence_role,
         }
 
     def _match_responsible_contact(
@@ -932,17 +955,43 @@ class PlanningDatabase:
         responsible_name = str(participant["hr_responsible"] or "").strip()
         normalized_responsible = _normalize_participant_name(responsible_name)
         if not normalized_responsible:
-            return None
+            return self._match_responsible_by_residence(participant, lookup)
         name_counts = lookup["name_counts"]
         if name_counts.get(normalized_responsible) != 1:
-            return None
+            return self._match_responsible_by_residence(participant, lookup)
         return lookup["by_name"].get(normalized_responsible)
+
+    def _match_responsible_by_residence(
+        self,
+        participant: sqlite3.Row,
+        lookup: dict[str, Any],
+    ) -> sqlite3.Row | None:
+        residence_key = _normalize_participant_name(
+            participant["residence"] or participant["direction"] or ""
+        )
+        if not residence_key:
+            return None
+        by_role = lookup["by_residence_role"].get(residence_key, {})
+        role_order = _preferred_responsible_roles(participant["hr_responsible"] or "")
+        for role in role_order:
+            matches = _unique_email_rows(by_role.get(role, []))
+            if len(matches) == 1:
+                return matches[0]
+        return None
 
     def apply_contact_mapping(self, *, import_id: str | None = None) -> dict[str, Any]:
         with self._connect() as connection:
             contacts = connection.execute(
                 """
-                SELECT matricule, normalized_name, email, residence, direction, hr_responsible
+                SELECT
+                    matricule,
+                    normalized_name,
+                    full_name,
+                    email,
+                    residence,
+                    direction,
+                    hr_responsible,
+                    source_file
                 FROM employee_contacts
                 WHERE email != ''
                 """
@@ -2059,3 +2108,31 @@ def _contact_row(row: sqlite3.Row) -> dict[str, Any]:
 
 def _normalize_participant_name(value: str) -> str:
     return normalize_name(value)
+
+
+def _responsible_role(row: sqlite3.Row | None) -> str:
+    if row is None:
+        return ""
+    matricule = str(row["matricule"] or "").lower()
+    full_name = str(row["full_name"] or "").lower()
+    if matricule.startswith("responsible:rh") or full_name.startswith("resp rh"):
+        return "rh"
+    if matricule.startswith("responsible:dir") or full_name.startswith("dir c/r"):
+        return "dir"
+    return ""
+
+
+def _preferred_responsible_roles(responsible_name: str) -> list[str]:
+    normalized = _normalize_participant_name(responsible_name)
+    if "dir" in normalized or "directeur" in normalized:
+        return ["dir", "rh"]
+    return ["rh", "dir"]
+
+
+def _unique_email_rows(rows: list[sqlite3.Row]) -> list[sqlite3.Row]:
+    by_email: dict[str, sqlite3.Row] = {}
+    for row in rows:
+        email = str(row["email"] or "").strip().lower()
+        if email:
+            by_email[email] = row
+    return list(by_email.values())

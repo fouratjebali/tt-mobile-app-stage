@@ -119,11 +119,11 @@ class ContactDirectoryParser:
                     field_name: _cell_text(row[column_index - 1] if column_index - 1 < len(row) else None)
                     for field_name, column_index in column_map.items()
                 }
-                contact = self._contact_from_row(filename, row_index, row_data)
-                if contact is None:
+                row_contacts = self._contacts_from_row(filename, row_index, row_data)
+                if not row_contacts:
                     skipped += 1
                     continue
-                contacts.append(contact)
+                contacts.extend(row_contacts)
 
         return _result(filename, contacts, skipped, warnings)
 
@@ -161,11 +161,11 @@ class ContactDirectoryParser:
                 field_name: _cell_text(row[column_index] if column_index < len(row) else None)
                 for field_name, column_index in column_map.items()
             }
-            contact = self._contact_from_row(filename, index, row_data)
-            if contact is None:
+            row_contacts = self._contacts_from_row(filename, index, row_data)
+            if not row_contacts:
                 skipped += 1
                 continue
-            contacts.append(contact)
+            contacts.extend(row_contacts)
 
         return _result(filename, contacts, skipped, [])
 
@@ -183,7 +183,7 @@ class ContactDirectoryParser:
                 best_row = row_index
                 best_map = current_map
                 best_score = score
-        if best_score < 2 or not self._has_identity_column(best_map):
+        if best_score < 2 or not self._has_usable_contact_columns(best_map):
             return None, {}
         return best_row, best_map
 
@@ -201,7 +201,7 @@ class ContactDirectoryParser:
                 best_index = index
                 best_map = current_map
                 best_score = score
-        if best_score < 2 or not self._has_identity_column(best_map):
+        if best_score < 2 or not self._has_usable_contact_columns(best_map):
             return None, {}
         return best_index, best_map
 
@@ -228,32 +228,87 @@ class ContactDirectoryParser:
             score += 2
         return score
 
-    def _has_identity_column(self, column_map: dict[str, int]) -> bool:
-        return "matricule" in column_map or "full_name" in column_map
+    def _has_usable_contact_columns(self, column_map: dict[str, int]) -> bool:
+        if "matricule" in column_map or "full_name" in column_map or "email" in column_map:
+            return True
+        return "residence" in column_map and (
+            "hr_responsible" in column_map or "direction" in column_map
+        )
 
-    def _contact_from_row(
+    def _contacts_from_row(
         self,
         filename: str,
         row_index: int,
         row_data: dict[str, str],
-    ) -> EmployeeContact | None:
+    ) -> list[EmployeeContact]:
+        directory_contacts = self._responsible_directory_contacts(
+            filename,
+            row_index,
+            row_data,
+        )
+        if directory_contacts:
+            return directory_contacts
+
         email = row_data.get("email", "").strip().lower()
         matricule = row_data.get("matricule", "").strip()
         full_name = clean_name(row_data.get("full_name", ""))
         if not matricule and not full_name:
-            return None
+            return []
         if email and "@" not in email:
             email = ""
-        return EmployeeContact(
-            matricule=matricule,
-            full_name=full_name,
-            email=email,
-            direction=row_data.get("direction", ""),
-            hr_responsible=row_data.get("hr_responsible", ""),
-            residence=row_data.get("residence", ""),
-            source_file=filename,
-            source_row=row_index,
-        )
+        return [
+            EmployeeContact(
+                matricule=matricule,
+                full_name=full_name,
+                email=email,
+                direction=row_data.get("direction", ""),
+                hr_responsible=row_data.get("hr_responsible", ""),
+                residence=row_data.get("residence", ""),
+                source_file=filename,
+                source_row=row_index,
+            )
+        ]
+
+    def _responsible_directory_contacts(
+        self,
+        filename: str,
+        row_index: int,
+        row_data: dict[str, str],
+    ) -> list[EmployeeContact]:
+        residence = clean_name(row_data.get("residence", ""))
+        rh_value = row_data.get("hr_responsible", "").strip().lower()
+        director_value = row_data.get("direction", "").strip().lower()
+        if not residence:
+            return []
+
+        contacts: list[EmployeeContact] = []
+        if is_email(rh_value):
+            contacts.append(
+                EmployeeContact(
+                    matricule=responsible_key("rh", residence, rh_value),
+                    full_name=f"Resp RH {residence}",
+                    email=rh_value,
+                    direction=residence,
+                    hr_responsible=f"Resp RH {residence}",
+                    residence=residence,
+                    source_file=filename,
+                    source_row=row_index,
+                )
+            )
+        if is_email(director_value):
+            contacts.append(
+                EmployeeContact(
+                    matricule=responsible_key("dir", residence, director_value),
+                    full_name=f"Dir C/R {residence}",
+                    email=director_value,
+                    direction=residence,
+                    hr_responsible="",
+                    residence=residence,
+                    source_file=filename,
+                    source_row=row_index,
+                )
+            )
+        return contacts
 
 
 def _result(
@@ -291,6 +346,16 @@ def normalize_name(value: str) -> str:
     text = re.sub(r"[^a-z0-9 ]+", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def is_email(value: str) -> bool:
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value.strip()))
+
+
+def responsible_key(role: str, residence: str, email: str) -> str:
+    residence_key = normalize_name(residence).replace(" ", "-")
+    email_key = email.lower().replace("@", "-at-")
+    return f"responsible:{role}:{residence_key}:{email_key}"
 
 
 def normalize_header(value: Any) -> str:
