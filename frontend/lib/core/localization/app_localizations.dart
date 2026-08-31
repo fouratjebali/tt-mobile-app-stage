@@ -154,7 +154,7 @@ const Map<String, String> _english = {
   'formations.historyPageSubtitle': 'Review what was sent from Outlook.',
   'formations.uploadTitle': 'Session planning file',
   'formations.uploadSubtitle':
-      'Upload the Excel file that contains the training sessions, dates, locations, cabinets, and trainers.',
+      'Upload Excel planning files to detect sessions, candidates, residences, and responsible contacts.',
   'formations.uploadAction': 'Add session planning',
   'formations.uploadNext':
       'Planning upload will be connected in the next step.',
@@ -210,8 +210,11 @@ const Map<String, String> _english = {
   'formations.monthPlan': 'Month overview',
   'formations.sessions': 'Sessions',
   'formations.participants': 'Participants',
+  'formations.responsibles': 'Responsibles',
+  'formations.toReview': 'To review',
   'formations.drafts': 'Drafts',
   'formations.missing': 'Missing data',
+  'formations.missingResponsibleEmails': 'Missing resp. emails',
   'formations.calendarTitle': 'Training calendar',
   'formations.calendarSubtitle':
       '{count} upcoming sessions from this planning.',
@@ -539,7 +542,7 @@ const Map<String, String> _french = {
   'formations.historyPageSubtitle': 'Voir ce qui a ete envoye depuis Outlook.',
   'formations.uploadTitle': 'Fichier planning des sessions',
   'formations.uploadSubtitle':
-      'Importez jusqu’à 5 fichiers Excel avant de préparer les emails de confirmation et de sensibilisation.',
+      'Importez les fichiers Excel pour detecter sessions, candidats, residences et responsables.',
   'formations.uploadAction': 'Ajouter le planning',
   'formations.uploadNext':
       'L’import du planning sera connecté à l’étape suivante.',
@@ -597,8 +600,11 @@ const Map<String, String> _french = {
   'formations.monthPlan': 'Vue du mois',
   'formations.sessions': 'Sessions',
   'formations.participants': 'Participants',
+  'formations.responsibles': 'Responsables',
+  'formations.toReview': 'A verifier',
   'formations.drafts': 'Brouillons',
   'formations.missing': 'Données manquantes',
+  'formations.missingResponsibleEmails': 'Emails resp. manquants',
   'formations.calendarTitle': 'Calendrier des formations',
   'formations.calendarSubtitle': '{count} sessions a venir dans ce planning.',
   'formations.noCalendarSessions':

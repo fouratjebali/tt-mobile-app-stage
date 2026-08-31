@@ -703,16 +703,16 @@ class _FormationHubSummary extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _MiniMetric(
-                  label: l10n.t('formations.drafts'),
-                  value: '${viewModel.draftsCount}',
+                  label: l10n.t('formations.responsibles'),
+                  value: '${viewModel.responsibleCount}',
                   tone: tone,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _MiniMetric(
-                  label: l10n.t('formations.missing'),
-                  value: '${viewModel.missingCount}',
+                  label: l10n.t('formations.toReview'),
+                  value: '${viewModel.actionableDraftCount}',
                   tone: tone,
                 ),
               ),
@@ -1132,14 +1132,14 @@ class _MonthOverview extends StatelessWidget {
               value: '${viewModel.participants}',
             ),
             _FormationStatCard(
-              icon: Icons.edit_document,
-              label: l10n.t('formations.drafts'),
-              value: '${viewModel.draftsCount}',
+              icon: Icons.supervisor_account_rounded,
+              label: l10n.t('formations.responsibles'),
+              value: '${viewModel.responsibleCount}',
             ),
             _FormationStatCard(
-              icon: Icons.report_gmailerrorred_rounded,
-              label: l10n.t('formations.missing'),
-              value: '${viewModel.missingCount}',
+              icon: Icons.mark_email_unread_rounded,
+              label: l10n.t('formations.missingResponsibleEmails'),
+              value: '${viewModel.responsibleMissingCount}',
               accent: AppPalette.clay,
             ),
           ],
@@ -1548,7 +1548,9 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
     if (selectedMonth == null || months.isEmpty) return;
     final key = '${selectedMonth.year}-${selectedMonth.month}';
     if (_lastAlignedMonthKey == key) return;
-    final index = months.indexWhere((month) => _sameMonth(month, selectedMonth));
+    final index = months.indexWhere(
+      (month) => _sameMonth(month, selectedMonth),
+    );
     if (index < 0) return;
     _lastAlignedMonthKey = key;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2706,7 +2708,9 @@ class _ImportFeedbackSheet extends StatelessWidget {
                   icon: Icons.person_search_rounded,
                   tone: tone,
                   accent:
-                      noCandidateEmailsYet ? AppPalette.amber : AppPalette.deepTeal,
+                      noCandidateEmailsYet
+                          ? AppPalette.amber
+                          : AppPalette.deepTeal,
                 ),
               ],
             ),
@@ -4324,8 +4328,7 @@ bool _containsMonth(List<DateTime> months, DateTime? selectedMonth) {
 }
 
 bool _containsDay(List<DateTime> days, DateTime? selectedDay) {
-  return selectedDay != null &&
-      days.any((day) => _sameDay(day, selectedDay));
+  return selectedDay != null && days.any((day) => _sameDay(day, selectedDay));
 }
 
 String _weekdayShort(BuildContext context, DateTime date) {

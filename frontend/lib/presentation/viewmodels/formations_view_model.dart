@@ -29,6 +29,8 @@ class FormationsViewModel extends ChangeNotifier {
   int get participants => activeImport?.totalParticipants ?? 0;
   int get missingCount => activeImport?.missingEmailCount ?? 0;
   int get draftsCount => drafts.length;
+  int get responsibleCount => contactReviewSummary?.total ?? 0;
+  int get responsibleMissingCount => contactReviewSummary?.missing ?? 0;
   int get waitingReviewCount =>
       drafts
           .where(
@@ -36,6 +38,7 @@ class FormationsViewModel extends ChangeNotifier {
                 draft.status == 'WAITING_REVIEW' || draft.status == 'EDITED',
           )
           .length;
+  int get actionableDraftCount => waitingReviewCount + blockedCount;
   int get approvedCount =>
       drafts.where((draft) => draft.status == 'APPROVED').length;
   int get sentCount => drafts.where((draft) => draft.status == 'SENT').length;

@@ -264,6 +264,7 @@ class PlanningApiService {
               'draft_status': draftStatus,
             if (emailType != null && emailType.isNotEmpty)
               'email_type': emailType,
+            'limit': 500,
           },
         );
         final drafts = _list(_map(data)['drafts']);
