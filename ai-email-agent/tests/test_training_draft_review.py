@@ -35,6 +35,9 @@ def test_training_draft_review_update_and_approve(tmp_path):
                 "Matricules",
                 "Nom & Prenom",
                 "Email",
+                "Grande residence",
+                "Resp RH",
+                "Email Resp RH",
             ],
             [
                 "S6",
@@ -47,6 +50,9 @@ def test_training_draft_review_update_and_approve(tmp_path):
                 "10001",
                 "AMRI Salma",
                 "salma.amri@tunisietelecom.tn",
+                "Tunis",
+                "Responsable RH Tunis",
+                "rh.tunis@tunisietelecom.tn",
             ],
         ]
     )
@@ -74,8 +80,8 @@ def test_training_draft_review_update_and_approve(tmp_path):
             "subject": "Confirmation de presence - Cybersecurite operationnelle",
             "body": draft["body"] + "\nMerci de confirmer votre disponibilite.",
             "recipients": [
-                "salma.amri@tunisietelecom.tn",
-                "salma.amri@tunisietelecom.tn",
+                "rh.tunis@tunisietelecom.tn",
+                "rh.tunis@tunisietelecom.tn",
             ],
         },
     )
@@ -83,7 +89,7 @@ def test_training_draft_review_update_and_approve(tmp_path):
     assert edit_response.status_code == 200
     edited = edit_response.json()["draft"]
     assert edited["status"] == "EDITED"
-    assert edited["recipients"] == ["salma.amri@tunisietelecom.tn"]
+    assert edited["recipients"] == ["rh.tunis@tunisietelecom.tn"]
     assert edited["metadata"]["ready_to_send"] is False
     assert edited["metadata"]["last_review_action"] == "edited"
 
@@ -117,6 +123,8 @@ def test_training_draft_review_requires_recipients_before_approval(tmp_path):
                 "Lieu de formation",
                 "Matricules",
                 "Nom & Prenom",
+                "Grande residence",
+                "Resp RH",
             ],
             [
                 "S7",
@@ -180,6 +188,9 @@ def test_training_draft_can_be_regenerated_in_place(tmp_path):
                 "Matricules",
                 "Nom & Prenom",
                 "Email",
+                "Grande residence",
+                "Resp RH",
+                "Email Resp RH",
             ],
             [
                 "S13",
@@ -192,6 +203,9 @@ def test_training_draft_can_be_regenerated_in_place(tmp_path):
                 "60006",
                 "BEN AMOR Lina",
                 "lina.benamor@tunisietelecom.tn",
+                "Tunis",
+                "Responsable RH Tunis",
+                "rh.tunis@tunisietelecom.tn",
             ],
         ]
     )
@@ -253,6 +267,8 @@ def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
                 "Lieu de formation",
                 "Matricules",
                 "Nom & Prenom",
+                "Grande residence",
+                "Resp RH",
             ],
             [
                 "S21",
@@ -262,6 +278,8 @@ def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
                 "Tunis",
                 "90009",
                 "TRABELSI Karim",
+                "Tunis",
+                "Responsable RH Tunis",
             ],
         ]
     )
@@ -288,7 +306,7 @@ def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
 
     contacts_csv = (
         "Nom & Prenom,Email\n"
-        "TRABELSI Karim,karim.trabelsi@tunisietelecom.tn\n"
+        "Responsable RH Tunis,rh.tunis@tunisietelecom.tn\n"
     ).encode()
     contact_response = client.post(
         "/planning/contacts/import",
@@ -307,16 +325,15 @@ def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
     ).json()
 
     assert name_review["missing"] == 0
-    assert name_review["review"] == 1
-    assert name_review["contacts"][0]["match_method"] == "name"
-    assert name_review["contacts"][0]["needs_review"] is True
+    assert name_review["matched"] == 1
+    assert name_review["contacts"][0]["match_method"] == "responsible"
+    assert name_review["contacts"][0]["needs_review"] is False
 
     save_response = client.post(
         "/planning/contacts",
         json={
-            "matricule": "90009",
-            "full_name": "TRABELSI Karim",
-            "email": "karim.trabelsi@tunisietelecom.tn",
+            "full_name": "Responsable RH Tunis",
+            "email": "rh.tunis@tunisietelecom.tn",
         },
     )
     assert save_response.status_code == 200
@@ -328,5 +345,5 @@ def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
 
     assert exact_review["matched"] == 1
     assert exact_review["review"] == 0
-    assert exact_review["contacts"][0]["match_method"] == "matricule"
+    assert exact_review["contacts"][0]["match_method"] == "responsible"
     assert exact_review["contacts"][0]["needs_review"] is False

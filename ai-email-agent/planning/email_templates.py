@@ -41,19 +41,18 @@ class TrainingEmailTemplates:
         *,
         include_population: bool,
     ) -> RenderedTemplate:
-        subject = f"Confirmation de présence formation {module(session)}"
+        subject = f"Confirmation de presence formation {module(session)}"
         intro = (
-            "Dans le cadre de la mise en œuvre du plan de formation 2026 et afin de "
-            "concrétiser les besoins exprimés par les collaborateurs lors de la campagne "
-            "de recueil des besoins en formation, nous vous invitons à confirmer votre "
-            "présence dans les meilleurs délais."
+            "Dans le cadre de la mise en oeuvre du plan de formation 2026 et afin de "
+            "concretiser les besoins exprimes par les collaborateurs lors de la campagne "
+            "de recueil des besoins en formation, nous vous prions de bien vouloir "
+            "confirmer la disponibilite des collaborateurs listes ci-dessous."
         )
         closing = (
-            "Nous attirons également votre attention sur le fait que les absences, en "
-            "particulier lorsqu'elles ne sont pas signalées à temps, peuvent impacter "
-            "le bon déroulement de la session.<br><br>"
-            "Prière de nous confirmer votre présence ou de nous signaler tout empêchement "
-            "dans les meilleurs délais."
+            "Merci de nous confirmer les participants retenus ou de nous signaler tout "
+            "remplacement, indisponibilite ou remarque dans les meilleurs delais.<br><br>"
+            "Nous attirons egalement votre attention sur l'importance de nous informer "
+            "rapidement des absences afin d'assurer le bon deroulement de la session."
         )
         return self._render_standard(
             session,
@@ -61,7 +60,7 @@ class TrainingEmailTemplates:
             intro=intro,
             closing=closing,
             include_population=include_population,
-            table_title="Participants concernés",
+            table_title=population_title(session, "Collaborateurs concernes"),
         )
 
     def sensibilisation(
@@ -70,18 +69,18 @@ class TrainingEmailTemplates:
         *,
         include_population: bool,
     ) -> RenderedTemplate:
-        subject = f"Sensibilisation à participer à la formation {module(session)}"
+        subject = f"Sensibilisation a participer a la formation {module(session)}"
         intro = (
-            "Dans le cadre du développement des compétences de nos collaborateurs, nous "
-            f"organisons une formation sur « {module(session)} »."
+            "Dans le cadre du developpement des competences de nos collaborateurs, nous "
+            f"organisons une formation sur \"{module(session)}\"."
         )
         closing = (
-            "Cette session offrira l'opportunité d'acquérir de nouvelles connaissances "
-            "et de renforcer les compétences utiles au quotidien professionnel.<br><br>"
-            "Nous invitons les responsables RH à relayer cette information et à encourager "
-            "la participation des collaborateurs concernés.<br><br>"
-            "Votre mobilisation contribuera au succès de cette action de formation.<br><br>"
-            "Pour toute information complémentaire, n'hésitez pas à nous contacter."
+            "Cette session offrira l'opportunite d'acquerir de nouvelles connaissances "
+            "et de renforcer les competences utiles au quotidien professionnel.<br><br>"
+            "Nous vous invitons a relayer cette information et a encourager la "
+            "participation des collaborateurs concernes.<br><br>"
+            "Votre mobilisation contribuera au succes de cette action de formation.<br><br>"
+            "Pour toute information complementaire, n'hesitez pas a nous contacter."
         )
         return self._render_standard(
             session,
@@ -89,7 +88,7 @@ class TrainingEmailTemplates:
             intro=intro,
             closing=closing,
             include_population=include_population,
-            table_title="Population cible",
+            table_title=population_title(session, "Population cible"),
         )
 
     def rappel(
@@ -99,10 +98,13 @@ class TrainingEmailTemplates:
         include_population: bool,
     ) -> RenderedTemplate:
         subject = f"Rappel formation {module(session)}"
-        intro = f"Nous vous rappelons que la formation « {module(session)} » est programmée prochainement."
+        intro = (
+            f"Nous vous rappelons que la formation \"{module(session)}\" est "
+            "programmee prochainement pour les collaborateurs listes ci-dessous."
+        )
         closing = (
-            "Merci de prendre les dispositions nécessaires pour assurer votre présence "
-            "et de nous informer rapidement en cas d'empêchement."
+            "Merci de confirmer les disponibilites ou de nous signaler rapidement toute "
+            "indisponibilite afin de mettre a jour la liste de participation."
         )
         return self._render_standard(
             session,
@@ -110,7 +112,7 @@ class TrainingEmailTemplates:
             intro=intro,
             closing=closing,
             include_population=include_population,
-            table_title="Participants concernés",
+            table_title=population_title(session, "Collaborateurs concernes"),
         )
 
     def report(
@@ -120,15 +122,18 @@ class TrainingEmailTemplates:
         include_population: bool,
     ) -> RenderedTemplate:
         subject = f"Report de la formation {module(session)}"
-        intro = f"Nous vous informons que la formation « {module(session)} » est reportée."
-        closing = "Une nouvelle communication vous sera transmise dès confirmation de la date retenue."
+        intro = f"Nous vous informons que la formation \"{module(session)}\" est reportee."
+        closing = (
+            "Une nouvelle communication vous sera transmise des confirmation de la date "
+            "retenue. Merci d'informer les collaborateurs concernes."
+        )
         return self._render_standard(
             session,
             subject=subject,
             intro=intro,
             closing=closing,
             include_population=include_population,
-            table_title="Participants concernés",
+            table_title=population_title(session, "Collaborateurs concernes"),
         )
 
     def annulation(
@@ -138,9 +143,9 @@ class TrainingEmailTemplates:
         include_population: bool,
     ) -> RenderedTemplate:
         subject = f"Annulation de la formation {module(session)}"
-        intro = f"Nous vous informons que la formation « {module(session)} » est annulée."
+        intro = f"Nous vous informons que la formation \"{module(session)}\" est annulee."
         closing = (
-            "Nous vous remercions pour votre compréhension et vous tiendrons informés "
+            "Nous vous remercions pour votre comprehension et vous tiendrons informes "
             "en cas de reprogrammation."
         )
         return self._render_standard(
@@ -149,7 +154,7 @@ class TrainingEmailTemplates:
             intro=intro,
             closing=closing,
             include_population=include_population,
-            table_title="Participants concernés",
+            table_title=population_title(session, "Collaborateurs concernes"),
         )
 
     def _render_standard(
@@ -194,23 +199,34 @@ class TrainingEmailTemplates:
 
 
 def details_block_text(session: dict[str, Any]) -> str:
-    return "\n".join(
-        [
-            f"Thème de la formation : {module(session)}",
-            f"Durée du cours : {date_range(session)}",
-            f"Lieu principal : {value(session, 'location', 'À préciser')}",
-            f"Cabinet de Formation : {training_provider(session)}",
-        ]
-    )
+    details = [
+        f"Theme de la formation : {module(session)}",
+        f"Duree du cours : {date_range(session)}",
+        f"Lieu principal : {value(session, 'location', 'A preciser')}",
+        f"Cabinet de Formation : {training_provider(session)}",
+    ]
+    residence = value(session, "responsible_residence")
+    direction = value(session, "responsible_direction")
+    if residence:
+        details.append(f"Grande residence : {residence}")
+    if direction:
+        details.append(f"Direction : {direction}")
+    return "\n".join(details)
 
 
 def details_block_html(session: dict[str, Any]) -> str:
     details = [
-        ("Thème de la formation", module(session)),
-        ("Durée du cours", date_range(session)),
-        ("Lieu principal", value(session, "location", "À préciser")),
+        ("Theme de la formation", module(session)),
+        ("Duree du cours", date_range(session)),
+        ("Lieu principal", value(session, "location", "A preciser")),
         ("Cabinet de Formation", training_provider(session)),
     ]
+    residence = value(session, "responsible_residence")
+    direction = value(session, "responsible_direction")
+    if residence:
+        details.append(("Grande residence", residence))
+    if direction:
+        details.append(("Direction", direction))
     lines = []
     for label, detail in details:
         lines.append(
@@ -226,8 +242,8 @@ def participants_table_text(session: dict[str, Any], *, title: str) -> str:
     rows = participant_rows(session)
     if not rows:
         return ""
-    lines = [f"{title} :", "Matricule | Nom et prénom"]
-    lines.extend(f"{matricule} | {name}" for matricule, name in rows)
+    lines = [f"{title} :", "Matricule | Nom et prenom | Grande residence"]
+    lines.extend(f"{matricule} | {name} | {residence}" for matricule, name, residence in rows)
     return "\n".join(lines)
 
 
@@ -239,30 +255,41 @@ def participants_table_html(session: dict[str, Any], *, title: str) -> str:
         "<tr>"
         f"<td style=\"border: 1px solid #6f6a64; padding: 4px 8px;\">{escape(matricule)}</td>"
         f"<td style=\"border: 1px solid #6f6a64; padding: 4px 8px;\">{escape(name)}</td>"
+        f"<td style=\"border: 1px solid #6f6a64; padding: 4px 8px;\">{escape(residence)}</td>"
         "</tr>"
-        for matricule, name in rows
+        for matricule, name, residence in rows
     )
     return (
         f"<p style=\"margin: 14px 0 6px;\"><strong>{escape(title)} :</strong></p>"
         "<table cellspacing=\"0\" cellpadding=\"0\" "
-        "style=\"border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; min-width: 420px;\">"
+        "style=\"border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; min-width: 520px;\">"
         "<thead><tr>"
         "<th style=\"border: 1px solid #6f6a64; padding: 4px 8px; text-align: left;\">Matricule</th>"
-        "<th style=\"border: 1px solid #6f6a64; padding: 4px 8px; text-align: left;\">Nom et prénom</th>"
+        "<th style=\"border: 1px solid #6f6a64; padding: 4px 8px; text-align: left;\">Nom et prenom</th>"
+        "<th style=\"border: 1px solid #6f6a64; padding: 4px 8px; text-align: left;\">Grande residence</th>"
         "</tr></thead>"
         f"<tbody>{body_rows}</tbody>"
         "</table>"
     )
 
 
-def participant_rows(session: dict[str, Any]) -> list[tuple[str, str]]:
+def participant_rows(session: dict[str, Any]) -> list[tuple[str, str, str]]:
     rows = []
+    fallback_residence = value(session, "responsible_residence")
     for participant in session.get("participants", []) or []:
         matricule = str(participant.get("matricule") or "").strip()
         name = str(participant.get("full_name") or "").strip()
+        residence = str(participant.get("residence") or fallback_residence).strip()
         if matricule or name:
-            rows.append((matricule, name))
+            rows.append((matricule, name, residence))
     return rows
+
+
+def population_title(session: dict[str, Any], fallback: str) -> str:
+    residence = value(session, "responsible_residence")
+    if residence:
+        return f"{fallback} - {residence}"
+    return fallback
 
 
 def module(session: dict[str, Any]) -> str:
@@ -270,26 +297,26 @@ def module(session: dict[str, Any]) -> str:
 
 
 def training_provider(session: dict[str, Any]) -> str:
-    selected_trainer = value(session, "selected_trainer", "")
-    trainer = value(session, "trainer", "")
-    cabinet = value(session, "cabinet", "")
+    selected_trainer = value(session, "selected_trainer")
+    trainer = value(session, "trainer")
+    cabinet = value(session, "cabinet")
     if selected_trainer:
         return selected_trainer
     if cabinet.lower().strip() == "formateur interne" and trainer:
         return trainer
     if cabinet:
         return cabinet
-    return trainer or "À préciser"
+    return trainer or "A preciser"
 
 
 def date_range(session: dict[str, Any]) -> str:
-    start = value(session, "start_date", "")
-    end = value(session, "end_date", "")
+    start = value(session, "start_date")
+    end = value(session, "end_date")
     if start and end and start != end:
         return f"du {format_date(start)} au {format_date(end)}"
     if start:
         return f"le {format_date(start)}"
-    return "À préciser"
+    return "A preciser"
 
 
 def format_date(raw_value: str) -> str:
@@ -299,7 +326,7 @@ def format_date(raw_value: str) -> str:
         return raw_value
 
 
-def value(session: dict[str, Any], key: str, fallback: str) -> str:
+def value(session: dict[str, Any], key: str, fallback: str = "") -> str:
     raw_value = str(session.get(key) or "").strip()
     return raw_value if raw_value else fallback
 

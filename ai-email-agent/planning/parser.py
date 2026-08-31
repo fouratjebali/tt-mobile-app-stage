@@ -49,6 +49,19 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "hr_responsible": ("resp rh", "responsable rh"),
     "direction": ("dir c/r", "direction", "direction regionale"),
     "email": ("email", "mail", "adresse email", "adresse mail"),
+    "responsible_email": (
+        "email resp rh",
+        "mail resp rh",
+        "adresse mail resp rh",
+        "email responsable",
+        "mail responsable",
+        "email directeur",
+        "mail directeur",
+        "email dir",
+        "mail dir",
+        "email dir c/r",
+        "mail dir c/r",
+    ),
 }
 
 MIN_SESSION_COLUMNS = {"module", "start_date", "end_date", "location"}
@@ -293,12 +306,13 @@ class PlanningExcelParser:
         matricule = row_data.get("matricule", "")
         full_name = row_data.get("full_name", "")
         email = row_data.get("email", "")
-        if not any((matricule, full_name, email)):
+        responsible_email = row_data.get("responsible_email", "")
+        if not any((matricule, full_name, email, responsible_email)):
             return None
 
         missing_fields: list[str] = []
-        if not email:
-            missing_fields.append("email")
+        if not responsible_email:
+            missing_fields.append("responsible_email")
         if not full_name:
             missing_fields.append("full_name")
 
@@ -306,6 +320,7 @@ class PlanningExcelParser:
             matricule=matricule,
             full_name=full_name,
             email=email,
+            responsible_email=responsible_email,
             residence=row_data.get("residence", ""),
             direction=row_data.get("direction", ""),
             hr_responsible=row_data.get("hr_responsible", ""),

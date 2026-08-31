@@ -116,7 +116,7 @@ class PlanningImportService:
                 ]
 
             if primary_file.status == "ok" and any(
-                "email" in participant.missing_fields
+                "responsible_email" in participant.missing_fields
                 for participant in primary_session.participants
             ):
                 primary_file.status = "needs_review"
@@ -280,9 +280,9 @@ class PlanningImportService:
 
     def import_contacts(self, files: list[tuple[str, bytes]]) -> dict[str, Any]:
         if not files:
-            raise ValueError("At least one candidate or contact file is required.")
+            raise ValueError("At least one responsible contact file is required.")
         if len(files) > 5:
-            raise ValueError("A maximum of 5 candidate or contact files can be imported at once.")
+            raise ValueError("A maximum of 5 responsible contact files can be imported at once.")
 
         file_results = [
             self.contact_parser.parse_file(filename=filename, content=content)
@@ -405,23 +405,29 @@ class PlanningImportService:
         skipped = 0
         errors = []
         for session in sessions:
-            if (
-                skip_existing
-                and safe_import_id
-                and self.database.has_training_draft_for_session(
-                    import_id=safe_import_id,
-                    session_key=session["session_key"],
-                )
-            ):
-                skipped += 1
-                continue
+            existing_keys: set[str] = set()
+            if skip_existing and safe_import_id:
+                existing_keys = {
+                    str(draft.get("metadata", {}).get("responsible_key") or "unassigned")
+                    for draft in self.database.list_training_drafts(
+                        import_id=safe_import_id,
+                        session_key=session["session_key"],
+                        limit=500,
+                    )
+                    if draft.get("status") != "REJECTED"
+                }
             try:
-                draft = self.training_agent.generate_draft(
-                    session,
-                    email_type=email_type,
-                    include_population=include_population,
-                )
-                drafts.append(self.database.save_training_draft(draft))
+                for group_session in self.training_agent.responsible_groups(session):
+                    responsible_key = self.training_agent.responsible_key(group_session)
+                    if skip_existing and responsible_key in existing_keys:
+                        skipped += 1
+                        continue
+                    draft = self.training_agent.generate_draft(
+                        group_session,
+                        email_type=email_type,
+                        include_population=include_population,
+                    )
+                    drafts.append(self.database.save_training_draft(draft))
             except ValueError as exc:
                 errors.append(
                     {
@@ -593,6 +599,10 @@ class PlanningImportService:
         if session is None:
             raise ValueError("The original training session was not found.")
 
+        session = self.training_agent.group_for_existing_draft(
+            session,
+            current.get("metadata", {}),
+        )
         draft = self.training_agent.generate_draft(
             session,
             email_type=email_type,

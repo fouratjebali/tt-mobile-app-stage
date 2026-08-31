@@ -101,6 +101,9 @@ def test_send_training_draft_uses_outlook_after_approval(tmp_path, monkeypatch):
                 "Matricules",
                 "Nom & Prenom",
                 "Email",
+                "Grande residence",
+                "Resp RH",
+                "Email Resp RH",
             ],
             [
                 "S8",
@@ -113,6 +116,9 @@ def test_send_training_draft_uses_outlook_after_approval(tmp_path, monkeypatch):
                 "75266",
                 "BOUNEB Zied",
                 "zied.bouneb@tunisietelecom.tn",
+                "Direction Centrale des Reseaux",
+                "Salim Mebili",
+                "salim.mebili@tunisietelecom.tn",
             ],
         ]
     )
@@ -164,7 +170,7 @@ def test_send_training_draft_uses_outlook_after_approval(tmp_path, monkeypatch):
     assert sent_draft["status"] == "SENT"
     assert sent_draft["metadata"]["provider_message_id"] == "graph-sendmail-test"
     assert graph.sent[0]["access_token"] == "graph-access-token"
-    assert graph.sent[0]["recipients"] == ["zied.bouneb@tunisietelecom.tn"]
+    assert graph.sent[0]["recipients"] == ["salim.mebili@tunisietelecom.tn"]
     assert graph.sent[0]["html_body"]
 
     history_response = client.get(f"/planning/send-history?import_id={import_id}")
@@ -172,6 +178,6 @@ def test_send_training_draft_uses_outlook_after_approval(tmp_path, monkeypatch):
     history = history_response.json()["history"]
     assert len(history) == 1
     assert history[0]["draft_id"] == draft["id"]
-    assert history[0]["recipient_email"] == "zied.bouneb@tunisietelecom.tn"
+    assert history[0]["recipient_email"] == "salim.mebili@tunisietelecom.tn"
     assert history[0]["status"] == "sent"
     assert history[0]["subject"] == sent_draft["subject"]

@@ -13,7 +13,16 @@ from openpyxl import load_workbook
 
 CONTACT_HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "matricule": ("matricule", "matricules", "identifiant", "id agent"),
-    "full_name": ("nom & prenom", "nom et prenom", "nom prenom", "nom", "prenom"),
+    "full_name": (
+        "nom & prenom",
+        "nom et prenom",
+        "nom prenom",
+        "nom responsable",
+        "responsable",
+        "directeur",
+        "nom",
+        "prenom",
+    ),
     "email": ("email", "mail", "adresse email", "adresse mail", "e-mail"),
     "direction": ("direction", "direction regionale", "dir c/r", "structure"),
     "hr_responsible": ("resp rh", "responsable rh", "rh"),
@@ -69,7 +78,7 @@ class ContactDirectoryParser:
             filename=filename,
             status="error",
             errors=[
-                "Unsupported candidate file format. Please upload a .xlsx or .csv file."
+                "Unsupported contact file format. Please upload a .xlsx or .csv file."
             ],
         )
 
@@ -81,7 +90,7 @@ class ContactDirectoryParser:
                 filename=filename,
                 status="error",
                 errors=[
-                    "The candidate file could not be read. Check that it is not "
+                    "The contact file could not be read. Check that it is not "
                     f"protected or corrupted, then upload it again. Technical detail: {exc}"
                 ],
             )
@@ -93,8 +102,8 @@ class ContactDirectoryParser:
             header_row, column_map = self._detect_xlsx_header(worksheet)
             if header_row is None:
                 warnings.append(
-                    f"{worksheet.title}: candidate headers were not found. "
-                    "Expected columns include Nom & Prenom or Matricule. Email is optional."
+                    f"{worksheet.title}: contact headers were not found. "
+                    "Expected columns include Nom & Prenom or Responsable and Email."
                 )
                 continue
             max_column = max(column_map.values(), default=0)
@@ -131,7 +140,7 @@ class ContactDirectoryParser:
             return ContactImportResult(
                 filename=filename,
                 status="error",
-                errors=["The candidate file is empty. Choose a file that contains candidate rows."],
+                errors=["The contact file is empty. Choose a file that contains responsible contact rows."],
             )
 
         header_index, column_map = self._detect_csv_header(rows)
@@ -140,8 +149,8 @@ class ContactDirectoryParser:
                 filename=filename,
                 status="error",
                 errors=[
-                    "Candidate headers were not found. Expected columns include Nom & Prenom "
-                    "or Matricule. Email is optional."
+                    "Contact headers were not found. Expected columns include Nom & Prenom "
+                    "or Responsable and Email."
                 ],
             )
 
@@ -258,8 +267,8 @@ def _result(
         []
         if contacts
         else [
-            "No valid candidates were found. Each row needs a matricule or a name. "
-            "Email is optional and can be completed later."
+            "No valid contacts were found. Each row needs a responsible name or a matricule. "
+            "Email can be completed later."
         ]
     )
     return ContactImportResult(

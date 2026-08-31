@@ -77,7 +77,7 @@ def test_parser_imports_participant_planning_format():
     assert session.location == "Salle1 DCSI pole El Ghazela"
     assert len(session.participants) == 1
     assert session.participants[0].full_name == "BOUNEB Zied"
-    assert "email" in session.participants[0].missing_fields
+    assert "responsible_email" in session.participants[0].missing_fields
 
 
 def test_parser_detects_legend_then_session_header_format():
@@ -278,8 +278,8 @@ def test_planning_import_api_lists_missing_contacts(tmp_path):
     )
     assert missing_response.status_code == 200
     contacts = missing_response.json()["contacts"]
-    assert contacts[0]["matricule"] == "76052"
-    assert contacts[0]["full_name"] == "JABRI Jawher"
+    assert contacts[0]["matricule"] == ""
+    assert contacts[0]["full_name"] == "Responsable formation"
 
 
 def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
@@ -298,6 +298,8 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
                 "Lieu de formation",
                 "Matricules",
                 "Nom & Prenom",
+                "Grande residence",
+                "Resp RH",
             ],
             [
                 "S3",
@@ -307,6 +309,8 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
                 "Gabes",
                 "76052",
                 "JABRI Jawher",
+                "DIRECTION REGIONALE GABES",
+                "Responsable RH Gabes",
             ],
         ]
     )
@@ -325,13 +329,12 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
 
     contacts = workbook_bytes(
         [
-            ["Matricule", "Nom et Prenom", "Email", "Direction", "Resp RH"],
+            ["Nom et Prenom", "Email", "Direction", "Grande residence"],
             [
-                "76052",
-                "JABRI Jawher",
-                "jawher.jabri@tunisietelecom.tn",
-                "DIRECTION REGIONALE GABES",
                 "Responsable RH Gabes",
+                "rh.gabes@tunisietelecom.tn",
+                "DIRECTION REGIONALE GABES",
+                "DIRECTION REGIONALE GABES",
             ],
         ]
     )
@@ -350,7 +353,7 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
 
     saved_contacts = client.get("/planning/contacts")
     assert saved_contacts.status_code == 200
-    assert saved_contacts.json()["contacts"][0]["email"] == "jawher.jabri@tunisietelecom.tn"
+    assert saved_contacts.json()["contacts"][0]["email"] == "rh.gabes@tunisietelecom.tn"
 
     apply_response = client.post(
         "/planning/contacts/apply",
@@ -371,8 +374,9 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
     payload = import_response.json()
     assert payload["missing_email_count"] == 0
     participant = payload["files"][0]["sessions"][0]["participants"][0]
-    assert participant["email"] == "jawher.jabri@tunisietelecom.tn"
-    assert "email" not in participant["missing_fields"]
+    assert participant["email"] == ""
+    assert participant["responsible_email"] == "rh.gabes@tunisietelecom.tn"
+    assert "responsible_email" not in participant["missing_fields"]
 
 
 def test_combined_session_and_candidate_workbooks_are_merged(tmp_path):
@@ -635,6 +639,9 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
                 "Nom & Prenom",
                 "Email",
                 "Grande residence",
+                "resp RH",
+                "Email Resp RH",
+                "DIR C/R",
             ],
             [
                 "S4",
@@ -648,6 +655,9 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
                 "75266",
                 "BOUNEB Zied",
                 "zied.bouneb@tunisietelecom.tn",
+                "Direction Centrale des Reseaux",
+                "Salim Mebili",
+                "salim.mebili@tunisietelecom.tn",
                 "Direction Centrale des Reseaux",
             ],
         ]
@@ -677,19 +687,23 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
     assert generated["generated"] == 1
     draft = generated["drafts"][0]
     assert draft["status"] == "WAITING_REVIEW"
-    assert draft["recipients"] == ["zied.bouneb@tunisietelecom.tn"]
-    assert draft["subject"] == "Confirmation de présence formation Exploitation des IPMSAN Nokia"
+    assert draft["recipients"] == ["salim.mebili@tunisietelecom.tn"]
+    assert draft["subject"] == "Confirmation de presence formation Exploitation des IPMSAN Nokia"
     assert "Bonjour," in draft["body"]
-    assert "Thème de la formation : Exploitation des IPMSAN Nokia" in draft["body"]
-    assert "Durée du cours : du 01/09/2026 au 02/09/2026" in draft["body"]
+    assert "Theme de la formation : Exploitation des IPMSAN Nokia" in draft["body"]
+    assert "Duree du cours : du 01/09/2026 au 02/09/2026" in draft["body"]
     assert "Cabinet de Formation : Maher ben Hassine" in draft["body"]
-    assert "Matricule | Nom et prénom" in draft["body"]
-    assert "75266 | BOUNEB Zied" in draft["body"]
-    assert "Prière de nous confirmer votre présence" in draft["body"]
+    assert "Grande residence : Direction Centrale des Reseaux" in draft["body"]
+    assert "Matricule | Nom et prenom | Grande residence" in draft["body"]
+    assert "75266 | BOUNEB Zied | Direction Centrale des Reseaux" in draft["body"]
+    assert "confirmer la disponibilite des collaborateurs" in draft["body"]
+    assert "confirmer votre presence" not in draft["body"].lower()
     assert "<table" in draft["html_body"]
     assert "Matricule</th>" in draft["html_body"]
     assert "color: #19a8d8" in draft["html_body"]
     assert draft["metadata"]["language"] == "fr"
+    assert draft["metadata"]["recipient_role"] == "responsable_rh_direction"
+    assert draft["metadata"]["candidate_email_flow_disabled"] is True
     assert draft["metadata"]["has_html_body"] is True
 
     list_response = client.get(
@@ -792,4 +806,4 @@ def test_french_training_agent_marks_draft_as_needing_contacts(tmp_path):
     assert draft["metadata"]["missing_recipient_count"] == 1
     assert "Population cible" in draft["body"]
     assert "BEN SALEM Amira" in draft["body"]
-    assert "Sensibilisation à participer à la formation" in draft["subject"]
+    assert "Sensibilisation a participer a la formation" in draft["subject"]

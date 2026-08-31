@@ -120,6 +120,7 @@ class PlanningDatabase:
                     matricule TEXT NOT NULL DEFAULT '',
                     full_name TEXT NOT NULL DEFAULT '',
                     email TEXT NOT NULL DEFAULT '',
+                    responsible_email TEXT NOT NULL DEFAULT '',
                     residence TEXT NOT NULL DEFAULT '',
                     direction TEXT NOT NULL DEFAULT '',
                     hr_responsible TEXT NOT NULL DEFAULT '',
@@ -222,12 +223,19 @@ class PlanningDatabase:
             self._ensure_column(connection, "employee_contacts", "residence", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "employee_contacts", "source_file", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "employee_contacts", "source_row", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "training_participants", "responsible_email", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "training_email_drafts", "html_body", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "training_email_drafts", "metadata_json", "TEXT NOT NULL DEFAULT '{}'")
             connection.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_employee_contacts_normalized_name
                     ON employee_contacts(normalized_name)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_training_participants_responsible_email
+                    ON training_participants(responsible_email)
                 """
             )
 
@@ -453,11 +461,18 @@ class PlanningDatabase:
 
                     linked_sessions += 1
                     for participant in session.participants:
-                        if self._participant_exists(
+                        participant_id = self._participant_id(
                             connection,
                             int(target["id"]),
                             participant,
-                        ):
+                        )
+                        if participant_id is not None:
+                            self._update_participant_from_row(
+                                connection,
+                                participant_id,
+                                participant,
+                                session.source_file,
+                            )
                             participants_skipped += 1
                             continue
                         self._insert_participant(
@@ -591,7 +606,7 @@ class PlanningDatabase:
                     COUNT(p.id) AS participant_count,
                     SUM(
                         CASE
-                            WHEN p.email = '' THEN 1
+                            WHEN p.id IS NOT NULL AND p.responsible_email = '' THEN 1
                             ELSE 0
                         END
                     ) AS missing_email_count
@@ -639,7 +654,7 @@ class PlanningDatabase:
         import_id: str | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
-        clauses = ["email = ''"]
+        clauses = ["responsible_email = ''"]
         params: list[Any] = []
         if import_id:
             clauses.append("import_id = ?")
@@ -650,8 +665,9 @@ class PlanningDatabase:
             rows = connection.execute(
                 f"""
                 SELECT
-                    matricule,
-                    full_name,
+                    '' AS matricule,
+                    COALESCE(NULLIF(hr_responsible, ''), NULLIF(direction, ''), NULLIF(residence, ''), 'Responsable formation') AS full_name,
+                    responsible_email,
                     residence,
                     direction,
                     hr_responsible,
@@ -659,8 +675,8 @@ class PlanningDatabase:
                     MIN(source_row) AS first_source_row
                 FROM training_participants
                 WHERE {' AND '.join(clauses)}
-                GROUP BY matricule, full_name, residence, direction, hr_responsible
-                ORDER BY full_name, matricule
+                GROUP BY responsible_email, residence, direction, hr_responsible
+                ORDER BY hr_responsible, direction, residence
                 LIMIT ?
                 """,
                 params,
@@ -691,6 +707,8 @@ class PlanningDatabase:
                     p.matricule,
                     p.full_name,
                     p.email,
+                    p.responsible_email,
+                    p.residence,
                     p.direction,
                     p.hr_responsible,
                     p.source_row,
@@ -723,87 +741,57 @@ class PlanningDatabase:
                 WHERE email != ''
                 """
             ).fetchall()
-
-        by_matricule = {
-            row["matricule"]: row
-            for row in contacts
-            if row["matricule"] and not str(row["matricule"]).startswith("name:")
-        }
-        by_email = {str(row["email"]).lower(): row for row in contacts if row["email"]}
-        name_counts: dict[str, int] = {}
-        by_name: dict[str, sqlite3.Row] = {}
-        for row in contacts:
-            normalized_name = row["normalized_name"]
-            if not normalized_name:
-                continue
-            name_counts[normalized_name] = name_counts.get(normalized_name, 0) + 1
-            by_name[normalized_name] = row
+            lookup = self._responsible_contact_lookup(contacts)
 
         grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
         for participant in participant_rows:
-            matricule = participant["matricule"] or ""
-            full_name = participant["full_name"] or ""
-            email = participant["email"] or ""
-            normalized_name = _normalize_participant_name(full_name)
-            matricule_contact = by_matricule.get(matricule) if matricule else None
-            name_contact = (
-                by_name.get(normalized_name)
-                if normalized_name and name_counts.get(normalized_name) == 1
-                else None
-            )
-            email_contact = by_email.get(email.lower()) if email else None
-            contact = matricule_contact or name_contact or email_contact
+            responsible_name = participant["hr_responsible"] or ""
+            direction = participant["direction"] or ""
+            residence = participant["residence"] or ""
+            display_name = responsible_name or direction or residence or "Responsable formation"
+            normalized_name = _normalize_participant_name(display_name)
+            email = participant["responsible_email"] or ""
+            contact = self._match_responsible_contact(participant, lookup)
+            suggested_email = contact["email"] if contact is not None else ""
 
             if not email:
                 status_value = "missing"
                 match_method = "none"
                 needs_review = True
-                reason = "Email missing from planning."
-                suggested_email = contact["email"] if contact is not None else ""
-            elif (
-                matricule_contact is not None
-                and str(matricule_contact["email"]).lower() == email.lower()
-            ):
+                reason = "Responsible recipient email missing from planning."
+            elif contact is not None and str(contact["email"]).lower() == email.lower():
                 status_value = "matched"
-                match_method = "matricule"
+                match_method = "responsible"
                 needs_review = False
-                reason = "Matched by matricule."
-                suggested_email = email
-            elif (
-                name_contact is not None
-                and str(name_contact["email"]).lower() == email.lower()
-            ):
-                status_value = "review"
-                match_method = "name"
-                needs_review = True
-                reason = "Matched by name. Please verify before sending."
+                reason = "Responsible recipient matched by name."
                 suggested_email = email
             else:
                 status_value = "matched"
                 match_method = "planning"
                 needs_review = False
-                reason = "Email provided by planning."
+                reason = "Responsible recipient provided by planning."
                 suggested_email = email
 
-            key = (matricule, normalized_name, email or suggested_email)
+            key = (normalized_name, residence, direction)
             if key not in grouped:
                 grouped[key] = {
-                    "matricule": matricule,
-                    "full_name": full_name,
+                    "matricule": "",
+                    "full_name": display_name,
                     "email": email,
                     "suggested_email": suggested_email,
-                    "direction": participant["direction"] or "",
-                    "hr_responsible": participant["hr_responsible"] or "",
+                    "direction": direction,
+                    "hr_responsible": responsible_name,
                     "match_method": match_method,
                     "status": status_value,
                     "needs_review": needs_review,
                     "reason": reason,
                     "contact_source": contact["source_file"] if contact is not None else "",
                     "session_count": 0,
+                    "candidate_count": 0,
                     "sessions": [],
                 }
             item = grouped[key]
-            item["session_count"] += 1
+            item["candidate_count"] += 1
             if len(item["sessions"]) < 3:
                 item["sessions"].append(
                     {
@@ -813,6 +801,7 @@ class PlanningDatabase:
                         "end_date": participant["end_date"] or "",
                     }
                 )
+            item["session_count"] = len(item["sessions"])
 
         items = list(grouped.values())
         items.sort(key=lambda item: (not item["needs_review"], item["full_name"], item["matricule"]))
@@ -918,6 +907,37 @@ class PlanningDatabase:
             ).fetchall()
             return [_contact_row(row) for row in rows]
 
+    def _responsible_contact_lookup(
+        self,
+        contacts: list[sqlite3.Row],
+    ) -> dict[str, Any]:
+        name_counts: dict[str, int] = {}
+        by_name: dict[str, sqlite3.Row] = {}
+        for row in contacts:
+            normalized_name = row["normalized_name"]
+            if not normalized_name:
+                continue
+            name_counts[normalized_name] = name_counts.get(normalized_name, 0) + 1
+            by_name[normalized_name] = row
+        return {
+            "by_name": by_name,
+            "name_counts": name_counts,
+        }
+
+    def _match_responsible_contact(
+        self,
+        participant: sqlite3.Row,
+        lookup: dict[str, Any],
+    ) -> sqlite3.Row | None:
+        responsible_name = str(participant["hr_responsible"] or "").strip()
+        normalized_responsible = _normalize_participant_name(responsible_name)
+        if not normalized_responsible:
+            return None
+        name_counts = lookup["name_counts"]
+        if name_counts.get(normalized_responsible) != 1:
+            return None
+        return lookup["by_name"].get(normalized_responsible)
+
     def apply_contact_mapping(self, *, import_id: str | None = None) -> dict[str, Any]:
         with self._connect() as connection:
             contacts = connection.execute(
@@ -927,28 +947,25 @@ class PlanningDatabase:
                 WHERE email != ''
                 """
             ).fetchall()
-            by_matricule = {
-                row["matricule"]: row
-                for row in contacts
-                if row["matricule"] and not str(row["matricule"]).startswith("name:")
-            }
-            name_counts: dict[str, int] = {}
-            by_name: dict[str, sqlite3.Row] = {}
-            for row in contacts:
-                normalized_name = row["normalized_name"]
-                if not normalized_name:
-                    continue
-                name_counts[normalized_name] = name_counts.get(normalized_name, 0) + 1
-                by_name[normalized_name] = row
+            lookup = self._responsible_contact_lookup(contacts)
 
-            clauses = ["email = ''"]
+            clauses = ["responsible_email = ''"]
             params: list[Any] = []
             if import_id:
                 clauses.append("import_id = ?")
                 params.append(import_id)
             participants = connection.execute(
                 f"""
-                SELECT id, import_id, matricule, full_name, missing_fields_json
+                SELECT
+                    id,
+                    import_id,
+                    matricule,
+                    full_name,
+                    responsible_email,
+                    residence,
+                    direction,
+                    hr_responsible,
+                    missing_fields_json
                 FROM training_participants
                 WHERE {' AND '.join(clauses)}
                 """,
@@ -958,14 +975,7 @@ class PlanningDatabase:
             mapped = 0
             unmatched = 0
             for participant in participants:
-                contact = None
-                matricule = participant["matricule"]
-                if matricule and matricule in by_matricule:
-                    contact = by_matricule[matricule]
-                else:
-                    normalized_name = _normalize_participant_name(participant["full_name"])
-                    if normalized_name and name_counts.get(normalized_name) == 1:
-                        contact = by_name[normalized_name]
+                contact = self._match_responsible_contact(participant, lookup)
 
                 if contact is None:
                     unmatched += 1
@@ -974,16 +984,15 @@ class PlanningDatabase:
                 missing_fields = [
                     field
                     for field in _loads(participant["missing_fields_json"])
-                    if field != "email"
+                    if field != "responsible_email"
                 ]
                 connection.execute(
                     """
                     UPDATE training_participants
                     SET
-                        email = ?,
+                        responsible_email = ?,
                         residence = COALESCE(NULLIF(residence, ''), ?),
                         direction = COALESCE(NULLIF(direction, ''), ?),
-                        hr_responsible = COALESCE(NULLIF(hr_responsible, ''), ?),
                         missing_fields_json = ?
                     WHERE id = ?
                     """,
@@ -991,7 +1000,6 @@ class PlanningDatabase:
                         contact["email"],
                         contact["residence"],
                         contact["direction"],
-                        contact["hr_responsible"],
                         _json(missing_fields),
                         participant["id"],
                     ),
@@ -1546,13 +1554,14 @@ class PlanningDatabase:
                 matricule,
                 full_name,
                 email,
+                responsible_email,
                 residence,
                 direction,
                 hr_responsible,
                 source_row,
                 missing_fields_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 import_id,
@@ -1561,6 +1570,7 @@ class PlanningDatabase:
                 participant.matricule,
                 participant.full_name,
                 participant.email,
+                participant.responsible_email,
                 participant.residence,
                 participant.direction,
                 participant.hr_responsible,
@@ -1568,7 +1578,8 @@ class PlanningDatabase:
                 _json(participant.missing_fields),
             ),
         )
-        if participant.matricule and participant.email:
+        if participant.hr_responsible and participant.responsible_email:
+            contact_key = f"responsible:{_normalize_participant_name(participant.hr_responsible)}"
             connection.execute(
                 """
                 INSERT INTO employee_contacts (
@@ -1608,10 +1619,10 @@ class PlanningDatabase:
                     updated_at = CURRENT_TIMESTAMP
                 """,
                 (
-                    participant.matricule,
-                    _normalize_participant_name(participant.full_name),
-                    participant.full_name,
-                    participant.email,
+                    contact_key,
+                    _normalize_participant_name(participant.hr_responsible),
+                    participant.hr_responsible,
+                    participant.responsible_email,
                     participant.residence,
                     participant.direction,
                     participant.hr_responsible,
@@ -1620,12 +1631,12 @@ class PlanningDatabase:
                 ),
             )
 
-    def _participant_exists(
+    def _participant_id(
         self,
         connection: sqlite3.Connection,
         session_id: int,
         participant: PlanningParticipant,
-    ) -> bool:
+    ) -> int | None:
         if participant.matricule:
             row = connection.execute(
                 """
@@ -1636,7 +1647,7 @@ class PlanningDatabase:
                 """,
                 (session_id, participant.matricule),
             ).fetchone()
-            return row is not None
+            return int(row["id"]) if row is not None else None
         if participant.email:
             row = connection.execute(
                 """
@@ -1647,7 +1658,7 @@ class PlanningDatabase:
                 """,
                 (session_id, participant.email),
             ).fetchone()
-            return row is not None
+            return int(row["id"]) if row is not None else None
         if participant.full_name:
             row = connection.execute(
                 """
@@ -1658,8 +1669,103 @@ class PlanningDatabase:
                 """,
                 (session_id, participant.full_name),
             ).fetchone()
-            return row is not None
-        return False
+            return int(row["id"]) if row is not None else None
+        return None
+
+    def _update_participant_from_row(
+        self,
+        connection: sqlite3.Connection,
+        participant_id: int,
+        participant: PlanningParticipant,
+        source_file: str,
+    ) -> None:
+        existing = connection.execute(
+            """
+            SELECT missing_fields_json
+            FROM training_participants
+            WHERE id = ?
+            """,
+            (participant_id,),
+        ).fetchone()
+        if existing is None:
+            return
+        missing_fields = _loads(existing["missing_fields_json"])
+        if participant.responsible_email:
+            missing_fields = [
+                field for field in missing_fields if field != "responsible_email"
+            ]
+        connection.execute(
+            """
+            UPDATE training_participants
+            SET
+                full_name = COALESCE(NULLIF(full_name, ''), ?),
+                email = COALESCE(NULLIF(email, ''), ?),
+                responsible_email = COALESCE(NULLIF(responsible_email, ''), ?),
+                residence = COALESCE(NULLIF(residence, ''), ?),
+                direction = COALESCE(NULLIF(direction, ''), ?),
+                hr_responsible = COALESCE(NULLIF(hr_responsible, ''), ?),
+                source_row = CASE WHEN source_row = 0 THEN ? ELSE source_row END,
+                missing_fields_json = ?
+            WHERE id = ?
+            """,
+            (
+                participant.full_name,
+                participant.email,
+                participant.responsible_email,
+                participant.residence,
+                participant.direction,
+                participant.hr_responsible,
+                participant.source_row,
+                _json(missing_fields),
+                participant_id,
+            ),
+        )
+        if participant.hr_responsible and participant.responsible_email:
+            contact_key = f"responsible:{_normalize_participant_name(participant.hr_responsible)}"
+            connection.execute(
+                """
+                INSERT INTO employee_contacts (
+                    matricule,
+                    normalized_name,
+                    full_name,
+                    email,
+                    residence,
+                    direction,
+                    hr_responsible,
+                    source_file,
+                    source_row,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(matricule) DO UPDATE SET
+                    normalized_name = excluded.normalized_name,
+                    full_name = excluded.full_name,
+                    email = excluded.email,
+                    residence = CASE
+                        WHEN excluded.residence != '' THEN excluded.residence
+                        ELSE employee_contacts.residence
+                    END,
+                    direction = CASE
+                        WHEN excluded.direction != '' THEN excluded.direction
+                        ELSE employee_contacts.direction
+                    END,
+                    hr_responsible = excluded.hr_responsible,
+                    source_file = excluded.source_file,
+                    source_row = excluded.source_row,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    contact_key,
+                    _normalize_participant_name(participant.hr_responsible),
+                    participant.hr_responsible,
+                    participant.responsible_email,
+                    participant.residence,
+                    participant.direction,
+                    participant.hr_responsible,
+                    source_file,
+                    participant.source_row,
+                ),
+            )
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -1703,7 +1809,12 @@ class PlanningDatabase:
             """
             SELECT
                 COUNT(*) AS total_participants,
-                SUM(CASE WHEN email = '' THEN 1 ELSE 0 END) AS missing_email_count
+                SUM(
+                    CASE
+                        WHEN responsible_email = '' THEN 1
+                        ELSE 0
+                    END
+                ) AS missing_email_count
             FROM training_participants
             WHERE import_id = ?
             """,
@@ -1817,6 +1928,7 @@ class PlanningDatabase:
                 "matricule": participant["matricule"],
                 "full_name": participant["full_name"],
                 "email": participant["email"],
+                "responsible_email": participant["responsible_email"],
                 "residence": participant["residence"],
                 "direction": participant["direction"],
                 "hr_responsible": participant["hr_responsible"],

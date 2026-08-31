@@ -130,8 +130,8 @@ const Map<String, String> _english = {
   'formations.toCheck': 'to check',
   'formations.importStepTitle': 'Session planning',
   'formations.importStepSubtitle': 'Import the training session Excel file.',
-  'formations.contactsStepTitle': 'Candidates',
-  'formations.contactsStepSubtitle': 'Import candidate rows and complete emails.',
+  'formations.contactsStepTitle': 'Responsible contacts',
+  'formations.contactsStepSubtitle': 'Import RH/DR/DC contacts for sending.',
   'formations.calendarStepTitle': 'Calendar',
   'formations.calendarStepSubtitle': 'Review sessions by training date.',
   'formations.draftsStepTitle': 'Drafts',
@@ -141,13 +141,15 @@ const Map<String, String> _english = {
   'formations.settingsStepTitle': 'Automation',
   'formations.settingsStepSubtitle': 'Adjust draft preparation rules.',
   'formations.importPageTitle': 'Import formations',
-  'formations.importPageSubtitle': 'Add the session planning, then the candidate list.',
+  'formations.importPageSubtitle':
+      'Add the session planning, then the candidate list.',
   'formations.calendarPageTitle': 'Training calendar',
   'formations.calendarPageSubtitle': 'Browse sessions by day.',
   'formations.draftsPageTitle': 'Draft review',
   'formations.draftsPageSubtitle': 'Check every email before sending.',
-  'formations.contactsPageTitle': 'Candidates',
-  'formations.contactsPageSubtitle': 'Correct missing or uncertain candidate emails.',
+  'formations.contactsPageTitle': 'Responsible contacts',
+  'formations.contactsPageSubtitle':
+      'Complete missing RH/DR/DC recipient emails.',
   'formations.historyPageTitle': 'Sent emails',
   'formations.historyPageSubtitle': 'Review what was sent from Outlook.',
   'formations.uploadTitle': 'Session planning file',
@@ -171,15 +173,15 @@ const Map<String, String> _english = {
   'formations.importPreviewNeedsReview':
       'Review these points before saving the planning.',
   'formations.importNoEmailsDetectedSummary':
-      'Candidate rows were found, but no email addresses were detected yet.',
+      'Candidate rows were found. Responsible emails are still missing.',
   'formations.importPreviewNotSaved':
       'This is only a preview. Confirm to save the planning and prepare drafts if automation is enabled.',
   'formations.confirmImport': 'Import planning',
   'formations.feedbackFiles': 'Files',
-  'formations.feedbackMissingEmails': 'Missing emails',
-  'formations.feedbackEmailsDetected': 'Emails detected',
+  'formations.feedbackMissingEmails': 'Missing responsible emails',
+  'formations.feedbackEmailsDetected': 'Responsible emails detected',
   'formations.feedbackNoEmailsDetected':
-      '0 candidate emails detected for now. This is expected if the candidate planning is not completed yet. Import the completed Excel later to prepare and send emails.',
+      'Candidate emails are not required for this flow. Add or import RH/DR/DC responsible emails before sending.',
   'formations.feedbackAutomationRan':
       'Automation prepared {generated} drafts and skipped {skipped} existing ones.',
   'formations.feedbackAutomationSkipped':
@@ -195,14 +197,14 @@ const Map<String, String> _english = {
   'formations.draftsDone': 'Drafts are ready for review.',
   'formations.automationDone':
       'Automation completed. Drafts are ready for review.',
-  'formations.contactsTitle': 'Candidate list',
+  'formations.contactsTitle': 'Responsible directory',
   'formations.contactsSubtitle':
-      'Upload the Excel or CSV file that contains matricules, names, residences, RH contacts, and emails when available.',
-  'formations.contactsUpload': 'Upload candidates',
-  'formations.contactsImported': 'Candidate list imported and applied.',
-  'formations.contactPickError': 'Unable to read the selected candidate files.',
-  'formations.fixContact': 'Fix contact',
-  'formations.emailAddress': 'Email address',
+      'Upload the Excel or CSV file that contains RH/DR/DC names, residences, directions, and emails.',
+  'formations.contactsUpload': 'Upload contacts',
+  'formations.contactsImported': 'Responsible contacts imported and applied.',
+  'formations.contactPickError': 'Unable to read the selected contact files.',
+  'formations.fixContact': 'Fix recipient',
+  'formations.emailAddress': 'Responsible email',
   'formations.invalidEmail': 'Enter a valid email address.',
   'formations.saveContact': 'Save contact',
   'formations.monthPlan': 'Month overview',
@@ -265,16 +267,16 @@ const Map<String, String> _english = {
       'Sent and failed Outlook attempts will appear here.',
   'formations.sentTo': 'To',
   'formations.sentAt': 'Sent at',
-  'formations.contactsToComplete': 'Candidates to complete',
-  'formations.contactReviewTitle': 'Candidate matching review',
+  'formations.contactsToComplete': 'Responsible contacts to complete',
+  'formations.contactReviewTitle': 'Responsible matching review',
   'formations.contactReviewSubtitle':
-      'Check missing candidate emails and name-based matches before preparing or sending drafts.',
+      'Check missing RH/DR/DC recipient emails before preparing or sending drafts.',
   'formations.contactReviewReady':
-      'All candidate emails look matched. You can still open a candidate to correct it.',
+      'All responsible recipients look ready. You can still open a contact to correct it.',
   'formations.contactReviewMatched': 'Matched',
   'formations.contactReviewNameMatch': 'Check',
   'formations.contactReviewMissing': 'Missing',
-  'formations.contactReviewEdit': 'Review candidate',
+  'formations.contactReviewEdit': 'Review contact',
   'formations.contactReviewNoEmail': 'No email yet',
   'formations.contactMatchMissing': 'missing',
   'formations.contactMatchMatricule': 'matricule',
@@ -313,8 +315,8 @@ const Map<String, String> _english = {
   'formations.statusWaiting': 'review',
   'formations.workflow': 'Workflow',
   'formations.stepImport': 'Import sessions and candidates',
-  'formations.stepValidate': 'Validate candidate emails',
-  'formations.stepDraft': 'Prepare French Outlook drafts',
+  'formations.stepValidate': 'Validate RH/DR/DC recipients',
+  'formations.stepDraft': 'Prepare French Outlook emails',
   'formations.stepSend': 'Review, edit, and send',
   'formations.emptyTitle': 'No planning imported',
   'formations.emptySubtitle':
@@ -511,9 +513,9 @@ const Map<String, String> _french = {
   'formations.importStepTitle': 'Planning des sessions',
   'formations.importStepSubtitle':
       'Importer le fichier Excel des sessions de formation.',
-  'formations.contactsStepTitle': 'Candidats',
+  'formations.contactsStepTitle': 'Responsables',
   'formations.contactsStepSubtitle':
-      'Importer les candidats et completer les emails.',
+      'Importer les contacts RH/DR/DC pour l envoi.',
   'formations.calendarStepTitle': 'Calendrier',
   'formations.calendarStepSubtitle':
       'Verifier les sessions par date de formation.',
@@ -525,14 +527,14 @@ const Map<String, String> _french = {
   'formations.settingsStepSubtitle': 'Regler la preparation des brouillons.',
   'formations.importPageTitle': 'Importer les formations',
   'formations.importPageSubtitle':
-      'Ajoutez le planning des sessions puis la liste des candidats.',
+      'Ajoutez le planning des sessions puis la liste des candidats et responsables.',
   'formations.calendarPageTitle': 'Calendrier formations',
   'formations.calendarPageSubtitle': 'Parcourir les sessions par jour.',
   'formations.draftsPageTitle': 'Verification des brouillons',
   'formations.draftsPageSubtitle': 'Verifier chaque email avant envoi.',
-  'formations.contactsPageTitle': 'Candidats',
+  'formations.contactsPageTitle': 'Responsables',
   'formations.contactsPageSubtitle':
-      'Corriger les emails candidats manquants ou incertains.',
+      'Completer les emails destinataires RH/DR/DC manquants.',
   'formations.historyPageTitle': 'Emails envoyes',
   'formations.historyPageSubtitle': 'Voir ce qui a ete envoye depuis Outlook.',
   'formations.uploadTitle': 'Fichier planning des sessions',
@@ -557,15 +559,15 @@ const Map<String, String> _french = {
   'formations.importPreviewNeedsReview':
       'Verifiez ces points avant d enregistrer le planning.',
   'formations.importNoEmailsDetectedSummary':
-      'Les candidats ont ete trouves, mais aucun email n est encore detecte.',
+      'Les candidats ont ete trouves. Les emails responsables restent a completer.',
   'formations.importPreviewNotSaved':
       'Ceci est seulement un apercu. Confirmez pour enregistrer le planning et preparer les brouillons si l automatisation est activee.',
   'formations.confirmImport': 'Importer le planning',
   'formations.feedbackFiles': 'Fichiers',
-  'formations.feedbackMissingEmails': 'Emails manquants',
-  'formations.feedbackEmailsDetected': 'Emails detectes',
+  'formations.feedbackMissingEmails': 'Emails responsables manquants',
+  'formations.feedbackEmailsDetected': 'Emails responsables detectes',
   'formations.feedbackNoEmailsDetected':
-      '0 email candidat detecte pour le moment. C est normal si le planning candidats n est pas encore complete. Importez plus tard le fichier Excel complete pour preparer et envoyer les emails.',
+      'Les emails candidats ne sont pas necessaires pour ce flow. Ajoutez ou importez les emails RH/DR/DC avant l envoi.',
   'formations.feedbackAutomationRan':
       'L automatisation a prepare {generated} brouillons et ignore {skipped} existants.',
   'formations.feedbackAutomationSkipped':
@@ -581,15 +583,15 @@ const Map<String, String> _french = {
   'formations.draftsDone': 'Brouillons prets pour verification.',
   'formations.automationDone':
       'Automatisation terminee. Brouillons prets pour verification.',
-  'formations.contactsTitle': 'Liste des candidats',
+  'formations.contactsTitle': 'Annuaire responsables',
   'formations.contactsSubtitle':
-      'Importez le fichier Excel ou CSV avec matricules, noms, residences, RH et emails si disponibles.',
-  'formations.contactsUpload': 'Importer les candidats',
-  'formations.contactsImported': 'Liste des candidats importee et appliquee.',
+      'Importez le fichier Excel ou CSV avec noms RH/DR/DC, residences, directions et emails.',
+  'formations.contactsUpload': 'Importer les contacts',
+  'formations.contactsImported': 'Contacts responsables importes et appliques.',
   'formations.contactPickError':
-      'Impossible de lire les fichiers candidats selectionnes.',
-  'formations.fixContact': 'Corriger le contact',
-  'formations.emailAddress': 'Adresse email',
+      'Impossible de lire les fichiers contacts selectionnes.',
+  'formations.fixContact': 'Corriger le destinataire',
+  'formations.emailAddress': 'Email responsable',
   'formations.invalidEmail': 'Saisissez une adresse email valide.',
   'formations.saveContact': 'Enregistrer le contact',
   'formations.monthPlan': 'Vue du mois',
@@ -651,16 +653,16 @@ const Map<String, String> _french = {
       'Les envois Outlook et les echecs apparaitront ici.',
   'formations.sentTo': 'A',
   'formations.sentAt': 'Envoye le',
-  'formations.contactsToComplete': 'Candidats a completer',
-  'formations.contactReviewTitle': 'Verification des candidats',
+  'formations.contactsToComplete': 'Responsables a completer',
+  'formations.contactReviewTitle': 'Verification des responsables',
   'formations.contactReviewSubtitle':
-      'Verifiez les emails candidats manquants et les correspondances par nom avant de preparer ou envoyer les brouillons.',
+      'Verifiez les emails destinataires RH/DR/DC manquants avant de preparer ou envoyer les brouillons.',
   'formations.contactReviewReady':
-      'Les emails candidats semblent associes. Vous pouvez ouvrir un candidat pour le corriger.',
+      'Les destinataires responsables semblent prets. Vous pouvez ouvrir un contact pour le corriger.',
   'formations.contactReviewMatched': 'Associes',
   'formations.contactReviewNameMatch': 'A verifier',
   'formations.contactReviewMissing': 'Manquants',
-  'formations.contactReviewEdit': 'Verifier le candidat',
+  'formations.contactReviewEdit': 'Verifier le contact',
   'formations.contactReviewNoEmail': 'Aucun email',
   'formations.contactMatchMissing': 'manquant',
   'formations.contactMatchMatricule': 'matricule',
@@ -699,8 +701,8 @@ const Map<String, String> _french = {
   'formations.statusWaiting': 'revue',
   'formations.workflow': 'Traitement',
   'formations.stepImport': 'Importer sessions et candidats',
-  'formations.stepValidate': 'Vérifier les participants et emails',
-  'formations.stepDraft': 'Préparer les brouillons Outlook en français',
+  'formations.stepValidate': 'Verifier les destinataires RH/DR/DC',
+  'formations.stepDraft': 'Preparer les emails Outlook en francais',
   'formations.stepSend': 'Revoir, modifier et envoyer',
   'formations.emptyTitle': 'Aucun planning importé',
   'formations.emptySubtitle':

@@ -49,8 +49,8 @@ class FrenchTrainingAgent:
     ) -> TrainingDraft:
         normalized_type = self._resolve_email_type(session, email_type)
         participants = session.get("participants", []) or []
-        recipients = self._participant_emails(participants)
-        missing_recipient_count = sum(1 for participant in participants if not participant.get("email"))
+        recipients = self._responsible_emails(session, participants)
+        missing_recipient_count = 0 if recipients else 1
         rendered = self.templates.render(
             session,
             email_type=normalized_type,
@@ -71,6 +71,17 @@ class FrenchTrainingAgent:
                 "language": "fr",
                 "generated_by": "french_training_agent",
                 "participant_count": len(participants),
+                "recipient_role": "responsable_rh_direction",
+                "responsible_key": self.responsible_key(session),
+                "responsible_name": str(session.get("responsible_name") or ""),
+                "responsible_residence": str(session.get("responsible_residence") or ""),
+                "responsible_direction": str(session.get("responsible_direction") or ""),
+                "candidate_matricules": [
+                    str(participant.get("matricule") or "")
+                    for participant in participants
+                    if str(participant.get("matricule") or "").strip()
+                ],
+                "candidate_email_flow_disabled": True,
                 "missing_recipient_count": missing_recipient_count,
                 "requires_user_review": True,
                 "template_locked": True,
@@ -97,16 +108,112 @@ class FrenchTrainingAgent:
             return "rappel"
         return "confirmation_presence"
 
-    def _participant_emails(self, participants: list[dict[str, Any]]) -> list[str]:
+    def responsible_groups(self, session: dict[str, Any]) -> list[dict[str, Any]]:
+        participants = session.get("participants", []) or []
+        if not participants:
+            return [self._session_for_group(session, [], {}, 0)]
+
+        grouped: dict[str, dict[str, Any]] = {}
+        order: list[str] = []
+        for participant in participants:
+            profile = self._responsible_profile(participant)
+            group_key = self._responsible_key_from_profile(profile)
+            if group_key not in grouped:
+                grouped[group_key] = {
+                    "profile": profile,
+                    "participants": [],
+                    "index": len(order),
+                }
+                order.append(group_key)
+            grouped[group_key]["participants"].append(participant)
+
+        return [
+            self._session_for_group(
+                session,
+                grouped[group_key]["participants"],
+                grouped[group_key]["profile"],
+                grouped[group_key]["index"],
+            )
+            for group_key in order
+        ]
+
+    def group_for_existing_draft(
+        self,
+        session: dict[str, Any],
+        metadata: dict[str, Any],
+    ) -> dict[str, Any]:
+        expected_key = str(metadata.get("responsible_key") or "")
+        if not expected_key:
+            return session
+        for group in self.responsible_groups(session):
+            if self.responsible_key(group) == expected_key:
+                return group
+        return session
+
+    def responsible_key(self, session: dict[str, Any]) -> str:
+        explicit = str(session.get("responsible_key") or "").strip()
+        if explicit:
+            return explicit
+        profile = {
+            "name": str(session.get("responsible_name") or ""),
+            "email": str(session.get("responsible_email") or ""),
+            "residence": str(session.get("responsible_residence") or ""),
+            "direction": str(session.get("responsible_direction") or ""),
+        }
+        return self._responsible_key_from_profile(profile)
+
+    def _responsible_emails(
+        self,
+        session: dict[str, Any],
+        participants: list[dict[str, Any]],
+    ) -> list[str]:
+        values = [str(session.get("responsible_email") or "")]
+        values.extend(str(participant.get("responsible_email") or "") for participant in participants)
         seen = set()
         emails = []
-        for participant in participants:
-            email = str(participant.get("email") or "").strip().lower()
+        for value in values:
+            email = value.strip().lower()
             if "@" not in email or email in seen:
                 continue
             seen.add(email)
             emails.append(email)
         return emails
+
+    def _responsible_profile(self, participant: dict[str, Any]) -> dict[str, str]:
+        return {
+            "name": str(participant.get("hr_responsible") or "").strip(),
+            "email": str(participant.get("responsible_email") or "").strip().lower(),
+            "residence": str(participant.get("residence") or "").strip(),
+            "direction": str(participant.get("direction") or "").strip(),
+        }
+
+    def _session_for_group(
+        self,
+        session: dict[str, Any],
+        participants: list[dict[str, Any]],
+        profile: dict[str, str],
+        index: int,
+    ) -> dict[str, Any]:
+        group_session = {
+            **session,
+            "participants": participants,
+            "responsible_name": profile.get("name", ""),
+            "responsible_email": profile.get("email", ""),
+            "responsible_residence": profile.get("residence", ""),
+            "responsible_direction": profile.get("direction", ""),
+        }
+        group_session["responsible_key"] = self._responsible_key_from_profile(profile) or (
+            f"{session.get('session_key', '')}:group:{index}"
+        )
+        return group_session
+
+    def _responsible_key_from_profile(self, profile: dict[str, str]) -> str:
+        raw = "|".join(
+            str(profile.get(field) or "").strip().lower()
+            for field in ("email", "name", "residence", "direction")
+            if str(profile.get(field) or "").strip()
+        )
+        return raw or "unassigned"
 
     def _starts_soon(self, session: dict[str, Any]) -> bool:
         start = self._parse_date(str(session.get("start_date") or ""))
