@@ -1184,6 +1184,28 @@ class PlanningDatabase:
             ).fetchone()
             return row is not None
 
+    def delete_editable_training_drafts(
+        self,
+        *,
+        import_id: str,
+        session_key: str | None = None,
+    ) -> int:
+        clauses = ["import_id = ?", "status != 'SENT'"]
+        params: list[Any] = [import_id]
+        if session_key:
+            clauses.append("session_key = ?")
+            params.append(session_key)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                f"""
+                DELETE FROM training_email_drafts
+                WHERE {' AND '.join(clauses)}
+                """,
+                params,
+            )
+            connection.commit()
+            return int(cursor.rowcount or 0)
+
     def update_training_draft(
         self,
         draft_id: int,

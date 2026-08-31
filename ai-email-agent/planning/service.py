@@ -378,8 +378,16 @@ class PlanningImportService:
         include_population: bool = True,
         limit: int = 100,
         skip_existing: bool = False,
+        replace_existing: bool = False,
     ) -> dict[str, Any]:
         safe_import_id = sanitize_import_id(import_id) if import_id else None
+        deleted_existing = 0
+        if replace_existing and safe_import_id:
+            deleted_existing = self.database.delete_editable_training_drafts(
+                import_id=safe_import_id,
+                session_key=session_key,
+            )
+            skip_existing = False
         if session_key:
             session = self.database.get_session(session_key, import_id=safe_import_id)
             sessions = [session] if session is not None else []
@@ -400,6 +408,7 @@ class PlanningImportService:
                 )
                 is not None
             ]
+        sessions = [session for session in sessions if self._can_generate_training_draft(session)]
 
         drafts = []
         skipped = 0
@@ -440,6 +449,7 @@ class PlanningImportService:
             "status": "ok" if not errors else "partial",
             "generated": len(drafts),
             "skipped_existing": skipped,
+            "deleted_existing": deleted_existing,
             "errors": errors,
             "drafts": drafts,
         }
@@ -451,6 +461,7 @@ class PlanningImportService:
         email_type: str | None = None,
         include_population: bool | None = None,
         limit: int | None = None,
+        replace_existing: bool = False,
     ) -> dict[str, Any]:
         automation_settings = self.database.get_automation_settings()
         resolved_email_type = email_type or automation_settings["default_email_type"]
@@ -482,7 +493,8 @@ class PlanningImportService:
             email_type=resolved_email_type,
             include_population=resolved_include_population,
             limit=resolved_limit,
-            skip_existing=True,
+            skip_existing=not replace_existing,
+            replace_existing=replace_existing,
         )
         status = "ok"
         if generated["errors"]:
@@ -494,6 +506,7 @@ class PlanningImportService:
             "unmatched": mapping["unmatched"],
             "generated": generated["generated"],
             "skipped_existing": generated["skipped_existing"],
+            "deleted_existing": generated.get("deleted_existing", 0),
             "errors": generated["errors"],
             "settings": {
                 **automation_settings,
@@ -503,6 +516,19 @@ class PlanningImportService:
             },
             "drafts": generated["drafts"],
         }
+
+    def _can_generate_training_draft(self, session: dict[str, Any]) -> bool:
+        if not (session.get("participants") or []):
+            return False
+        start_date = str(session.get("start_date") or "").strip()
+        if not start_date:
+            return True
+        from datetime import date, datetime
+
+        try:
+            return datetime.fromisoformat(start_date).date() >= date.today()
+        except ValueError:
+            return True
 
     def list_training_drafts(
         self,

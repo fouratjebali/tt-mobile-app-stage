@@ -296,6 +296,7 @@ class PlanningApiService {
   Future<List<TrainingDraft>> generateDrafts({
     required String importId,
     String emailType = 'auto',
+    bool replaceExisting = false,
   }) async {
     return _planningRequest(
       action: _PlanningAction.generateDrafts,
@@ -306,6 +307,8 @@ class PlanningApiService {
             'import_id': importId,
             'email_type': emailType,
             'include_population': true,
+            'replace_existing': replaceExisting,
+            'limit': 500,
           },
           timeout: _planningTimeout,
         );
@@ -322,6 +325,7 @@ class PlanningApiService {
     String? emailType,
     bool? includePopulation,
     int? limit,
+    bool replaceExisting = false,
   }) async {
     return _planningRequest(
       action: _PlanningAction.runAutomation,
@@ -334,6 +338,7 @@ class PlanningApiService {
             if (includePopulation != null)
               'include_population': includePopulation,
             if (limit != null) 'limit': limit,
+            'replace_existing': replaceExisting,
           },
           timeout: _planningTimeout,
         );

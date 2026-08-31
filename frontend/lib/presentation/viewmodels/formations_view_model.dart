@@ -149,7 +149,10 @@ class FormationsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> generateDrafts({String emailType = 'auto'}) async {
+  Future<void> generateDrafts({
+    String emailType = 'auto',
+    bool replaceExisting = false,
+  }) async {
     final importId = activeImport?.importId;
     if (importId == null || importId.isEmpty) return;
     state = LoadState.loading;
@@ -159,6 +162,7 @@ class FormationsViewModel extends ChangeNotifier {
       await _planningApiService.generateDrafts(
         importId: importId,
         emailType: emailType,
+        replaceExisting: replaceExisting,
       );
       drafts = await _loadDraftsForImport(importId);
       state = LoadState.success;
@@ -169,7 +173,10 @@ class FormationsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> runAutomation({String emailType = 'auto'}) async {
+  Future<void> runAutomation({
+    String emailType = 'auto',
+    bool replaceExisting = false,
+  }) async {
     final importId = activeImport?.importId;
     if (importId == null || importId.isEmpty) return;
     state = LoadState.loading;
@@ -179,6 +186,7 @@ class FormationsViewModel extends ChangeNotifier {
       lastAutomation = await _planningApiService.runAutomation(
         importId: importId,
         emailType: emailType == 'auto' ? null : emailType,
+        replaceExisting: replaceExisting,
       );
       imports = await _planningApiService.listImports();
       activeImport = imports.firstWhere(

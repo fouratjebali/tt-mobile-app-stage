@@ -32,6 +32,8 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
                 "Lieu de formation",
                 "Matricules",
                 "Nom & Prenom",
+                "Grande residence",
+                "Resp RH",
             ],
             [
                 "S9",
@@ -41,6 +43,8 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
                 "El Ghazela",
                 "30003",
                 "MANSOUR Yassine",
+                "Direction Centrale des Reseaux",
+                "Resp RH Reseaux",
             ],
         ]
     )
@@ -59,8 +63,12 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
 
     contacts = workbook_bytes(
         [
-            ["Matricule", "Nom et Prenom", "Email"],
-            ["30003", "MANSOUR Yassine", "yassine.mansour@tunisietelecom.tn"],
+            ["Grande residence", "resp RH", "DIR C/R"],
+            [
+                "Direction Centrale des Reseaux",
+                "rh.reseaux@tunisietelecom.tn",
+                "dir.reseaux@tunisietelecom.tn",
+            ],
         ]
     )
     contacts_response = client.post(
@@ -85,9 +93,10 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
     assert first_payload["mapped"] == 1
     assert first_payload["generated"] == 1
     assert first_payload["skipped_existing"] == 0
-    assert first_payload["drafts"][0]["recipients"] == [
-        "yassine.mansour@tunisietelecom.tn"
-    ]
+    draft = first_payload["drafts"][0]
+    assert draft["recipients"] == ["rh.reseaux@tunisietelecom.tn"]
+    assert draft["metadata"]["recipient_role"] == "responsable_rh_direction"
+    assert draft["metadata"]["participant_count"] == 1
 
     second_run = client.post(
         "/planning/automation/run",
@@ -115,6 +124,8 @@ def test_manual_contact_save_can_complete_missing_participant(tmp_path):
                 "Lieu de formation",
                 "Matricules",
                 "Nom & Prenom",
+                "Grande residence",
+                "Resp RH",
             ],
             [
                 "S10",
@@ -124,6 +135,8 @@ def test_manual_contact_save_can_complete_missing_participant(tmp_path):
                 "Tunis",
                 "40004",
                 "SAIDI Ines",
+                "Direction Centrale des Services",
+                "Resp RH Services",
             ],
         ]
     )
@@ -148,9 +161,10 @@ def test_manual_contact_save_can_complete_missing_participant(tmp_path):
     save_response = client.post(
         "/planning/contacts",
         json={
-            "matricule": "40004",
-            "full_name": "SAIDI Ines",
-            "email": "ines.saidi@tunisietelecom.tn",
+            "full_name": "Resp RH Services",
+            "email": "rh.services@tunisietelecom.tn",
+            "direction": "Direction Centrale des Services",
+            "hr_responsible": "Resp RH Services",
         },
     )
     assert save_response.status_code == 200

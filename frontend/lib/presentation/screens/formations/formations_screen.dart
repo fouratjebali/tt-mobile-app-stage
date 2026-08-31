@@ -114,7 +114,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
   }
 
   Future<void> _generateDrafts() async {
-    await _viewModel.runAutomation();
+    await _viewModel.generateDrafts(replaceExisting: true);
     if (!mounted) return;
     if (_viewModel.errorMessage == null) {
       _showMessage(context.l10n.t('formations.automationDone'));
@@ -2107,6 +2107,8 @@ class _DraftCard extends StatelessWidget {
     final l10n = context.l10n;
     final status = _statusLabel(context, draft.status);
     final statusColor = _statusColor(draft.status);
+    final responsibleLabel = _draftResponsibleLabel(context, draft);
+    final regionLabel = _draftRegionLabel(draft);
 
     return Material(
       color: tone.surface,
@@ -2147,9 +2149,7 @@ class _DraftCard extends StatelessWidget {
               ),
               const SizedBox(height: 9),
               Text(
-                draft.recipients.isEmpty
-                    ? l10n.t('formations.noRecipients')
-                    : draft.recipients.join(', '),
+                responsibleLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -2157,6 +2157,24 @@ class _DraftCard extends StatelessWidget {
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                 ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (regionLabel.isNotEmpty)
+                    _StatusPill(label: regionLabel, color: AppPalette.deepTeal),
+                  _StatusPill(
+                    label:
+                        '${draft.participantCount} ${l10n.t('formations.participantsShort')}',
+                    color: AppPalette.sage,
+                  ),
+                  _StatusPill(
+                    label: _draftEmailTypeFilterLabel(context, draft.emailType),
+                    color: AppPalette.blue,
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Text(
@@ -3714,7 +3732,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
             _LabeledField(
               label: l10n.t('formations.recipients'),
               controller: _recipientsController,
-              hint: 'nom.prenom@tunisietelecom.tn',
+              hint: 'responsable@tunisietelecom.tn',
               tone: tone,
               enabled: canEdit,
             ),
@@ -4221,6 +4239,26 @@ String _draftStatusFilterLabel(BuildContext context, String value) {
 String _draftEmailTypeFilterLabel(BuildContext context, String value) {
   if (value == 'all') return context.l10n.t('formations.filterAllTypes');
   return _automationEmailTypeLabel(context, value);
+}
+
+String _draftResponsibleLabel(BuildContext context, TrainingDraft draft) {
+  final l10n = context.l10n;
+  final recipient = draft.primaryRecipient;
+  final name = draft.responsibleName;
+  final label = l10n.t('formations.responsibleRecipient');
+
+  if (name.isNotEmpty && recipient.isNotEmpty) {
+    return '$label: $name <$recipient>';
+  }
+  if (recipient.isNotEmpty) return '$label: $recipient';
+  if (name.isNotEmpty) return '$label: $name';
+  return l10n.t('formations.noResponsibleRecipient');
+}
+
+String _draftRegionLabel(TrainingDraft draft) {
+  final residence = draft.responsibleResidence;
+  if (residence.isNotEmpty) return residence;
+  return draft.responsibleDirection;
 }
 
 String _contactMatchLabel(BuildContext context, PlanningContactReview contact) {

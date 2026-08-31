@@ -146,7 +146,8 @@ const Map<String, String> _english = {
   'formations.calendarPageTitle': 'Training calendar',
   'formations.calendarPageSubtitle': 'Browse sessions by day.',
   'formations.draftsPageTitle': 'Draft review',
-  'formations.draftsPageSubtitle': 'Check every email before sending.',
+  'formations.draftsPageSubtitle':
+      'Check responsible confirmation emails before sending.',
   'formations.contactsPageTitle': 'Responsible contacts',
   'formations.contactsPageSubtitle':
       'Complete missing RH/DR/DC recipient emails.',
@@ -242,7 +243,7 @@ const Map<String, String> _english = {
   'formations.defaultEmailType': 'Default email type',
   'formations.emailTypeAuto': 'Choose automatically',
   'formations.emailTypeAwareness': 'Awareness email',
-  'formations.emailTypeConfirmation': 'Presence confirmation',
+  'formations.emailTypeConfirmation': 'Training confirmation',
   'formations.includePopulation': 'Include participant list',
   'formations.includePopulationHint':
       'Add the target population table in generated messages.',
@@ -254,7 +255,9 @@ const Map<String, String> _english = {
   'formations.approved': 'Approved',
   'formations.blocked': 'Blocked',
   'formations.sent': 'sent',
-  'formations.draftsToReview': 'Drafts to review',
+  'formations.draftsToReview': 'Responsible emails to review',
+  'formations.responsibleRecipient': 'Responsible',
+  'formations.noResponsibleRecipient': 'No responsible recipient yet',
   'formations.noDrafts':
       'No drafts yet. Import a planning file, then generate training emails.',
   'formations.filterAll': 'All',
@@ -534,7 +537,8 @@ const Map<String, String> _french = {
   'formations.calendarPageTitle': 'Calendrier formations',
   'formations.calendarPageSubtitle': 'Parcourir les sessions par jour.',
   'formations.draftsPageTitle': 'Verification des brouillons',
-  'formations.draftsPageSubtitle': 'Verifier chaque email avant envoi.',
+  'formations.draftsPageSubtitle':
+      'Verifier les emails de confirmation responsables avant envoi.',
   'formations.contactsPageTitle': 'Responsables',
   'formations.contactsPageSubtitle':
       'Completer les emails destinataires RH/DR/DC manquants.',
@@ -631,7 +635,7 @@ const Map<String, String> _french = {
   'formations.defaultEmailType': 'Type d email par defaut',
   'formations.emailTypeAuto': 'Choix automatique',
   'formations.emailTypeAwareness': 'Email de sensibilisation',
-  'formations.emailTypeConfirmation': 'Confirmation de presence',
+  'formations.emailTypeConfirmation': 'Confirmation formation',
   'formations.includePopulation': 'Inclure la liste des participants',
   'formations.includePopulationHint':
       'Ajouter le tableau de la population cible dans les messages generes.',
@@ -643,7 +647,9 @@ const Map<String, String> _french = {
   'formations.approved': 'Valides',
   'formations.blocked': 'Bloques',
   'formations.sent': 'envoyes',
-  'formations.draftsToReview': 'Brouillons a verifier',
+  'formations.draftsToReview': 'Emails responsables a verifier',
+  'formations.responsibleRecipient': 'Responsable',
+  'formations.noResponsibleRecipient': 'Aucun destinataire responsable',
   'formations.noDrafts':
       'Aucun brouillon. Importez un planning puis generez les emails de formation.',
   'formations.filterAll': 'Tous',

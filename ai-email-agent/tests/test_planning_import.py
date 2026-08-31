@@ -853,6 +853,93 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
     assert detail_response.json()["draft"]["body"] == draft["body"]
 
 
+def test_training_draft_generation_can_replace_existing_responsible_drafts(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Cabinet",
+                "Formateur",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Email",
+                "Grande residence",
+                "Resp RH",
+                "Email Resp RH",
+            ],
+            [
+                "S4B",
+                "Exploitation des IPMSAN Nokia",
+                "Formateur interne",
+                "Maher ben Hassine",
+                "2026-09-10",
+                "2026-09-11",
+                "Salle1 DCSI pole El Ghazela",
+                "75266",
+                "BOUNEB Zied",
+                "zied.bouneb@tunisietelecom.tn",
+                "Direction Centrale des Reseaux",
+                "Salim Mebili",
+                "salim.mebili@tunisietelecom.tn",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert import_response.status_code == 200
+    import_id = import_response.json()["import_id"]
+
+    first_response = client.post(
+        "/planning/drafts/generate",
+        json={"import_id": import_id, "email_type": "sensibilisation"},
+    )
+    assert first_response.status_code == 200
+    first_draft = first_response.json()["drafts"][0]
+
+    replace_response = client.post(
+        "/planning/drafts/generate",
+        json={
+            "import_id": import_id,
+            "email_type": "confirmation_presence",
+            "replace_existing": True,
+        },
+    )
+    assert replace_response.status_code == 200
+    payload = replace_response.json()
+    assert payload["deleted_existing"] == 1
+    assert payload["generated"] == 1
+    replacement = payload["drafts"][0]
+    assert replacement["id"] != first_draft["id"]
+    assert replacement["email_type"] == "confirmation_presence"
+    assert replacement["recipients"] == ["salim.mebili@tunisietelecom.tn"]
+    assert replacement["metadata"]["recipient_role"] == "responsable_rh_direction"
+    assert replacement["metadata"]["participant_count"] == 1
+
+    list_response = client.get(
+        "/planning/drafts",
+        params={"import_id": import_id},
+    )
+    assert list_response.status_code == 200
+    listed_drafts = list_response.json()["drafts"]
+    assert [draft["id"] for draft in listed_drafts] == [replacement["id"]]
+
+
 def test_french_training_agent_marks_draft_as_needing_contacts(tmp_path):
     from api import planning_import_service
 

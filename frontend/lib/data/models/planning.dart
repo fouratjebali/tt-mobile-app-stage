@@ -222,6 +222,14 @@ class TrainingDraft {
   bool get needsContacts => status == 'NEEDS_CONTACTS';
   bool get isRejected => status == 'REJECTED';
   bool get canReview => !isApproved && !isRejected && !isSent;
+  bool get isResponsibleFlow =>
+      _string(metadata['recipient_role']) == 'responsable_rh_direction' ||
+      _bool(metadata['candidate_email_flow_disabled']);
+  String get responsibleName => _string(metadata['responsible_name']);
+  String get responsibleResidence => _string(metadata['responsible_residence']);
+  String get responsibleDirection => _string(metadata['responsible_direction']);
+  int get participantCount => _int(metadata['participant_count']);
+  String get primaryRecipient => recipients.isEmpty ? '' : recipients.first;
 
   factory TrainingDraft.fromJson(Map<String, dynamic> json) {
     return TrainingDraft(

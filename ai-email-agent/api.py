@@ -87,6 +87,7 @@ class GenerateTrainingDraftsRequest(BaseModel):
     email_type: str = "auto"
     include_population: bool = True
     limit: int = Field(default=100, ge=1, le=500)
+    replace_existing: bool = False
 
 
 class RunPlanningAutomationRequest(BaseModel):
@@ -94,6 +95,7 @@ class RunPlanningAutomationRequest(BaseModel):
     email_type: str | None = None
     include_population: bool | None = None
     limit: int | None = Field(default=None, ge=1, le=1000)
+    replace_existing: bool = False
 
 
 class AutomationSettingsRequest(BaseModel):
@@ -556,6 +558,7 @@ def generate_training_drafts(request: GenerateTrainingDraftsRequest) -> dict[str
             email_type=request.email_type,
             include_population=request.include_population,
             limit=request.limit,
+            replace_existing=request.replace_existing,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -572,6 +575,7 @@ def run_planning_automation(request: RunPlanningAutomationRequest) -> dict[str, 
             email_type=request.email_type,
             include_population=request.include_population,
             limit=request.limit,
+            replace_existing=request.replace_existing,
         )
     except ValueError as exc:
         raise HTTPException(
