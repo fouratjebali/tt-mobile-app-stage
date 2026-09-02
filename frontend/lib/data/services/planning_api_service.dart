@@ -191,17 +191,29 @@ class PlanningApiService {
     return _planningRequest(
       action: _PlanningAction.loadPlanning,
       request: () async {
-        final data = await _apiService.get(
-          '/planning/sessions',
-          queryParameters: {
-            if (importId != null && importId.isNotEmpty) 'import_id': importId,
-            'limit': 500,
-          },
-        );
-        final sessions = _list(_map(data)['sessions']);
-        return sessions
-            .map((item) => TrainingCalendarSession.fromJson(_map(item)))
-            .toList();
+        const pageSize = 500;
+        var offset = 0;
+        final allSessions = <TrainingCalendarSession>[];
+
+        while (true) {
+          final data = await _apiService.get(
+            '/planning/sessions',
+            queryParameters: {
+              if (importId != null && importId.isNotEmpty)
+                'import_id': importId,
+              'limit': pageSize,
+              'offset': offset,
+            },
+          );
+          final page = _list(_map(data)['sessions']);
+          allSessions.addAll(
+            page.map((item) => TrainingCalendarSession.fromJson(_map(item))),
+          );
+          if (page.length < pageSize) break;
+          offset += pageSize;
+        }
+
+        return allSessions;
       },
     );
   }
