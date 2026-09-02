@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
 import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
+import 'package:tt_mail_assistant/presentation/screens/formations/formations_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/home/home_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/profile/profile_screen.dart';
-import 'package:tt_mail_assistant/presentation/screens/prompt/prompt_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/review/review_screen.dart';
 import 'package:tt_mail_assistant/presentation/screens/today/today_activity_screen.dart';
 import 'package:tt_mail_assistant/presentation/viewmodels/home_view_model.dart';
@@ -84,7 +84,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: screens),
-      floatingActionButton: AppAssistantFab(onPressed: _openPrompt),
+      floatingActionButton: AppCenterActionFab(
+        icon: Icons.school_rounded,
+        heroTag: 'formationsFab',
+        onPressed: _openFormations,
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: AppBottomNavigationBar(
         selectedIndex: _selectedIndex,
@@ -107,10 +111,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
-  Future<void> _openPrompt() async {
+  Future<void> _openFormations() async {
     final selectedTab = await Navigator.push<int>(
       context,
-      MaterialPageRoute(builder: (context) => const PromptScreen()),
+      MaterialPageRoute(builder: (context) => const FormationsScreen()),
     );
     if (!mounted || selectedTab == null) return;
     _selectTab(selectedTab);

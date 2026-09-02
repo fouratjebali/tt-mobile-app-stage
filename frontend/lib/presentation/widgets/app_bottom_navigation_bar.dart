@@ -124,10 +124,17 @@ class AppBottomNavigationBar extends StatelessWidget {
   }
 }
 
-class AppAssistantFab extends StatelessWidget {
-  const AppAssistantFab({super.key, required this.onPressed});
+class AppCenterActionFab extends StatelessWidget {
+  const AppCenterActionFab({
+    super.key,
+    required this.onPressed,
+    this.icon = Icons.auto_awesome_rounded,
+    this.heroTag = 'centerActionFab',
+  });
 
   final VoidCallback onPressed;
+  final IconData icon;
+  final String heroTag;
 
   @override
   Widget build(BuildContext context) {
@@ -150,14 +157,14 @@ class AppAssistantFab extends StatelessWidget {
         ],
       ),
       child: FloatingActionButton(
-        heroTag: 'assistantPromptFab',
+        heroTag: heroTag,
         elevation: 0,
         highlightElevation: 0,
         backgroundColor: AppPalette.deepTeal,
         foregroundColor: AppPalette.white,
         shape: const CircleBorder(),
         onPressed: onPressed,
-        child: const Icon(Icons.auto_awesome_rounded, size: 28),
+        child: Icon(icon, size: 28),
       ),
     );
   }
