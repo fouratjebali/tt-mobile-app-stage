@@ -11,9 +11,14 @@ class PlanningParticipant:
     full_name: str = ""
     email: str = ""
     responsible_email: str = ""
+    hr_email: str = ""
+    director_email: str = ""
     residence: str = ""
     direction: str = ""
     hr_responsible: str = ""
+    consultation_code: str = ""
+    participation_count_2025: str = ""
+    participation_count_2026: str = ""
     source_row: int = 0
     missing_fields: list[str] = field(default_factory=list)
 

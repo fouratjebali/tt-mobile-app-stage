@@ -56,8 +56,8 @@ def test_parser_imports_participant_planning_format():
                 "Septembre",
                 "S36-26",
                 2,
-                "2026-09-01",
-                "2026-09-02",
+                "2026-10-01",
+                "2026-10-02",
                 "TF401-01-2026",
                 75266,
                 "BOUNEB Zied",
@@ -78,6 +78,189 @@ def test_parser_imports_participant_planning_format():
     assert len(session.participants) == 1
     assert session.participants[0].full_name == "BOUNEB Zied"
     assert "responsible_email" in session.participants[0].missing_fields
+
+
+def test_parser_imports_responsible_emails_and_participation_metadata():
+    content = workbook_bytes(
+        [
+            [
+                "Axe Strategique de la formation",
+                "Domaine d'activite",
+                "Projet",
+                "Type",
+                "Mode Formation (Presentiel / A distance)",
+                "Nature Formation (Certifiante / Non Certifiante)",
+                "Code Module",
+                "Module",
+                "Cabinet",
+                "Formateur",
+                "Lieu de formation",
+                "Lieu Hebergement",
+                "Responsable Engagement",
+                "Annee",
+                "Mois",
+                "Semaine",
+                "Duree (j)",
+                "Date Debut",
+                "Date Fin",
+                "N Session LMS",
+                "N Malek",
+                "Code session",
+                "Matricules",
+                "Nom & Prenom",
+                "Grande residence",
+                "resp RH",
+                "DIR C/R",
+                "Cons",
+                "Nombre de participations realisees en 2025",
+                "Nombre de participations realisees 2026 (15/06/2026)",
+            ],
+            [
+                "PROFESSIONNALISATION PAR METIER",
+                "Nouvelles Technologies",
+                "Programme Exploitation des IPMSAN Nokia",
+                "intra-entreprise",
+                "Formation Presentielle",
+                "Non Certifiante",
+                "TF401",
+                "Exploitation des IPMSAN Nokia",
+                "Formateur interne",
+                "Maher ben Hassine",
+                "Salle1 DCSI pole El Ghazela",
+                "Tunis",
+                "Riadh Daadai",
+                2026,
+                "2026-09-01",
+                "S36-26",
+                2,
+                "2026-10-01",
+                "2026-10-02",
+                "",
+                "",
+                "T-TF401-01-2026",
+                77291,
+                "BEN ELBEY Lobna",
+                "Direcion Centrale des Services",
+                "saloua.benkhoud@tunisietelecom.tn",
+                "abdallah.abaza@tunisietelecom.tn",
+                "AO59-2023_SOC",
+                0,
+                2,
+            ],
+            [
+                "PROFESSIONNALISATION PAR METIER",
+                "Nouvelles Technologies",
+                "Programme Exploitation des IPMSAN Nokia",
+                "intra-entreprise",
+                "Formation Presentielle",
+                "Non Certifiante",
+                "TF401",
+                "Exploitation des IPMSAN Nokia",
+                "Formateur interne",
+                "Maher ben Hassine",
+                "Salle1 DCSI pole El Ghazela",
+                "Tunis",
+                "Riadh Daadai",
+                2026,
+                "2026-09-01",
+                "S36-26",
+                2,
+                "2026-10-01",
+                "2026-10-02",
+                "",
+                "",
+                "T-TF401-01-2026",
+                76052,
+                "JABRI Jawher",
+                "Direcion Centrale des Services",
+                "",
+                "",
+                "AO59-2023_SOC",
+                1,
+                3,
+            ],
+        ]
+    )
+
+    result = PlanningExcelParser().parse_workbook("plani.xlsx", content)
+
+    assert result.status == "ok"
+    assert len(result.sessions[0].participants) == 2
+    participant = result.sessions[0].participants[0]
+    assert participant.responsible_email == "saloua.benkhoud@tunisietelecom.tn"
+    assert participant.hr_email == "saloua.benkhoud@tunisietelecom.tn"
+    assert participant.director_email == "abdallah.abaza@tunisietelecom.tn"
+    assert participant.direction == "Direcion Centrale des Services"
+    assert participant.hr_responsible == "Resp RH Direcion Centrale des Services"
+    assert participant.consultation_code == "AO59-2023_SOC"
+    assert participant.participation_count_2025 == "0"
+    assert participant.participation_count_2026 == "2"
+    assert "responsible_email" not in participant.missing_fields
+    inherited = result.sessions[0].participants[1]
+    assert inherited.responsible_email == "saloua.benkhoud@tunisietelecom.tn"
+    assert inherited.director_email == "abdallah.abaza@tunisietelecom.tn"
+    assert inherited.participation_count_2026 == "3"
+    assert "responsible_email" not in inherited.missing_fields
+
+
+def test_planning_import_stores_responsible_metadata_and_directory_contacts(tmp_path):
+    database = PlanningDatabase(tmp_path / "planning.db")
+    content = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Grande residence",
+                "resp RH",
+                "DIR C/R",
+                "Cons",
+                "Nombre de participations realisees en 2025",
+                "Nombre de participations realisees 2026 (15/06/2026)",
+            ],
+            [
+                "T-TF401-01-2026",
+                "Exploitation des IPMSAN Nokia",
+                "2026-10-01",
+                "2026-10-02",
+                "Salle1 DCSI pole El Ghazela",
+                77291,
+                "BEN ELBEY Lobna",
+                "Direcion Centrale des Services",
+                "saloua.benkhoud@tunisietelecom.tn",
+                "abdallah.abaza@tunisietelecom.tn",
+                "AO59-2023_SOC",
+                0,
+                2,
+            ],
+        ]
+    )
+    file_result = PlanningExcelParser().parse_workbook("plani.xlsx", content)
+    from planning.models import PlanningImportResult
+
+    import_result = PlanningImportResult.build("import-1", [file_result])
+
+    database.save_import(import_result)
+
+    stored = database.get_import("import-1")
+    assert stored is not None
+    assert stored["missing_email_count"] == 0
+    participant = stored["files"][0]["sessions"][0]["participants"][0]
+    assert participant["responsible_email"] == "saloua.benkhoud@tunisietelecom.tn"
+    assert participant["hr_email"] == "saloua.benkhoud@tunisietelecom.tn"
+    assert participant["director_email"] == "abdallah.abaza@tunisietelecom.tn"
+    assert participant["consultation_code"] == "AO59-2023_SOC"
+    assert participant["participation_count_2025"] == "0"
+    assert participant["participation_count_2026"] == "2"
+
+    contacts = database.list_contacts()
+    emails = {contact["email"] for contact in contacts}
+    assert "saloua.benkhoud@tunisietelecom.tn" in emails
+    assert "abdallah.abaza@tunisietelecom.tn" in emails
 
 
 def test_parser_detects_legend_then_session_header_format():
@@ -640,8 +823,8 @@ def test_responsible_directory_import_maps_by_residence_and_lists_ready_first(tm
             [
                 "S31",
                 "Exploitation IPMSAN",
-                "2026-09-01",
-                "2026-09-02",
+                "2026-10-01",
+                "2026-10-02",
                 "El Ghazela",
                 "75266",
                 "BOUNEB Zied",
@@ -650,8 +833,8 @@ def test_responsible_directory_import_maps_by_residence_and_lists_ready_first(tm
             [
                 "S31",
                 "Exploitation IPMSAN",
-                "2026-09-01",
-                "2026-09-02",
+                "2026-10-01",
+                "2026-10-02",
                 "El Ghazela",
                 "76052",
                 "JABRI Jawher",
@@ -749,8 +932,8 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
                 "Exploitation des IPMSAN Nokia",
                 "Formateur interne",
                 "Maher ben Hassine",
-                "2026-09-01",
-                "2026-09-02",
+                "2026-10-01",
+                "2026-10-02",
                 "de 08h30 a 14h30",
                 "Salle1 DCSI pole El Ghazela",
                 "75266",
@@ -792,7 +975,7 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
     assert draft["subject"] == "Confirmation de presence formation Exploitation des IPMSAN Nokia"
     assert "Bonjour," in draft["body"]
     assert "Theme de la formation : Exploitation des IPMSAN Nokia" in draft["body"]
-    assert "Duree du cours : du 01/09/2026 au 02/09/2026" in draft["body"]
+    assert "Duree du cours : du 01/10/2026 au 02/10/2026" in draft["body"]
     assert "Cabinet de Formation : Maher ben Hassine" in draft["body"]
     assert "Grande residence : Direction Centrale des Reseaux" in draft["body"]
     assert "Matricule | Nom et prenom | Grande residence" in draft["body"]

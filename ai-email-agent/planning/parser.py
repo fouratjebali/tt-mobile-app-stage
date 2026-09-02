@@ -48,7 +48,15 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "residence": ("grande residence",),
     "hr_responsible": ("resp rh", "responsable rh"),
     "direction": ("dir c/r", "direction", "direction regionale"),
-    "email": ("email", "mail", "adresse email", "adresse mail"),
+    "consultation_code": ("cons", "consultation"),
+    "participation_count_2025": (
+        "nombre de participations realisees en 2025",
+        "participations realisees en 2025",
+    ),
+    "participation_count_2026": (
+        "nombre de participations realisees 2026",
+        "participations realisees 2026",
+    ),
     "responsible_email": (
         "email resp rh",
         "mail resp rh",
@@ -62,6 +70,7 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
         "email dir c/r",
         "mail dir c/r",
     ),
+    "email": ("email", "mail", "adresse email", "adresse mail"),
 }
 
 MIN_SESSION_COLUMNS = {"module", "start_date", "end_date", "location"}
@@ -193,6 +202,7 @@ class PlanningExcelParser:
                 "but no training sessions were imported. Check that session rows are filled."
             )
 
+        self._fill_responsible_contacts_from_residence(sessions.values())
         return list(sessions.values()), warnings
 
     def _detect_header(self, worksheet: Worksheet) -> tuple[int | None, dict[str, int]]:
@@ -306,8 +316,23 @@ class PlanningExcelParser:
         matricule = row_data.get("matricule", "")
         full_name = row_data.get("full_name", "")
         email = row_data.get("email", "")
-        responsible_email = row_data.get("responsible_email", "")
-        if not any((matricule, full_name, email, responsible_email)):
+        residence = row_data.get("residence", "")
+        direction = row_data.get("direction", "")
+        hr_responsible = row_data.get("hr_responsible", "")
+        hr_email = _email_or_empty(hr_responsible)
+        director_email = _email_or_empty(direction)
+        responsible_email = (
+            _email_or_empty(row_data.get("responsible_email", ""))
+            or hr_email
+            or director_email
+        )
+
+        if hr_email:
+            hr_responsible = f"Resp RH {residence}".strip() if residence else "Resp RH"
+        if director_email:
+            direction = residence or ""
+
+        if not any((matricule, full_name, email, responsible_email, hr_email, director_email)):
             return None
 
         missing_fields: list[str] = []
@@ -321,9 +346,14 @@ class PlanningExcelParser:
             full_name=full_name,
             email=email,
             responsible_email=responsible_email,
+            hr_email=hr_email,
+            director_email=director_email,
             residence=row_data.get("residence", ""),
-            direction=row_data.get("direction", ""),
-            hr_responsible=row_data.get("hr_responsible", ""),
+            direction=direction,
+            hr_responsible=hr_responsible,
+            consultation_code=row_data.get("consultation_code", ""),
+            participation_count_2025=row_data.get("participation_count_2025", ""),
+            participation_count_2026=row_data.get("participation_count_2026", ""),
             source_row=row_index,
             missing_fields=missing_fields,
         )
@@ -339,6 +369,44 @@ class PlanningExcelParser:
         if not session.location:
             missing.append("location")
         session.missing_fields = missing
+
+    def _fill_responsible_contacts_from_residence(
+        self,
+        sessions: Iterable[TrainingSession],
+    ) -> None:
+        participants = [
+            participant
+            for session in sessions
+            for participant in session.participants
+        ]
+        contacts_by_residence: dict[str, PlanningParticipant] = {}
+        for participant in participants:
+            if not participant.responsible_email:
+                continue
+            key = _responsible_lookup_key(participant.residence or participant.direction)
+            if key and key not in contacts_by_residence:
+                contacts_by_residence[key] = participant
+
+        for participant in participants:
+            if participant.responsible_email:
+                continue
+            key = _responsible_lookup_key(participant.residence or participant.direction)
+            contact = contacts_by_residence.get(key)
+            if contact is None:
+                continue
+
+            participant.responsible_email = contact.responsible_email
+            participant.hr_email = contact.hr_email
+            participant.director_email = contact.director_email
+            if not participant.hr_responsible:
+                participant.hr_responsible = contact.hr_responsible
+            if not participant.direction:
+                participant.direction = contact.direction
+            participant.missing_fields = [
+                field
+                for field in participant.missing_fields
+                if field != "responsible_email"
+            ]
 
     def _session_key(
         self,
@@ -385,6 +453,22 @@ def _format_cell_value(value: Any) -> str:
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value).strip()
+
+
+def _email_or_empty(value: str) -> str:
+    candidate = value.strip().lower()
+    if not candidate or "@" not in candidate:
+        return ""
+    local, _, domain = candidate.partition("@")
+    if not local or "." not in domain:
+        return ""
+    return candidate
+
+
+def _responsible_lookup_key(value: str) -> str:
+    normalized = _strip_accents(value).strip().lower()
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized
 
 
 def _normalize_status(value: str) -> str:

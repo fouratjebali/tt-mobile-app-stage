@@ -121,9 +121,14 @@ class PlanningDatabase:
                     full_name TEXT NOT NULL DEFAULT '',
                     email TEXT NOT NULL DEFAULT '',
                     responsible_email TEXT NOT NULL DEFAULT '',
+                    hr_email TEXT NOT NULL DEFAULT '',
+                    director_email TEXT NOT NULL DEFAULT '',
                     residence TEXT NOT NULL DEFAULT '',
                     direction TEXT NOT NULL DEFAULT '',
                     hr_responsible TEXT NOT NULL DEFAULT '',
+                    consultation_code TEXT NOT NULL DEFAULT '',
+                    participation_count_2025 TEXT NOT NULL DEFAULT '',
+                    participation_count_2026 TEXT NOT NULL DEFAULT '',
                     source_row INTEGER NOT NULL DEFAULT 0,
                     missing_fields_json TEXT NOT NULL DEFAULT '[]',
                     FOREIGN KEY (import_id)
@@ -224,6 +229,11 @@ class PlanningDatabase:
             self._ensure_column(connection, "employee_contacts", "source_file", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "employee_contacts", "source_row", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(connection, "training_participants", "responsible_email", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "training_participants", "hr_email", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "training_participants", "director_email", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "training_participants", "consultation_code", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "training_participants", "participation_count_2025", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "training_participants", "participation_count_2026", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "training_email_drafts", "html_body", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "training_email_drafts", "metadata_json", "TEXT NOT NULL DEFAULT '{}'")
             connection.execute(
@@ -1626,13 +1636,18 @@ class PlanningDatabase:
                 full_name,
                 email,
                 responsible_email,
+                hr_email,
+                director_email,
                 residence,
                 direction,
                 hr_responsible,
+                consultation_code,
+                participation_count_2025,
+                participation_count_2026,
                 source_row,
                 missing_fields_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 import_id,
@@ -1642,65 +1657,19 @@ class PlanningDatabase:
                 participant.full_name,
                 participant.email,
                 participant.responsible_email,
+                participant.hr_email,
+                participant.director_email,
                 participant.residence,
                 participant.direction,
                 participant.hr_responsible,
+                participant.consultation_code,
+                participant.participation_count_2025,
+                participant.participation_count_2026,
                 participant.source_row,
                 _json(participant.missing_fields),
             ),
         )
-        if participant.hr_responsible and participant.responsible_email:
-            contact_key = f"responsible:{_normalize_participant_name(participant.hr_responsible)}"
-            connection.execute(
-                """
-                INSERT INTO employee_contacts (
-                    matricule,
-                    normalized_name,
-                    full_name,
-                    email,
-                    residence,
-                    direction,
-                    hr_responsible,
-                    source_file,
-                    source_row,
-                    updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(matricule) DO UPDATE SET
-                    normalized_name = excluded.normalized_name,
-                    full_name = excluded.full_name,
-                    email = CASE
-                        WHEN excluded.email != '' THEN excluded.email
-                        ELSE employee_contacts.email
-                    END,
-                    residence = CASE
-                        WHEN excluded.residence != '' THEN excluded.residence
-                        ELSE employee_contacts.residence
-                    END,
-                    direction = CASE
-                        WHEN excluded.direction != '' THEN excluded.direction
-                        ELSE employee_contacts.direction
-                    END,
-                    hr_responsible = CASE
-                        WHEN excluded.hr_responsible != '' THEN excluded.hr_responsible
-                        ELSE employee_contacts.hr_responsible
-                    END,
-                    source_file = excluded.source_file,
-                    source_row = excluded.source_row,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                (
-                    contact_key,
-                    _normalize_participant_name(participant.hr_responsible),
-                    participant.hr_responsible,
-                    participant.responsible_email,
-                    participant.residence,
-                    participant.direction,
-                    participant.hr_responsible,
-                    source_file,
-                    participant.source_row,
-                ),
-            )
+        self._upsert_responsible_contacts(connection, participant, source_file)
 
     def _participant_id(
         self,
@@ -1772,9 +1741,14 @@ class PlanningDatabase:
                 full_name = COALESCE(NULLIF(full_name, ''), ?),
                 email = COALESCE(NULLIF(email, ''), ?),
                 responsible_email = COALESCE(NULLIF(responsible_email, ''), ?),
+                hr_email = COALESCE(NULLIF(hr_email, ''), ?),
+                director_email = COALESCE(NULLIF(director_email, ''), ?),
                 residence = COALESCE(NULLIF(residence, ''), ?),
                 direction = COALESCE(NULLIF(direction, ''), ?),
                 hr_responsible = COALESCE(NULLIF(hr_responsible, ''), ?),
+                consultation_code = COALESCE(NULLIF(consultation_code, ''), ?),
+                participation_count_2025 = COALESCE(NULLIF(participation_count_2025, ''), ?),
+                participation_count_2026 = COALESCE(NULLIF(participation_count_2026, ''), ?),
                 source_row = CASE WHEN source_row = 0 THEN ? ELSE source_row END,
                 missing_fields_json = ?
             WHERE id = ?
@@ -1783,60 +1757,111 @@ class PlanningDatabase:
                 participant.full_name,
                 participant.email,
                 participant.responsible_email,
+                participant.hr_email,
+                participant.director_email,
                 participant.residence,
                 participant.direction,
                 participant.hr_responsible,
+                participant.consultation_code,
+                participant.participation_count_2025,
+                participant.participation_count_2026,
                 participant.source_row,
                 _json(missing_fields),
                 participant_id,
             ),
         )
-        if participant.hr_responsible and participant.responsible_email:
-            contact_key = f"responsible:{_normalize_participant_name(participant.hr_responsible)}"
-            connection.execute(
-                """
-                INSERT INTO employee_contacts (
-                    matricule,
-                    normalized_name,
-                    full_name,
-                    email,
-                    residence,
-                    direction,
-                    hr_responsible,
-                    source_file,
-                    source_row,
-                    updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(matricule) DO UPDATE SET
-                    normalized_name = excluded.normalized_name,
-                    full_name = excluded.full_name,
-                    email = excluded.email,
-                    residence = CASE
-                        WHEN excluded.residence != '' THEN excluded.residence
-                        ELSE employee_contacts.residence
-                    END,
-                    direction = CASE
-                        WHEN excluded.direction != '' THEN excluded.direction
-                        ELSE employee_contacts.direction
-                    END,
-                    hr_responsible = excluded.hr_responsible,
-                    source_file = excluded.source_file,
-                    source_row = excluded.source_row,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                (
-                    contact_key,
-                    _normalize_participant_name(participant.hr_responsible),
-                    participant.hr_responsible,
-                    participant.responsible_email,
-                    participant.residence,
-                    participant.direction,
-                    participant.hr_responsible,
-                    source_file,
-                    participant.source_row,
-                ),
+        self._upsert_responsible_contacts(connection, participant, source_file)
+
+    def _upsert_responsible_contacts(
+        self,
+        connection: sqlite3.Connection,
+        participant: PlanningParticipant,
+        source_file: str,
+    ) -> None:
+        if participant.hr_email or (participant.hr_responsible and participant.responsible_email):
+            self._upsert_responsible_contact(
+                connection,
+                role="rh",
+                display_name=participant.hr_responsible,
+                email=participant.hr_email or participant.responsible_email,
+                participant=participant,
+                source_file=source_file,
             )
+        if participant.director_email:
+            self._upsert_responsible_contact(
+                connection,
+                role="dir",
+                display_name=f"DIR C/R {participant.residence or participant.direction}".strip(),
+                email=participant.director_email,
+                participant=participant,
+                source_file=source_file,
+            )
+
+    def _upsert_responsible_contact(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        role: str,
+        display_name: str,
+        email: str,
+        participant: PlanningParticipant,
+        source_file: str,
+    ) -> None:
+        clean_email = email.strip().lower()
+        if "@" not in clean_email:
+            return
+        name = display_name.strip() or f"Responsable {participant.residence or participant.direction}".strip()
+        normalized_name = _normalize_participant_name(name)
+        residence_key = _normalize_participant_name(participant.residence)
+        email_key = _normalize_participant_name(clean_email)
+        contact_key = f"responsible:{role}:{residence_key}:{email_key}"
+        connection.execute(
+            """
+            INSERT INTO employee_contacts (
+                matricule,
+                normalized_name,
+                full_name,
+                email,
+                residence,
+                direction,
+                hr_responsible,
+                source_file,
+                source_row,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(matricule) DO UPDATE SET
+                normalized_name = excluded.normalized_name,
+                full_name = excluded.full_name,
+                email = excluded.email,
+                residence = CASE
+                    WHEN excluded.residence != '' THEN excluded.residence
+                    ELSE employee_contacts.residence
+                END,
+                direction = CASE
+                    WHEN excluded.direction != '' THEN excluded.direction
+                    ELSE employee_contacts.direction
+                END,
+                hr_responsible = CASE
+                    WHEN excluded.hr_responsible != '' THEN excluded.hr_responsible
+                    ELSE employee_contacts.hr_responsible
+                END,
+                source_file = excluded.source_file,
+                source_row = excluded.source_row,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                contact_key,
+                normalized_name,
+                name,
+                clean_email,
+                participant.residence,
+                participant.direction,
+                participant.hr_responsible,
+                source_file,
+                participant.source_row,
+            ),
+        )
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -2000,9 +2025,14 @@ class PlanningDatabase:
                 "full_name": participant["full_name"],
                 "email": participant["email"],
                 "responsible_email": participant["responsible_email"],
+                "hr_email": participant["hr_email"],
+                "director_email": participant["director_email"],
                 "residence": participant["residence"],
                 "direction": participant["direction"],
                 "hr_responsible": participant["hr_responsible"],
+                "consultation_code": participant["consultation_code"],
+                "participation_count_2025": participant["participation_count_2025"],
+                "participation_count_2026": participant["participation_count_2026"],
                 "source_row": participant["source_row"],
                 "missing_fields": _loads(participant["missing_fields_json"]),
             }
