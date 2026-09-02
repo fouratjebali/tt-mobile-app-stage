@@ -1386,10 +1386,14 @@ class _TrainingCalendarSection extends StatefulWidget {
 class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
   static const double _monthChipWidth = 112;
   static const double _monthChipSpacing = 8;
+  static const int _sessionsPerPage = 8;
+  static const int _startYear = 2024;
+  static const int _endYear = 2027;
 
   final ScrollController _monthScrollController = ScrollController();
-  DateTime? _selectedMonth;
-  DateTime? _selectedDate;
+  int? _selectedYear;
+  int? _selectedMonth;
+  int _page = 0;
   String? _lastAlignedMonthKey;
 
   @override
@@ -1402,63 +1406,50 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
   void didUpdateWidget(covariant _TrainingCalendarSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.sessions == oldWidget.sessions) return;
-    final months = _availableMonths(widget.sessions);
-    if (!_containsMonth(months, _selectedMonth)) {
-      _selectedMonth = null;
-      _selectedDate = null;
-      _lastAlignedMonthKey = null;
-      return;
+    if (_selectedYear != null &&
+        (_selectedYear! < _startYear || _selectedYear! > _endYear)) {
+      _selectedYear = null;
     }
-    final selectedMonth = _selectedMonth ?? _defaultCalendarMonth(months);
-    final days = _availableDays(
-      _sessionsForMonth(widget.sessions, selectedMonth),
-    );
-    if (!_containsDay(days, _selectedDate)) {
-      _selectedDate = null;
-    }
+    _page = 0;
+    _lastAlignedMonthKey = null;
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final sessions = widget.sessions;
-    final months = _availableMonths(sessions);
-    final selectedMonth = _selectedMonth ?? _defaultCalendarMonth(months);
-    _alignSelectedMonth(months, selectedMonth);
-    final monthSessions = _sessionsForMonth(sessions, selectedMonth);
-    final days = _availableDays(monthSessions);
-    final selectedDate = _selectedDate ?? (days.isNotEmpty ? days.first : null);
-    final selectedSessions =
-        selectedDate == null
-            ? const <TrainingCalendarSession>[]
-            : monthSessions
-                .where(
-                  (session) => _sameDay(
-                    _parsePlanningDate(session.startDate),
-                    selectedDate,
-                  ),
-                )
-                .toList();
-    final upcomingCount =
-        monthSessions.where((session) {
-          final start = _parsePlanningDate(session.startDate);
-          if (start == null) return false;
-          return !start.isBefore(_todayDate());
-        }).length;
+    final sortedSessions = _sortSessionsByDate(sessions);
+    final selectedYear = _selectedYear ?? _defaultCalendarYear(sortedSessions);
+    final selectedMonth =
+        _selectedMonth ??
+        _defaultCalendarMonthNumber(sortedSessions, selectedYear);
+    final selectedDate = DateTime(selectedYear, selectedMonth);
+    final monthSessions = _sessionsForMonth(sortedSessions, selectedDate);
+    final pageCount = _calendarPageCount(
+      monthSessions.length,
+      _sessionsPerPage,
+    );
+    final pageIndex = _page.clamp(0, pageCount - 1).toInt();
+    final pageSessions =
+        monthSessions
+            .skip(pageIndex * _sessionsPerPage)
+            .take(_sessionsPerPage)
+            .toList();
+    _alignSelectedMonth(selectedMonth);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(
           title: l10n.t('formations.calendarTitle'),
-          count: sessions.length,
+          count: monthSessions.length,
           tone: widget.tone,
         ),
         const SizedBox(height: 8),
         Text(
           l10n
               .t('formations.calendarSubtitle')
-              .replaceAll('{count}', '$upcomingCount'),
+              .replaceAll('{count}', '${monthSessions.length}'),
           style: TextStyle(
             color: widget.tone.muted,
             fontSize: 13,
@@ -1474,84 +1465,135 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
             tone: widget.tone,
           )
         else ...[
+          Text(
+            l10n.t('formations.calendarYear'),
+            style: TextStyle(
+              color: widget.tone.text,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _endYear - _startYear + 1,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final year = _startYear + index;
+                final count = _sessionsForYear(sessions, year).length;
+                return _CalendarYearChip(
+                  year: year,
+                  count: count,
+                  selected: year == selectedYear,
+                  tone: widget.tone,
+                  onTap:
+                      () => setState(() {
+                        _selectedYear = year;
+                        _selectedMonth = _defaultCalendarMonthNumber(
+                          sortedSessions,
+                          year,
+                        );
+                        _page = 0;
+                        _lastAlignedMonthKey = null;
+                      }),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            l10n.t('formations.calendarMonth'),
+            style: TextStyle(
+              color: widget.tone.text,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             height: 44,
             child: ListView.separated(
               controller: _monthScrollController,
               scrollDirection: Axis.horizontal,
-              itemCount: months.length,
+              itemCount: 12,
               separatorBuilder:
                   (_, __) => const SizedBox(width: _monthChipSpacing),
               itemBuilder: (context, index) {
-                final month = months[index];
+                final month = DateTime(selectedYear, index + 1);
                 final count = _sessionsForMonth(sessions, month).length;
                 return _CalendarMonthChip(
                   month: month,
                   count: count,
-                  selected: _sameMonth(month, selectedMonth),
+                  selected: month.month == selectedMonth,
                   tone: widget.tone,
                   onTap:
                       () => setState(() {
-                        _selectedMonth = month;
-                        _selectedDate = null;
+                        _selectedMonth = month.month;
+                        _page = 0;
                       }),
                 );
               },
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 76,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: days.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final day = days[index];
-                final count =
-                    sessions
-                        .where(
-                          (session) => _sameDay(
-                            _parsePlanningDate(session.startDate),
-                            day,
-                          ),
-                        )
-                        .length;
-                return _CalendarDayChip(
-                  date: day,
-                  count: count,
-                  selected: _sameDay(day, selectedDate),
-                  tone: widget.tone,
-                  onTap: () => setState(() => _selectedDate = day),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (selectedSessions.isEmpty)
+          if (monthSessions.isEmpty)
             _InlineMessage(
               icon: Icons.event_busy_outlined,
-              message: l10n.t('formations.noSessionsForDay'),
+              message: l10n.t('formations.noSessionsForMonth'),
               tone: widget.tone,
             )
-          else
-            for (final session in selectedSessions) ...[
+          else ...[
+            _CalendarPaginationControls(
+              pageIndex: pageIndex,
+              pageCount: pageCount,
+              totalCount: monthSessions.length,
+              pageSize: _sessionsPerPage,
+              tone: widget.tone,
+              onPrevious:
+                  pageIndex == 0
+                      ? null
+                      : () => setState(() => _page = pageIndex - 1),
+              onNext:
+                  pageIndex >= pageCount - 1
+                      ? null
+                      : () => setState(() => _page = pageIndex + 1),
+            ),
+            const SizedBox(height: 12),
+            for (final session in pageSessions) ...[
               _TrainingSessionCard(session: session, tone: widget.tone),
               const SizedBox(height: 10),
             ],
+            if (pageCount > 1) ...[
+              const SizedBox(height: 2),
+              _CalendarPaginationControls(
+                pageIndex: pageIndex,
+                pageCount: pageCount,
+                totalCount: monthSessions.length,
+                pageSize: _sessionsPerPage,
+                tone: widget.tone,
+                onPrevious:
+                    pageIndex == 0
+                        ? null
+                        : () => setState(() => _page = pageIndex - 1),
+                onNext:
+                    pageIndex >= pageCount - 1
+                        ? null
+                        : () => setState(() => _page = pageIndex + 1),
+              ),
+            ],
+          ],
         ],
       ],
     );
   }
 
-  void _alignSelectedMonth(List<DateTime> months, DateTime? selectedMonth) {
-    if (selectedMonth == null || months.isEmpty) return;
-    final key = '${selectedMonth.year}-${selectedMonth.month}';
+  void _alignSelectedMonth(int selectedMonth) {
+    final key =
+        '${_selectedYear ?? _defaultCalendarYear(widget.sessions)}-$selectedMonth';
     if (_lastAlignedMonthKey == key) return;
-    final index = months.indexWhere(
-      (month) => _sameMonth(month, selectedMonth),
-    );
-    if (index < 0) return;
+    final index = selectedMonth - 1;
     _lastAlignedMonthKey = key;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_monthScrollController.hasClients) return;
@@ -1559,6 +1601,68 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
       final target = index * (_monthChipWidth + _monthChipSpacing);
       _monthScrollController.jumpTo(target.clamp(0.0, maxOffset));
     });
+  }
+}
+
+class _CalendarYearChip extends StatelessWidget {
+  const _CalendarYearChip({
+    required this.year,
+    required this.count,
+    required this.selected,
+    required this.tone,
+    required this.onTap,
+  });
+
+  final int year;
+  final int count;
+  final bool selected;
+  final _FormationTone tone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = selected ? AppPalette.deepTeal : tone.muted;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: 96,
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color:
+              selected
+                  ? AppPalette.deepTeal.withValues(alpha: 0.12)
+                  : tone.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color:
+                selected
+                    ? AppPalette.deepTeal.withValues(alpha: 0.55)
+                    : tone.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '$year',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            _CalendarCountBadge(count: count, color: accent),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1616,24 +1720,7 @@ class _CalendarMonthChip extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Container(
-              constraints: const BoxConstraints(minWidth: 22),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: selected ? 0.16 : 0.10),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '$count',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: accent,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
-              ),
-            ),
+            _CalendarCountBadge(count: count, color: accent),
           ],
         ),
       ),
@@ -1641,89 +1728,134 @@ class _CalendarMonthChip extends StatelessWidget {
   }
 }
 
-class _CalendarDayChip extends StatelessWidget {
-  const _CalendarDayChip({
-    required this.date,
-    required this.count,
-    required this.selected,
-    required this.tone,
-    required this.onTap,
-  });
+class _CalendarCountBadge extends StatelessWidget {
+  const _CalendarCountBadge({required this.count, required this.color});
 
-  final DateTime date;
   final int count;
-  final bool selected;
-  final _FormationTone tone;
-  final VoidCallback onTap;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final accent = selected ? AppPalette.deepTeal : tone.muted;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        width: 72,
-        height: 76,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-        decoration: BoxDecoration(
-          color:
-              selected
-                  ? AppPalette.deepTeal.withValues(alpha: 0.12)
-                  : tone.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color:
-                selected
-                    ? AppPalette.deepTeal.withValues(alpha: 0.55)
-                    : tone.border,
-          ),
+    return Container(
+      constraints: const BoxConstraints(minWidth: 22),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$count',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          height: 1,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _weekdayShort(context, date),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+class _CalendarPaginationControls extends StatelessWidget {
+  const _CalendarPaginationControls({
+    required this.pageIndex,
+    required this.pageCount,
+    required this.totalCount,
+    required this.pageSize,
+    required this.tone,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final int pageIndex;
+  final int pageCount;
+  final int totalCount;
+  final int pageSize;
+  final _FormationTone tone;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final start = totalCount == 0 ? 0 : pageIndex * pageSize + 1;
+    final end =
+        totalCount == 0
+            ? 0
+            : ((pageIndex + 1) * pageSize).clamp(0, totalCount).toInt();
+    final summary = l10n
+        .t('formations.calendarPageSummary')
+        .replaceAll('{start}', '$start')
+        .replaceAll('{end}', '$end')
+        .replaceAll('{total}', '$totalCount');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: tone.softSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        children: [
+          _CalendarPageButton(
+            icon: Icons.chevron_left_rounded,
+            enabled: onPrevious != null,
+            tooltip: l10n.t('formations.previousPage'),
+            onTap: onPrevious,
+          ),
+          Expanded(
+            child: Text(
+              pageCount <= 1
+                  ? summary
+                  : '$summary - ${pageIndex + 1}/$pageCount',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: tone.muted,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                height: 1,
-              ),
-            ),
-            Text(
-              '${date.day}',
-              style: TextStyle(
-                color: accent,
-                fontSize: 21,
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
-                height: 1,
               ),
             ),
-            Container(
-              constraints: const BoxConstraints(minWidth: 22),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: selected ? 0.16 : 0.10),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '$count',
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                style: TextStyle(
-                  color: accent,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
-              ),
-            ),
-          ],
+          ),
+          _CalendarPageButton(
+            icon: Icons.chevron_right_rounded,
+            enabled: onNext != null,
+            tooltip: l10n.t('formations.nextPage'),
+            onTap: onNext,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CalendarPageButton extends StatelessWidget {
+  const _CalendarPageButton({
+    required this.icon,
+    required this.enabled,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled ? AppPalette.deepTeal : Colors.grey;
+    return Tooltip(
+      message: tooltip,
+      child: IconButton.filledTonal(
+        visualDensity: VisualDensity.compact,
+        style: IconButton.styleFrom(
+          backgroundColor: color.withValues(alpha: enabled ? 0.12 : 0.08),
+          foregroundColor: color,
         ),
+        onPressed: onTap,
+        icon: Icon(icon),
       ),
     );
   }
@@ -4272,47 +4404,6 @@ String _contactMatchLabel(BuildContext context, PlanningContactReview contact) {
   };
 }
 
-List<DateTime> _availableDays(List<TrainingCalendarSession> sessions) {
-  final days = <DateTime>{};
-  for (final session in sessions) {
-    final start = _parsePlanningDate(session.startDate);
-    if (start != null) days.add(start);
-  }
-  final sorted = days.toList()..sort();
-  final today = _todayDate();
-  final upcoming = sorted.where((day) => !day.isBefore(today)).toList();
-  return upcoming.isEmpty ? sorted : upcoming;
-}
-
-List<DateTime> _availableMonths(List<TrainingCalendarSession> sessions) {
-  final months = <DateTime>{};
-  for (final session in sessions) {
-    final start = _parsePlanningDate(session.startDate);
-    if (start != null) {
-      months.add(DateTime(start.year, start.month));
-    }
-  }
-  final sorted = months.toList()..sort();
-  return sorted;
-}
-
-DateTime? _defaultCalendarMonth(List<DateTime> months) {
-  if (months.isEmpty) return null;
-  const preferredYear = 2026;
-  const preferredMonth = 5;
-  for (final month in months) {
-    if (month.year == preferredYear && month.month == preferredMonth) {
-      return month;
-    }
-  }
-  final now = _todayDate();
-  final currentMonth = DateTime(now.year, now.month);
-  for (final month in months) {
-    if (!month.isBefore(currentMonth)) return month;
-  }
-  return months.last;
-}
-
 List<TrainingCalendarSession> _sessionsForMonth(
   List<TrainingCalendarSession> sessions,
   DateTime? month,
@@ -4324,9 +4415,70 @@ List<TrainingCalendarSession> _sessionsForMonth(
   }).toList();
 }
 
-DateTime _todayDate() {
-  final now = DateTime.now();
-  return DateTime(now.year, now.month, now.day);
+List<TrainingCalendarSession> _sessionsForYear(
+  List<TrainingCalendarSession> sessions,
+  int year,
+) {
+  return sessions.where((session) {
+    final start = _parsePlanningDate(session.startDate);
+    return start?.year == year;
+  }).toList();
+}
+
+List<TrainingCalendarSession> _sortSessionsByDate(
+  List<TrainingCalendarSession> sessions,
+) {
+  final sorted = sessions.toList();
+  sorted.sort((left, right) {
+    final leftDate = _parsePlanningDate(left.startDate);
+    final rightDate = _parsePlanningDate(right.startDate);
+    if (leftDate == null && rightDate == null) {
+      return left.module.compareTo(right.module);
+    }
+    if (leftDate == null) return 1;
+    if (rightDate == null) return -1;
+    final dateComparison = leftDate.compareTo(rightDate);
+    if (dateComparison != 0) return dateComparison;
+    return left.module.compareTo(right.module);
+  });
+  return sorted;
+}
+
+int _defaultCalendarYear(List<TrainingCalendarSession> sessions) {
+  const preferredYear = 2026;
+  if (sessions.any(
+    (session) => _parsePlanningDate(session.startDate)?.year == preferredYear,
+  )) {
+    return preferredYear;
+  }
+  for (final session in sessions) {
+    final year = _parsePlanningDate(session.startDate)?.year;
+    if (year != null && year >= 2024 && year <= 2027) return year;
+  }
+  return preferredYear;
+}
+
+int _defaultCalendarMonthNumber(
+  List<TrainingCalendarSession> sessions,
+  int year,
+) {
+  const preferredMonth = 5;
+  if (year == 2026 &&
+      sessions.any((session) {
+        final start = _parsePlanningDate(session.startDate);
+        return start?.year == year && start?.month == preferredMonth;
+      })) {
+    return preferredMonth;
+  }
+  final yearSessions = _sessionsForYear(sessions, year);
+  if (yearSessions.isEmpty) return 1;
+  final firstDate = _parsePlanningDate(yearSessions.first.startDate);
+  return firstDate?.month ?? 1;
+}
+
+int _calendarPageCount(int totalCount, int pageSize) {
+  if (totalCount <= 0) return 1;
+  return ((totalCount - 1) ~/ pageSize) + 1;
 }
 
 DateTime? _parsePlanningDate(String value) {
@@ -4358,29 +4510,6 @@ bool _sameDay(DateTime? left, DateTime? right) {
 bool _sameMonth(DateTime? left, DateTime? right) {
   if (left == null || right == null) return false;
   return left.year == right.year && left.month == right.month;
-}
-
-bool _containsMonth(List<DateTime> months, DateTime? selectedMonth) {
-  return selectedMonth != null &&
-      months.any((month) => _sameMonth(month, selectedMonth));
-}
-
-bool _containsDay(List<DateTime> days, DateTime? selectedDay) {
-  return selectedDay != null && days.any((day) => _sameDay(day, selectedDay));
-}
-
-String _weekdayShort(BuildContext context, DateTime date) {
-  final keys = const [
-    'date.monday',
-    'date.tuesday',
-    'date.wednesday',
-    'date.thursday',
-    'date.friday',
-    'date.saturday',
-    'date.sunday',
-  ];
-  final label = context.l10n.t(keys[date.weekday - 1]);
-  return label.length <= 3 ? label : label.substring(0, 3);
 }
 
 String _formatMonthLabel(BuildContext context, DateTime date) {
