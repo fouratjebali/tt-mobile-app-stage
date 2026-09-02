@@ -67,8 +67,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         onNotificationsTap: _openNotifications,
                       ),
                       const SizedBox(height: 20),
-                      _ReviewSummaryCard(count: _viewModel.needReview),
-                      const SizedBox(height: 18),
                       _KPIGrid(
                         processedToday: _viewModel.processedToday,
                         autoSent: _viewModel.autoSent,
@@ -379,79 +377,6 @@ class _NotificationIconButton extends StatelessWidget {
   }
 }
 
-class _ReviewSummaryCard extends StatelessWidget {
-  const _ReviewSummaryCard({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasReview = count > 0;
-    final accent = hasReview ? AppPalette.clay : AppPalette.deepTeal;
-    final tone = _HomeTone.of(context);
-    final l10n = context.l10n;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: tone.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: tone.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              hasReview
-                  ? Icons.mark_email_unread_outlined
-                  : Icons.task_alt_outlined,
-              color: accent,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  hasReview
-                      ? '$count ${l10n.t('home.repliesNeedReview')}'
-                      : l10n.t('home.inboxUnderControl'),
-                  style: TextStyle(
-                    color: tone.text,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  hasReview
-                      ? l10n.t('home.openReview')
-                      : l10n.t('home.newUnreadAppear'),
-                  style: TextStyle(
-                    color: tone.muted,
-                    fontSize: 13,
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _KPIGrid extends StatelessWidget {
   const _KPIGrid({
     required this.processedToday,
@@ -478,6 +403,14 @@ class _KPIGrid extends StatelessWidget {
 
       children: [
         _KPICard(
+          title: l10n.t('home.needReview'),
+          value: needReview.toString(),
+          color: const Color(0xFFE5484D),
+          icon: Icons.warning_amber_rounded,
+          pulse: needReview > 0,
+        ),
+
+        _KPICard(
           title: l10n.t('home.processedToday'),
           value: processedToday.toString(),
           color: AppPalette.deepTeal,
@@ -489,13 +422,6 @@ class _KPIGrid extends StatelessWidget {
           value: autoSent.toString(),
           color: AppPalette.blue,
           icon: Icons.send_outlined,
-        ),
-
-        _KPICard(
-          title: l10n.t('home.needReview'),
-          value: needReview.toString(),
-          color: AppPalette.clay,
-          icon: Icons.rate_review_outlined,
         ),
 
         _KPICard(
@@ -515,12 +441,14 @@ class _KPICard extends StatelessWidget {
     required this.value,
     required this.color,
     required this.icon,
+    this.pulse = false,
   });
 
   final String title;
   final String value;
   final Color color;
   final IconData icon;
+  final bool pulse;
 
   @override
   Widget build(BuildContext context) {
@@ -543,7 +471,10 @@ class _KPICard extends StatelessWidget {
               color: color.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 19, color: color),
+            child:
+                pulse
+                    ? _UrgentKPIIcon(icon: icon, color: color)
+                    : Icon(icon, size: 19, color: color),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -578,6 +509,69 @@ class _KPICard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _UrgentKPIIcon extends StatefulWidget {
+  const _UrgentKPIIcon({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  State<_UrgentKPIIcon> createState() => _UrgentKPIIconState();
+}
+
+class _UrgentKPIIconState extends State<_UrgentKPIIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  late final Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1050),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(
+      begin: 0.92,
+      end: 1.12,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _glow = Tween<double>(
+      begin: 0.18,
+      end: 0.42,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: _glow.value),
+                blurRadius: 12,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Transform.scale(scale: _scale.value, child: child),
+        );
+      },
+      child: Icon(widget.icon, size: 20, color: widget.color),
     );
   }
 }
