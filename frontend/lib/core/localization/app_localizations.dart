@@ -221,6 +221,11 @@ const Map<String, String> _english = {
       '{count} sessions found for the selected month.',
   'formations.calendarYear': 'Year',
   'formations.calendarMonth': 'Month',
+  'formations.pickMonth': 'Choose month',
+  'formations.previousMonth': 'Previous month',
+  'formations.nextMonth': 'Next month',
+  'formations.calendarSelectionSummary':
+      '{month}: {monthCount} sessions. {year}: {yearCount} sessions.',
   'formations.calendarPageSummary': '{start}-{end} of {total}',
   'formations.previousPage': 'Previous page',
   'formations.nextPage': 'Next page',
@@ -620,6 +625,11 @@ const Map<String, String> _french = {
       '{count} sessions trouvees pour le mois selectionne.',
   'formations.calendarYear': 'Annee',
   'formations.calendarMonth': 'Mois',
+  'formations.pickMonth': 'Choisir le mois',
+  'formations.previousMonth': 'Mois precedent',
+  'formations.nextMonth': 'Mois suivant',
+  'formations.calendarSelectionSummary':
+      '{month} : {monthCount} sessions. {year} : {yearCount} sessions.',
   'formations.calendarPageSummary': '{start}-{end} sur {total}',
   'formations.previousPage': 'Page precedente',
   'formations.nextPage': 'Page suivante',
