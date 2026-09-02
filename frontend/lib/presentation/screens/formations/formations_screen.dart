@@ -1534,6 +1534,7 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
   }) async {
     final picked = await showModalBottomSheet<DateTime>(
       context: context,
+      isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder:
@@ -1783,109 +1784,113 @@ class _CalendarMonthPickerSheetState extends State<_CalendarMonthPickerSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final tone = widget.tone;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.86;
 
     return Container(
+      constraints: BoxConstraints(maxHeight: maxHeight),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       decoration: BoxDecoration(
         color: tone.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(top: BorderSide(color: tone.border)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: tone.border,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            l10n.t('formations.pickMonth'),
-            style: TextStyle(
-              color: tone.text,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.t('formations.calendarYear'),
-            style: TextStyle(
-              color: tone.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (var year = widget.minYear; year <= widget.maxYear; year++)
-                _CalendarYearChip(
-                  year: year,
-                  count: _sessionsForYear(widget.sessions, year).length,
-                  selected: year == _year,
-                  tone: tone,
-                  onTap: () => setState(() => _year = year),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            l10n.t('formations.calendarMonth'),
-            style: TextStyle(
-              color: tone.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (var month = 1; month <= 12; month++)
-                _CalendarMonthChip(
-                  month: DateTime(_year, month),
-                  count:
-                      _sessionsForMonth(
-                        widget.sessions,
-                        DateTime(_year, month),
-                      ).length,
-                  selected: month == _month,
-                  tone: tone,
-                  onTap: () => setState(() => _month = month),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(l10n.t('settings.cancel')),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: tone.border,
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  onPressed:
-                      () => Navigator.pop(context, DateTime(_year, _month)),
-                  child: Text(l10n.t('formations.save')),
-                ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              l10n.t('formations.pickMonth'),
+              style: TextStyle(
+                color: tone.text,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.t('formations.calendarYear'),
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var year = widget.minYear; year <= widget.maxYear; year++)
+                  _CalendarYearChip(
+                    year: year,
+                    count: _sessionsForYear(widget.sessions, year).length,
+                    selected: year == _year,
+                    tone: tone,
+                    onTap: () => setState(() => _year = year),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              l10n.t('formations.calendarMonth'),
+              style: TextStyle(
+                color: tone.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var month = 1; month <= 12; month++)
+                  _CalendarMonthChip(
+                    month: DateTime(_year, month),
+                    count:
+                        _sessionsForMonth(
+                          widget.sessions,
+                          DateTime(_year, month),
+                        ).length,
+                    selected: month == _month,
+                    tone: tone,
+                    onTap: () => setState(() => _month = month),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(l10n.t('settings.cancel')),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed:
+                        () => Navigator.pop(context, DateTime(_year, _month)),
+                    child: Text(l10n.t('formations.save')),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1914,7 +1919,7 @@ class _CalendarYearChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        width: 96,
+        width: 116,
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
@@ -1998,7 +2003,7 @@ class _CalendarMonthChip extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                _formatMonthLabel(context, month),
+                _formatMonthOnlyLabel(context, month),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -4733,32 +4738,17 @@ List<TrainingCalendarSession> _sortSessionsByDate(
   return sorted;
 }
 
-int _defaultCalendarYear(List<TrainingCalendarSession> sessions) {
-  const preferredYear = 2026;
-  if (sessions.any(
-    (session) => _parsePlanningDate(session.startDate)?.year == preferredYear,
-  )) {
-    return preferredYear;
-  }
-  for (final session in sessions) {
-    final year = _parsePlanningDate(session.startDate)?.year;
-    if (year != null && year >= 2024 && year <= 2027) return year;
-  }
-  return preferredYear;
+int _defaultCalendarYear(List<TrainingCalendarSession> _) {
+  final currentYear = DateTime.now().year.clamp(2024, 2027).toInt();
+  return currentYear;
 }
 
 int _defaultCalendarMonthNumber(
   List<TrainingCalendarSession> sessions,
   int year,
 ) {
-  const preferredMonth = 5;
-  if (year == 2026 &&
-      sessions.any((session) {
-        final start = _parsePlanningDate(session.startDate);
-        return start?.year == year && start?.month == preferredMonth;
-      })) {
-    return preferredMonth;
-  }
+  final now = DateTime.now();
+  if (year == now.year) return now.month;
   final yearSessions = _sessionsForYear(sessions, year);
   if (yearSessions.isEmpty) return 1;
   final firstDate = _parsePlanningDate(yearSessions.first.startDate);
@@ -4802,6 +4792,10 @@ bool _sameMonth(DateTime? left, DateTime? right) {
 }
 
 String _formatMonthLabel(BuildContext context, DateTime date) {
+  return '${_formatMonthOnlyLabel(context, date)} ${date.year}';
+}
+
+String _formatMonthOnlyLabel(BuildContext context, DateTime date) {
   final monthKeys = const [
     'date.jan',
     'date.feb',
@@ -4816,7 +4810,7 @@ String _formatMonthLabel(BuildContext context, DateTime date) {
     'date.nov',
     'date.dec',
   ];
-  return '${context.l10n.t(monthKeys[date.month - 1])} ${date.year}';
+  return context.l10n.t(monthKeys[date.month - 1]);
 }
 
 String _formatSessionDateRange(
