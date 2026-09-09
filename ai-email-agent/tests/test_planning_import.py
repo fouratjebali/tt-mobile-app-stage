@@ -1142,8 +1142,8 @@ def test_french_training_agent_marks_draft_as_needing_contacts(tmp_path):
             [
                 "S5",
                 "Sécurité des échanges",
-                "2026-09-04",
-                "2026-09-05",
+                "2026-10-04",
+                "2026-10-05",
                 "Tunis",
                 "99999",
                 "BEN SALEM Amira",
