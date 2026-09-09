@@ -150,4 +150,6 @@ def _to_user_response(user) -> UserResponse:
         email=user.email,
         display_name=user.display_name,
         photo_url=user.photo_url,
+        role=user.role,
+        is_active=user.is_active,
     )

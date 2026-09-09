@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models.auth import AuthSession, User
+from app.models.auth import AuthSession, User, UserRole
 from app.models.email import Email, Stat
 from app.models.notification import UserNotification
 
@@ -39,6 +39,72 @@ class AuthRepository:
 
     def get_user_by_email(self, email: str) -> User | None:
         return self._db.scalar(select(User).where(User.email == email))
+
+    def get_user_by_id(self, user_id: str) -> User | None:
+        return self._db.get(User, user_id)
+
+    def list_users(
+        self,
+        *,
+        search: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[User], int]:
+        clauses = []
+        if search:
+            pattern = f"%{search.strip()}%"
+            clauses.append(
+                or_(
+                    User.email.ilike(pattern),
+                    User.display_name.ilike(pattern),
+                )
+            )
+
+        statement = select(User)
+        count_statement = select(func.count(User.id))
+        if clauses:
+            statement = statement.where(*clauses)
+            count_statement = count_statement.where(*clauses)
+
+        total = int(self._db.scalar(count_statement) or 0)
+        users = list(
+            self._db.scalars(
+                statement.order_by(desc(User.created_at)).limit(limit).offset(offset)
+            )
+        )
+        return users, total
+
+    def update_user_role(self, *, user_id: str, role: UserRole) -> User | None:
+        user = self.get_user_by_id(user_id)
+        if user is None:
+            return None
+
+        user.role = role.value
+        self._db.commit()
+        self._db.refresh(user)
+        return user
+
+    def update_user_active_state(self, *, user_id: str, is_active: bool) -> User | None:
+        user = self.get_user_by_id(user_id)
+        if user is None:
+            return None
+
+        user.is_active = is_active
+        self._db.commit()
+        self._db.refresh(user)
+        return user
+
+    def promote_configured_admin(self, user: User, admin_emails: set[str]) -> User:
+        if user.email.strip().lower() not in admin_emails:
+            return user
+        if user.role == UserRole.ADMIN.value and user.is_active:
+            return user
+
+        user.role = UserRole.ADMIN.value
+        user.is_active = True
+        self._db.commit()
+        self._db.refresh(user)
+        return user
 
     def create_session(
         self,

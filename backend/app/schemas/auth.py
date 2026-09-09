@@ -21,6 +21,8 @@ class UserResponse(BaseModel):
     email: str = "user@example.com"
     display_name: str | None = None
     photo_url: str | None = None
+    role: str = "user"
+    is_active: bool = True
 
 
 class AuthResponse(BaseModel):

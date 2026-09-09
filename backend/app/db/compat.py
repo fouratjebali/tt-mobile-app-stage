@@ -4,7 +4,10 @@ from sqlalchemy.engine import Engine
 
 def ensure_email_workflow_schema(engine: Engine) -> None:
     inspector = inspect(engine)
-    if "emails" not in inspector.get_table_names():
+    table_names = inspector.get_table_names()
+    if "users" in table_names:
+        _ensure_user_role_schema(engine)
+    if "emails" not in table_names:
         return
 
     columns = {column["name"]: column for column in inspector.get_columns("emails")}
@@ -97,4 +100,26 @@ def ensure_email_workflow_schema(engine: Engine) -> None:
                 "CREATE INDEX IF NOT EXISTS ix_emails_received_at "
                 "ON emails (received_at)"
             )
+        )
+
+
+def _ensure_user_role_schema(engine: Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                "role VARCHAR(50) NOT NULL DEFAULT 'user'"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                "is_active BOOLEAN NOT NULL DEFAULT true"
+            )
+        )
+        connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_users_role ON users (role)")
+        )
+        connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_users_is_active ON users (is_active)")
         )

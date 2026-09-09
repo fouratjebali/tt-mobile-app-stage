@@ -27,6 +27,10 @@ def create_app() -> FastAPI:
                 "description": "Microsoft OAuth login, session validation, refresh and logout.",
             },
             {
+                "name": "admin",
+                "description": "Admin dashboard identity, roles and user management.",
+            },
+            {
                 "name": "email",
                 "description": "Mobile email workflows: today inbox, review queue, details and replies.",
             },

@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     GOOGLE_OAUTH_SERVER_CLIENT_ID: str = ""
     MICROSOFT_CLIENT_ID: str = ""
     MICROSOFT_TENANT_ID: str = "common"
+    ADMIN_EMAILS: str = ""
 
     HTTP_TIMEOUT_SECONDS: float = 120.0
     HEALTHCHECK_TIMEOUT_SECONDS: float = 4.0

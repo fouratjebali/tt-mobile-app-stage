@@ -27,6 +27,10 @@ class AuthService:
             display_name=profile.get("name"),
             photo_url=profile.get("picture"),
         )
+        user = self._repository.promote_configured_admin(
+            user,
+            _configured_admin_emails(),
+        )
 
         session_token = token_urlsafe(48)
         self._repository.create_session(
@@ -62,6 +66,10 @@ class AuthService:
             display_name=profile.get("displayName"),
             photo_url=self._fetch_microsoft_photo_data_uri(request.access_token),
         )
+        user = self._repository.promote_configured_admin(
+            user,
+            _configured_admin_emails(),
+        )
         if should_reset_mailbox_cache:
             self._repository.clear_mailbox_cache(user)
 
@@ -90,6 +98,11 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Please connect your Outlook account.",
+            )
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This account is disabled.",
             )
         return user
 
@@ -200,3 +213,11 @@ class AuthService:
 
 def _is_microsoft_user(user: User) -> bool:
     return str(user.google_sub or "").startswith("microsoft:")
+
+
+def _configured_admin_emails() -> set[str]:
+    return {
+        email.strip().lower()
+        for email in settings.ADMIN_EMAILS.split(",")
+        if email.strip()
+    }

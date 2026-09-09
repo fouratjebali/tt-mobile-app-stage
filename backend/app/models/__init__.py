@@ -1,5 +1,5 @@
 from app.models.app_settings import AppSettings
-from app.models.auth import AuthSession, User
+from app.models.auth import AuthSession, User, UserRole
 from app.models.dashboard_stats import DashboardStats
 from app.models.email import (
     Email,
@@ -23,6 +23,7 @@ __all__ = [
     "JuryVerdict",
     "Stat",
     "User",
+    "UserRole",
     "UserSetting",
     "UserNotification",
 ]
