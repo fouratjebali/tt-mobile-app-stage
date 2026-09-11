@@ -16,6 +16,11 @@ class MicrosoftAuthRequest(BaseModel):
     expires_at: datetime | None = None
 
 
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 class UserResponse(BaseModel):
     id: str = "user-id"
     email: str = "user@example.com"

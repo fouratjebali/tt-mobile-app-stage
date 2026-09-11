@@ -7,6 +7,7 @@ from app.api.dependencies import get_bearer_token, get_current_user
 from app.db.session import get_db
 from app.models.auth import User
 from app.schemas.auth import (
+    AdminLoginRequest,
     AuthResponse,
     GmailAuthUrlResponse,
     MicrosoftAuthRequest,
@@ -49,6 +50,20 @@ def sign_in_with_microsoft(
     db: Session = Depends(get_db),
 ) -> AuthResponse:
     user, session_token = AuthService(db).sign_in_with_microsoft(request)
+    return AuthResponse(session_token=session_token, user=_to_user_response(user))
+
+
+@router.post(
+    "/admin/login",
+    response_model=AuthResponse,
+    summary="Admin username and password login",
+    description="Authenticates a preset dashboard admin stored in the database.",
+)
+def sign_in_with_admin_credentials(
+    request: AdminLoginRequest,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    user, session_token = AuthService(db).sign_in_with_admin_credentials(request)
     return AuthResponse(session_token=session_token, user=_to_user_response(user))
 
 

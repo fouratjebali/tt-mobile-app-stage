@@ -23,7 +23,7 @@ from app.api.v1.routes.admin import (  # noqa: E402
 from app.core.config import Settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.models.audit import AuditLog  # noqa: E402
-from app.models.auth import AuthSession, User, UserRole  # noqa: E402
+from app.models.auth import AdminCredential, AuthSession, User, UserRole  # noqa: E402
 from app.repositories.auth_repository import AuthRepository  # noqa: E402
 from app.schemas.admin import (  # noqa: E402
     UpdateAdminUserActiveRequest,
@@ -36,7 +36,12 @@ def _session():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(
         bind=engine,
-        tables=[User.__table__, AuthSession.__table__, AuditLog.__table__],
+        tables=[
+            User.__table__,
+            AuthSession.__table__,
+            AdminCredential.__table__,
+            AuditLog.__table__,
+        ],
     )
     session_factory = sessionmaker(bind=engine)
     return session_factory()
@@ -67,12 +72,14 @@ def test_standard_admin_api_prefix_contract():
 
 
 def test_admin_audit_log_routes_are_exposed():
-    from app.api.v1.routes import admin
+    from app.api.v1.routes import admin, auth
 
     route_paths = {f"/admin{route.path}" for route in admin.router.routes}
+    auth_route_paths = {f"/auth{route.path}" for route in auth.router.routes}
 
     assert "/admin/audit-logs" in route_paths
     assert "/admin/audit-logs/{log_id}" in route_paths
+    assert "/auth/admin/login" in auth_route_paths
 
 
 def test_configured_admin_email_is_promoted():
@@ -93,6 +100,38 @@ def test_configured_admin_email_is_promoted():
 
         assert promoted.role == UserRole.ADMIN.value
         assert promoted.is_active is True
+    finally:
+        db.close()
+
+
+def test_preset_admin_credentials_login_creates_admin_session():
+    db = _session()
+    try:
+        repository = AuthRepository(db)
+        repository.upsert_admin_credential(
+            username="admin",
+            password="secret-password",
+            email="dashboard@tunisietelecom.tn",
+            display_name="Dashboard Admin",
+        )
+
+        user, session_token = AuthService(db).sign_in_with_admin_credentials(
+            SimpleNamespace(username="admin", password="secret-password")
+        )
+
+        assert user.email == "dashboard@tunisietelecom.tn"
+        assert user.role == UserRole.ADMIN.value
+        assert session_token
+        assert get_current_admin_manager(
+            AuthService(db).get_current_user(session_token)
+        ).email == "dashboard@tunisietelecom.tn"
+        assert repository.get_admin_credential("admin").last_login_at is not None
+
+        with pytest.raises(HTTPException) as exc:
+            AuthService(db).sign_in_with_admin_credentials(
+                SimpleNamespace(username="admin", password="bad-password")
+            )
+        assert exc.value.status_code == 401
     finally:
         db.close()
 

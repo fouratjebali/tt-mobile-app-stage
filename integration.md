@@ -19,29 +19,39 @@ Authorization: Bearer <backend_session_token>
 
 ## Login And Admin Roles
 
-The app uses Microsoft/Outlook auth.
+The admin dashboard uses preset username/password credentials stored in the backend database.
 
-1. Angular must run Microsoft OAuth and obtain a Microsoft `access_token`.
-2. Send the token to:
+Angular login should call:
 
 ```http
-POST /api/v1/auth/microsoft
+POST /api/v1/auth/admin/login
 ```
 
 Body:
 
 ```json
 {
-  "access_token": "<microsoft_access_token>",
-  "id_token": "<optional_id_token>",
-  "refresh_token": "<optional_refresh_token>",
-  "expires_at": "2026-09-11T12:00:00Z"
+  "username": "admin",
+  "password": "<admin_password>"
 }
 ```
 
 The response returns `session_token`. Store it securely and use it as the Bearer token.
 
-Admin access is controlled in the backend database table `users`:
+The mobile app still uses Microsoft/Outlook auth through:
+
+```http
+POST /api/v1/auth/microsoft
+```
+
+Do not use Microsoft OAuth as the main dashboard login unless the project owner asks for SSO later.
+
+Admin access is controlled by two backend DB tables:
+
+- `admin_credentials`: preset admin username, hashed password, active state and login timestamp.
+- `users`: shared authenticated user identity, role and active state.
+
+Roles in `users`:
 
 - `role = "admin"`: full admin access, user management, audit logs.
 - `role = "reviewer"`: planning editor/reviewer access.
@@ -49,18 +59,25 @@ Admin access is controlled in the backend database table `users`:
 - `role = "user"`: normal mobile user, no dashboard access.
 - `is_active = true`: user can access the app.
 
-To bootstrap the first admin, either configure the backend env var:
+To bootstrap or rotate the preset dashboard admin, set these backend environment variables before starting the backend:
 
 ```env
-ADMIN_EMAILS=admin@tunisietelecom.tn
+ADMIN_DASHBOARD_USERNAME=admin
+ADMIN_DASHBOARD_PASSWORD=change-this-password
+ADMIN_DASHBOARD_EMAIL=dashboard.admin@tunisietelecom.tn
+ADMIN_DASHBOARD_DISPLAY_NAME=Dashboard Admin
 ```
 
-or update the DB after the user signs in once:
+On startup, the backend creates or updates the `admin_credentials` row and the linked `users` row. The password is hashed in the DB; never store or display the plain password in Angular.
+
+Manual DB fallback:
 
 ```sql
+-- Use the backend seeding env vars above whenever possible.
+-- If manual repair is needed, update the linked users row only:
 UPDATE users
 SET role = 'admin', is_active = true
-WHERE email = 'admin@tunisietelecom.tn';
+WHERE email = 'dashboard.admin@tunisietelecom.tn';
 ```
 
 Use `POST /api/v1/auth/refresh` or `GET /api/v1/auth/me` to validate an existing session.
@@ -69,6 +86,9 @@ Use `POST /api/v1/auth/refresh` or `GET /api/v1/auth/me` to validate an existing
 
 Use these for dashboard shell and access control:
 
+- `POST /api/v1/auth/admin/login`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/auth/logout`
 - `GET /api/v1/admin/me`
 - `GET /api/v1/admin/overview`
 - `GET /api/v1/admin/users?search=&limit=&offset=`
@@ -251,6 +271,7 @@ Angular must talk only to the backend APIs. The backend connects to the DB throu
 Important backend DB tables:
 
 - `users`: auth users, roles, active state.
+- `admin_credentials`: preset dashboard admin username and hashed password.
 - `auth_sessions`: backend Bearer sessions.
 - `audit_logs`: admin action history.
 - email workflow tables: `emails`, `email_responses`, `email_analyses`, `jury_verdicts`.
@@ -260,7 +281,9 @@ Planning data is currently stored by `ai-email-agent` in its planning DB through
 ## Angular Pages To Build
 
 1. Login page
-   - Microsoft login button.
+   - Username input.
+   - Password input.
+   - Submit to `POST /api/v1/auth/admin/login`.
    - Redirect authenticated admins to the dashboard.
 
 2. Admin layout

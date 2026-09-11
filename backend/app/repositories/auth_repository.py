@@ -1,9 +1,12 @@
-from datetime import datetime
+from datetime import UTC, datetime
+from hashlib import pbkdf2_hmac
+from hmac import compare_digest
+from secrets import token_bytes
 
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models.auth import AuthSession, User, UserRole
+from app.models.auth import AdminCredential, AuthSession, User, UserRole
 from app.models.email import Email, Stat
 from app.models.notification import UserNotification
 
@@ -42,6 +45,88 @@ class AuthRepository:
 
     def get_user_by_id(self, user_id: str) -> User | None:
         return self._db.get(User, user_id)
+
+    def upsert_admin_credential(
+        self,
+        *,
+        username: str,
+        password: str,
+        email: str,
+        display_name: str,
+    ) -> AdminCredential:
+        cleaned_username = _normalize_username(username)
+        if not cleaned_username:
+            raise ValueError("Admin username is required.")
+        if not password:
+            raise ValueError("Admin password is required.")
+
+        cleaned_email = email.strip().lower() or f"{cleaned_username}@local.admin"
+        user = self._db.scalar(
+            select(User).where(User.google_sub == f"admin:{cleaned_username}")
+        )
+        if user is None:
+            user = self._db.scalar(select(User).where(User.email == cleaned_email))
+            if user is None:
+                user = User(
+                    google_sub=f"admin:{cleaned_username}",
+                    email=cleaned_email,
+                )
+                self._db.add(user)
+            else:
+                user.google_sub = f"admin:{cleaned_username}"
+
+        user.email = cleaned_email
+        user.display_name = display_name.strip() or "Dashboard Admin"
+        user.role = UserRole.ADMIN.value
+        user.is_active = True
+        self._db.flush()
+
+        credential = self._db.scalar(
+            select(AdminCredential).where(AdminCredential.username == cleaned_username)
+        )
+        if credential is None:
+            credential = AdminCredential(
+                user_id=user.id,
+                username=cleaned_username,
+                password_hash=_hash_password(password),
+                is_active=True,
+            )
+            self._db.add(credential)
+        else:
+            credential.user_id = user.id
+            credential.password_hash = _hash_password(password)
+            credential.is_active = True
+
+        self._db.commit()
+        self._db.refresh(credential)
+        return credential
+
+    def get_admin_credential(self, username: str) -> AdminCredential | None:
+        cleaned_username = _normalize_username(username)
+        if not cleaned_username:
+            return None
+        return self._db.scalar(
+            select(AdminCredential).where(AdminCredential.username == cleaned_username)
+        )
+
+    def verify_admin_credentials(
+        self,
+        *,
+        username: str,
+        password: str,
+    ) -> User | None:
+        credential = self.get_admin_credential(username)
+        if credential is None or not credential.is_active:
+            return None
+        if not _verify_password(password, credential.password_hash):
+            return None
+        if credential.user is None or not credential.user.is_active:
+            return None
+
+        credential.last_login_at = datetime.now(tz=UTC)
+        self._db.commit()
+        self._db.refresh(credential.user)
+        return credential.user
 
     def list_users(
         self,
@@ -176,3 +261,29 @@ class AuthRepository:
 
         self._db.delete(session)
         self._db.commit()
+
+
+def _normalize_username(username: str) -> str:
+    return str(username or "").strip().lower()
+
+
+def _hash_password(password: str) -> str:
+    salt = token_bytes(16)
+    iterations = 260_000
+    digest = pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return f"pbkdf2_sha256${iterations}${salt.hex()}${digest.hex()}"
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        algorithm, iterations_text, salt_hex, digest_hex = stored_hash.split("$", 3)
+        iterations = int(iterations_text)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(digest_hex)
+    except (ValueError, TypeError):
+        return False
+    if algorithm != "pbkdf2_sha256":
+        return False
+
+    actual = pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return compare_digest(actual, expected)

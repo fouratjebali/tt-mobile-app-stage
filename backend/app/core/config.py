@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     MICROSOFT_CLIENT_ID: str = ""
     MICROSOFT_TENANT_ID: str = "common"
     ADMIN_EMAILS: str = ""
+    ADMIN_DASHBOARD_USERNAME: str = ""
+    ADMIN_DASHBOARD_PASSWORD: str = ""
+    ADMIN_DASHBOARD_EMAIL: str = ""
+    ADMIN_DASHBOARD_DISPLAY_NAME: str = "Dashboard Admin"
 
     HTTP_TIMEOUT_SECONDS: float = 120.0
     HEALTHCHECK_TIMEOUT_SECONDS: float = 4.0

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.auth import User
 from app.repositories.auth_repository import AuthRepository
-from app.schemas.auth import GoogleAuthRequest, MicrosoftAuthRequest
+from app.schemas.auth import AdminLoginRequest, GoogleAuthRequest, MicrosoftAuthRequest
 
 
 class AuthService:
@@ -85,6 +85,32 @@ class AuthService:
         )
         return user, session_token
 
+    def sign_in_with_admin_credentials(
+        self,
+        request: AdminLoginRequest,
+    ) -> tuple[User, str]:
+        user = self._repository.verify_admin_credentials(
+            username=request.username,
+            password=request.password,
+        )
+        if user is None or user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid admin username or password.",
+            )
+
+        session_token = token_urlsafe(48)
+        self._repository.delete_sessions_for_user(user)
+        self._repository.create_session(
+            user=user,
+            session_token_hash=self._hash_token(session_token),
+            google_access_token="",
+            google_id_token=None,
+            google_refresh_token=None,
+            expires_at=None,
+        )
+        return user, session_token
+
     def get_current_user(self, session_token: str) -> User:
         user = self._repository.get_user_by_session_hash(
             self._hash_token(session_token)
@@ -94,10 +120,10 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired session.",
             )
-        if not _is_microsoft_user(user):
+        if not _is_supported_session_user(user):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Please connect your Outlook account.",
+                detail="Please connect with Outlook or admin credentials.",
             )
         if not user.is_active:
             raise HTTPException(
@@ -211,8 +237,9 @@ class AuthService:
         return datetime.fromtimestamp(expiry, tz=UTC)
 
 
-def _is_microsoft_user(user: User) -> bool:
-    return str(user.google_sub or "").startswith("microsoft:")
+def _is_supported_session_user(user: User) -> bool:
+    subject = str(user.google_sub or "")
+    return subject.startswith("microsoft:") or subject.startswith("admin:")
 
 
 def _configured_admin_emails() -> set[str]:
