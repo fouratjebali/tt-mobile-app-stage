@@ -14,6 +14,10 @@ ADMIN_PORTAL_ROLES = {
     UserRole.VIEWER.value,
 }
 ADMIN_MANAGER_ROLES = {UserRole.ADMIN.value}
+ADMIN_PLANNING_EDITOR_ROLES = {
+    UserRole.ADMIN.value,
+    UserRole.REVIEWER.value,
+}
 
 
 def get_bearer_token(authorization: Annotated[str, Header()] = "") -> str:
@@ -53,6 +57,17 @@ def get_current_admin_manager(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator role is required.",
+        )
+    return user
+
+
+def get_current_admin_planning_editor(
+    user: Annotated[User, Depends(get_current_admin_user)],
+) -> User:
+    if _normalized_role(user) not in ADMIN_PLANNING_EDITOR_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Planning reviewer or administrator role is required.",
         )
     return user
 

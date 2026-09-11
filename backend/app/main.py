@@ -31,6 +31,10 @@ def create_app() -> FastAPI:
                 "description": "Admin dashboard identity, roles and user management.",
             },
             {
+                "name": "admin-planning",
+                "description": "Admin dashboard training planning management endpoints.",
+            },
+            {
                 "name": "email",
                 "description": "Mobile email workflows: today inbox, review queue, details and replies.",
             },

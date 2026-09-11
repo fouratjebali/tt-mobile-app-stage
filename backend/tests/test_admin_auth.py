@@ -11,6 +11,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 import app.models  # noqa: E402,F401
 from app.api.dependencies import (  # noqa: E402
     get_current_admin_manager,
+    get_current_admin_planning_editor,
     get_current_admin_user,
 )
 from app.api.v1.routes.admin import update_user_active_state, update_user_role  # noqa: E402
@@ -115,6 +116,8 @@ def test_admin_dependencies_enforce_roles():
     assert get_current_admin_user(admin) is admin
     assert get_current_admin_user(reviewer) is reviewer
     assert get_current_admin_manager(admin) is admin
+    assert get_current_admin_planning_editor(admin) is admin
+    assert get_current_admin_planning_editor(reviewer) is reviewer
 
     with pytest.raises(HTTPException) as user_exc:
         get_current_admin_user(regular_user)
@@ -123,6 +126,10 @@ def test_admin_dependencies_enforce_roles():
     with pytest.raises(HTTPException) as reviewer_exc:
         get_current_admin_manager(reviewer)
     assert reviewer_exc.value.status_code == 403
+
+    with pytest.raises(HTTPException) as editor_exc:
+        get_current_admin_planning_editor(regular_user)
+    assert editor_exc.value.status_code == 403
 
 
 def test_admin_cannot_remove_own_role_or_disable_self():

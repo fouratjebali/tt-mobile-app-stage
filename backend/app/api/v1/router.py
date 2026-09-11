@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from app.api.dependencies import get_current_user
 from app.api.v1.routes import (
     admin,
+    admin_planning,
     agent,
     auth,
     bulk,
@@ -21,6 +22,11 @@ api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(admin.router, prefix=settings.ADMIN_API_PREFIX, tags=["admin"])
+api_router.include_router(
+    admin_planning.router,
+    prefix=f"{settings.ADMIN_API_PREFIX}/planning",
+    tags=["admin-planning"],
+)
 api_router.include_router(
     email.router,
     prefix="/email",
