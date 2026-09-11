@@ -252,6 +252,115 @@ def test_training_draft_can_be_regenerated_in_place(tmp_path):
     assert regenerated["metadata"]["previous_status"] == "EDITED"
 
 
+def test_training_draft_review_summary_and_bulk_actions(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Cabinet",
+                "Formateur",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Email",
+                "Grande residence",
+                "Resp RH",
+                "Email Resp RH",
+            ],
+            [
+                "S31",
+                "Securite SI",
+                "TT Formation",
+                "Anouar ALAYA",
+                "2026-10-10",
+                "2026-10-11",
+                "Tunis",
+                "10001",
+                "AMRI Salma",
+                "salma.amri@tunisietelecom.tn",
+                "Direction Centrale des Services",
+                "Responsable RH Services",
+                "rh.services@tunisietelecom.tn",
+            ],
+            [
+                "S31",
+                "Securite SI",
+                "TT Formation",
+                "Anouar ALAYA",
+                "2026-10-10",
+                "2026-10-11",
+                "Tunis",
+                "10002",
+                "TRABELSI Karim",
+                "karim.trabelsi@tunisietelecom.tn",
+                "Direction Regionale Gabes",
+                "Responsable RH Gabes",
+                "rh.gabes@tunisietelecom.tn",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    import_id = import_response.json()["import_id"]
+    generated = client.post(
+        "/planning/drafts/generate",
+        json={"import_id": import_id, "email_type": "confirmation_presence"},
+    ).json()["drafts"]
+    draft_ids = [draft["id"] for draft in generated]
+
+    review_response = client.get(
+        "/planning/drafts/review",
+        params={"import_id": import_id, "draft_status": "WAITING_REVIEW"},
+    )
+    assert review_response.status_code == 200
+    review = review_response.json()
+    assert review["summary"]["waiting_review"] == 2
+    assert review["summary"]["needs_action"] == 2
+    assert review["count"] == 2
+
+    approve_response = client.post(
+        "/planning/drafts/bulk-action",
+        json={"draft_ids": [draft_ids[0], draft_ids[0], draft_ids[1], 999], "action": "approve"},
+    )
+
+    assert approve_response.status_code == 200
+    approved = approve_response.json()
+    assert approved["status"] == "partial"
+    assert approved["requested"] == 3
+    assert approved["succeeded"] == 2
+    assert approved["failed"] == 1
+    assert {draft["status"] for draft in approved["drafts"]} == {"APPROVED"}
+    assert approved["errors"][0]["draft_id"] == 999
+
+    reject_response = client.post(
+        "/planning/drafts/bulk-action",
+        json={
+            "draft_ids": [draft_ids[0]],
+            "action": "reject",
+            "reason": "Envoyer plus tard",
+        },
+    )
+    assert reject_response.status_code == 200
+    rejected = reject_response.json()["drafts"][0]
+    assert rejected["status"] == "REJECTED"
+    assert rejected["metadata"]["rejection_reason"] == "Envoyer plus tard"
+
+
 def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
     from api import planning_import_service
 

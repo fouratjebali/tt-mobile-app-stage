@@ -643,6 +643,55 @@ class PlanningImportService:
             offset=offset,
         )
 
+    def get_training_draft_review(
+        self,
+        *,
+        import_id: str | None = None,
+        session_key: str | None = None,
+        status: str | None = None,
+        email_type: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        drafts = self.list_training_drafts(
+            import_id=import_id,
+            session_key=session_key,
+            status=status,
+            email_type=email_type,
+            limit=limit,
+            offset=offset,
+        )
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        safe_email_type = email_type.strip().lower() if email_type else None
+        counts = self.database.count_training_drafts_by_status(
+            import_id=safe_import_id,
+            session_key=session_key,
+            email_type=safe_email_type,
+        )
+        return {
+            "status": "ok",
+            "count": len(drafts),
+            "drafts": drafts,
+            "summary": {
+                "total": counts.get("TOTAL", 0),
+                "needs_action": counts.get("NEEDS_ACTION", 0),
+                "waiting_review": counts.get("WAITING_REVIEW", 0),
+                "edited": counts.get("EDITED", 0),
+                "needs_contacts": counts.get("NEEDS_CONTACTS", 0),
+                "approved": counts.get("APPROVED", 0),
+                "rejected": counts.get("REJECTED", 0),
+                "sent": counts.get("SENT", 0),
+            },
+            "filters": {
+                "import_id": safe_import_id or "",
+                "session_key": session_key or "",
+                "draft_status": status or "",
+                "email_type": safe_email_type or "",
+                "limit": limit,
+                "offset": offset,
+            },
+        }
+
     def list_training_send_logs(
         self,
         *,
@@ -730,6 +779,123 @@ class PlanningImportService:
     ) -> dict[str, Any] | None:
         return self.database.reject_training_draft(draft_id, reason=reason)
 
+    def bulk_review_training_drafts(
+        self,
+        *,
+        draft_ids: list[int],
+        action: str,
+        reason: str = "",
+        email_type: str = "auto",
+        include_population: bool = True,
+    ) -> dict[str, Any]:
+        normalized_action = action.strip().lower()
+        if normalized_action not in {"approve", "reject", "regenerate"}:
+            raise ValueError("Bulk action must be approve, reject or regenerate.")
+
+        results: list[dict[str, Any]] = []
+        errors: list[dict[str, Any]] = []
+        for draft_id in _unique_positive_ids(draft_ids):
+            try:
+                if normalized_action == "approve":
+                    draft = self.approve_training_draft(draft_id)
+                elif normalized_action == "reject":
+                    draft = self.reject_training_draft(draft_id, reason=reason)
+                else:
+                    draft = self.regenerate_training_draft(
+                        draft_id,
+                        email_type=email_type,
+                        include_population=include_population,
+                    )
+            except ValueError as exc:
+                errors.append({"draft_id": draft_id, "error": str(exc)})
+                continue
+
+            if draft is None:
+                errors.append(
+                    {
+                        "draft_id": draft_id,
+                        "error": f"Training draft {draft_id} not found.",
+                    }
+                )
+            else:
+                results.append(draft)
+
+        return _bulk_result(normalized_action, draft_ids, results, errors)
+
+    def bulk_send_training_drafts(
+        self,
+        *,
+        draft_ids: list[int],
+        outlook_sender: Any,
+        access_token: str,
+        confirmed: bool = False,
+        confirmed_draft_count: int | None = None,
+        confirmed_total_recipient_count: int | None = None,
+    ) -> dict[str, Any]:
+        unique_ids = _unique_positive_ids(draft_ids)
+        if not unique_ids:
+            raise ValueError("At least one valid training draft id is required.")
+        if not confirmed:
+            raise ValueError("Bulk send confirmation is required before sending drafts.")
+        if confirmed_draft_count != len(unique_ids):
+            raise ValueError("Draft confirmation count does not match the selected drafts.")
+
+        preflight_drafts: list[dict[str, Any]] = []
+        errors: list[dict[str, Any]] = []
+        for draft_id in unique_ids:
+            draft = self.get_training_draft(draft_id)
+            if draft is None:
+                errors.append(
+                    {
+                        "draft_id": draft_id,
+                        "error": f"Training draft {draft_id} not found.",
+                    }
+                )
+                continue
+            if draft["status"] != "APPROVED":
+                errors.append(
+                    {
+                        "draft_id": draft_id,
+                        "error": "Only approved training drafts can be sent.",
+                    }
+                )
+                continue
+            if not draft["recipients"]:
+                errors.append(
+                    {
+                        "draft_id": draft_id,
+                        "error": "A training draft needs at least one recipient before sending.",
+                    }
+                )
+                continue
+            preflight_drafts.append(draft)
+
+        if errors:
+            return _bulk_result("send", draft_ids, [], errors)
+
+        total_recipients = sum(len(draft["recipients"]) for draft in preflight_drafts)
+        if confirmed_total_recipient_count != total_recipients:
+            raise ValueError("Recipient confirmation count does not match the approved drafts.")
+
+        results = []
+        for draft in preflight_drafts:
+            try:
+                sent = self.send_training_draft(
+                    int(draft["id"]),
+                    outlook_sender=outlook_sender,
+                    access_token=access_token,
+                    confirmed=True,
+                    confirmed_recipient_count=len(draft["recipients"]),
+                    confirmed_subject=draft["subject"],
+                )
+            except Exception as exc:
+                errors.append({"draft_id": int(draft["id"]), "error": str(exc)})
+                continue
+            if sent is not None:
+                results.append(sent)
+
+        return _bulk_result("send", draft_ids, results, errors)
+
     def send_training_draft(
         self,
         draft_id: int,
@@ -778,3 +944,43 @@ class PlanningImportService:
             draft_id,
             provider_message_id=provider_message_id,
         )
+
+
+def _unique_positive_ids(values: list[int]) -> list[int]:
+    ids: list[int] = []
+    seen: set[int] = set()
+    for value in values:
+        try:
+            draft_id = int(value)
+        except (TypeError, ValueError):
+            continue
+        if draft_id <= 0 or draft_id in seen:
+            continue
+        ids.append(draft_id)
+        seen.add(draft_id)
+    return ids
+
+
+def _bulk_result(
+    action: str,
+    requested_ids: list[int],
+    drafts: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    succeeded = len(drafts)
+    failed = len(errors)
+    if succeeded and failed:
+        status = "partial"
+    elif failed:
+        status = "error"
+    else:
+        status = "ok"
+    return {
+        "status": status,
+        "action": action,
+        "requested": len(_unique_positive_ids(requested_ids)),
+        "succeeded": succeeded,
+        "failed": failed,
+        "drafts": drafts,
+        "errors": errors,
+    }

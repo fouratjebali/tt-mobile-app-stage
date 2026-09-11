@@ -181,3 +181,134 @@ def test_send_training_draft_uses_outlook_after_approval(tmp_path, monkeypatch):
     assert history[0]["recipient_email"] == "salim.mebili@tunisietelecom.tn"
     assert history[0]["status"] == "sent"
     assert history[0]["subject"] == sent_draft["subject"]
+
+
+def test_bulk_send_training_drafts_requires_confirmation_and_uses_outlook(
+    tmp_path,
+    monkeypatch,
+):
+    graph = FakeGraphClient()
+    configure_test_services(tmp_path, monkeypatch, graph)
+    session = api.outlook_session_store.create_session(
+        access_token="graph-access-token",
+        refresh_token="graph-refresh-token",
+        expires_at="2099-01-01T00:00:00+00:00",
+        user_id="user-1",
+        email="formation@tunisietelecom.tn",
+        display_name="Formation TT",
+    )
+    client = TestClient(api.app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Cabinet",
+                "Formateur",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Email",
+                "Grande residence",
+                "Resp RH",
+                "Email Resp RH",
+            ],
+            [
+                "S41",
+                "Cloud reseau",
+                "TT Formation",
+                "Maher ben Hassine",
+                "2026-10-20",
+                "2026-10-21",
+                "Salle El Ghazela",
+                "75266",
+                "BOUNEB Zied",
+                "zied.bouneb@tunisietelecom.tn",
+                "Direction Centrale des Reseaux",
+                "Salim Mebili",
+                "salim.mebili@tunisietelecom.tn",
+            ],
+            [
+                "S41",
+                "Cloud reseau",
+                "TT Formation",
+                "Maher ben Hassine",
+                "2026-10-20",
+                "2026-10-21",
+                "Salle El Ghazela",
+                "75478",
+                "BOU ALI Ali",
+                "ali.bouali@tunisietelecom.tn",
+                "Direction Regionale Sfax",
+                "Responsable RH Sfax",
+                "rh.sfax@tunisietelecom.tn",
+            ],
+        ]
+    )
+    import_id = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    ).json()["import_id"]
+    drafts = client.post(
+        "/planning/drafts/generate",
+        json={"import_id": import_id, "email_type": "confirmation_presence"},
+    ).json()["drafts"]
+    draft_ids = [draft["id"] for draft in drafts]
+
+    blocked_response = client.post(
+        "/planning/drafts/bulk-send",
+        headers={"Authorization": f"Bearer {session.session_token}"},
+        json={
+            "draft_ids": draft_ids,
+            "confirmed": True,
+            "confirmed_draft_count": len(draft_ids),
+            "confirmed_total_recipient_count": len(draft_ids),
+        },
+    )
+    assert blocked_response.status_code == 200
+    assert blocked_response.json()["status"] == "error"
+    assert graph.sent == []
+
+    approve_response = client.post(
+        "/planning/drafts/bulk-action",
+        json={"draft_ids": draft_ids, "action": "approve"},
+    )
+    assert approve_response.status_code == 200
+
+    mismatch_response = client.post(
+        "/planning/drafts/bulk-send",
+        headers={"Authorization": f"Bearer {session.session_token}"},
+        json={
+            "draft_ids": draft_ids,
+            "confirmed": True,
+            "confirmed_draft_count": len(draft_ids),
+            "confirmed_total_recipient_count": 99,
+        },
+    )
+    assert mismatch_response.status_code == 409
+
+    send_response = client.post(
+        "/planning/drafts/bulk-send",
+        headers={"Authorization": f"Bearer {session.session_token}"},
+        json={
+            "draft_ids": draft_ids,
+            "confirmed": True,
+            "confirmed_draft_count": len(draft_ids),
+            "confirmed_total_recipient_count": len(draft_ids),
+        },
+    )
+
+    assert send_response.status_code == 200
+    sent_payload = send_response.json()
+    assert sent_payload["status"] == "ok"
+    assert sent_payload["succeeded"] == 2
+    assert {draft["status"] for draft in sent_payload["drafts"]} == {"SENT"}
+    assert len(graph.sent) == 2

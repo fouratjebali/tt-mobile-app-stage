@@ -70,3 +70,18 @@ class AdminPlanningSendDraftRequest(BaseModel):
     confirmed: bool = False
     confirmed_recipient_count: int | None = Field(default=None, ge=0)
     confirmed_subject: str = ""
+
+
+class AdminPlanningBulkDraftActionRequest(BaseModel):
+    draft_ids: list[int] = Field(min_length=1, max_length=100)
+    action: str = Field(pattern="^(approve|reject|regenerate)$")
+    reason: str = ""
+    email_type: str = "auto"
+    include_population: bool = True
+
+
+class AdminPlanningBulkSendDraftsRequest(BaseModel):
+    draft_ids: list[int] = Field(min_length=1, max_length=50)
+    confirmed: bool = False
+    confirmed_draft_count: int | None = Field(default=None, ge=0)
+    confirmed_total_recipient_count: int | None = Field(default=None, ge=0)

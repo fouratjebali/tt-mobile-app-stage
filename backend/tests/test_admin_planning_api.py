@@ -11,6 +11,8 @@ from app.api.v1.routes import admin_planning  # noqa: E402
 from app.core.config import settings  # noqa: E402
 from app.schemas.admin_planning import (  # noqa: E402
     AdminPlanningAutomationSettingsRequest,
+    AdminPlanningBulkDraftActionRequest,
+    AdminPlanningBulkSendDraftsRequest,
     AdminPlanningGenerateDraftsRequest,
     AdminPlanningResponsableRequest,
     AdminPlanningSendDraftRequest,
@@ -62,6 +64,9 @@ def test_admin_planning_router_uses_standard_admin_prefix():
     assert "/admin/planning/imports" in route_paths
     assert "/admin/planning/sessions" in route_paths
     assert "/admin/planning/responsables" in route_paths
+    assert "/admin/planning/drafts/review" in route_paths
+    assert "/admin/planning/drafts/bulk-action" in route_paths
+    assert "/admin/planning/drafts/bulk-send" in route_paths
     assert "/admin/planning/drafts/{draft_id}/send" in route_paths
 
 
@@ -281,6 +286,89 @@ def test_admin_responsables_directory_routes_forward_filters_and_mutations():
         ),
         ("GET", "responsables/responsible:dir:kebili", None, None),
         ("DELETE", "responsables/responsible:dir:kebili", None, None),
+    ]
+
+
+def test_admin_draft_review_and_bulk_action_routes_forward_payloads():
+    gateway = FakePlanningGateway()
+    viewer = SimpleNamespace(role="viewer")
+    editor = SimpleNamespace(role="reviewer")
+
+    asyncio.run(
+        admin_planning.get_training_draft_review(
+            viewer,
+            gateway,
+            import_id="import-1",
+            session_key="session-1",
+            draft_status="WAITING_REVIEW,EDITED",
+            email_type="confirmation_presence",
+            limit=25,
+            offset=50,
+        )
+    )
+    asyncio.run(
+        admin_planning.bulk_review_training_drafts(
+            AdminPlanningBulkDraftActionRequest(
+                draft_ids=[1, 2, 2],
+                action="approve",
+            ),
+            editor,
+            gateway,
+        )
+    )
+    asyncio.run(
+        admin_planning.bulk_send_training_drafts(
+            AdminPlanningBulkSendDraftsRequest(
+                draft_ids=[1, 2],
+                confirmed=True,
+                confirmed_draft_count=2,
+                confirmed_total_recipient_count=2,
+            ),
+            editor,
+            gateway,
+            authorization="Bearer backend-session",
+        )
+    )
+
+    assert gateway.calls == [
+        (
+            "GET",
+            "drafts/review",
+            {
+                "import_id": "import-1",
+                "session_key": "session-1",
+                "draft_status": "WAITING_REVIEW,EDITED",
+                "email_type": "confirmation_presence",
+                "limit": 25,
+                "offset": 50,
+            },
+            None,
+        ),
+        (
+            "POST",
+            "drafts/bulk-action",
+            None,
+            {
+                "draft_ids": [1, 2, 2],
+                "action": "approve",
+                "reason": "",
+                "email_type": "auto",
+                "include_population": True,
+                "_auth": None,
+            },
+        ),
+        (
+            "POST",
+            "drafts/bulk-send",
+            None,
+            {
+                "draft_ids": [1, 2],
+                "confirmed": True,
+                "confirmed_draft_count": 2,
+                "confirmed_total_recipient_count": 2,
+                "_auth": "Bearer backend-session",
+            },
+        ),
     ]
 
 

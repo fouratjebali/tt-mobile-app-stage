@@ -9,6 +9,8 @@ from app.api.dependencies import (
 from app.models.auth import User
 from app.schemas.admin_planning import (
     AdminPlanningAutomationSettingsRequest,
+    AdminPlanningBulkDraftActionRequest,
+    AdminPlanningBulkSendDraftsRequest,
     AdminPlanningContactRequest,
     AdminPlanningGenerateDraftsRequest,
     AdminPlanningRegenerateDraftRequest,
@@ -503,6 +505,77 @@ async def list_training_drafts(
             "limit": limit,
             "offset": offset,
         },
+    )
+
+
+@router.get(
+    "/drafts/review",
+    summary="Get training draft review queue",
+    description="Lists training drafts with review summary counts for dashboard queues.",
+)
+async def get_training_draft_review(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+    import_id: str | None = Query(default=None),
+    session_key: str | None = Query(default=None),
+    draft_status: str | None = Query(default=None),
+    email_type: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> Any:
+    return await gateway.get(
+        "drafts/review",
+        params={
+            "import_id": import_id,
+            "session_key": session_key,
+            "draft_status": draft_status,
+            "email_type": email_type,
+            "limit": limit,
+            "offset": offset,
+        },
+    )
+
+
+@router.post(
+    "/drafts/bulk-action",
+    summary="Bulk review training drafts",
+    description="Approves, rejects or regenerates selected training email drafts.",
+)
+async def bulk_review_training_drafts(
+    request: AdminPlanningBulkDraftActionRequest,
+    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+) -> Any:
+    return await gateway.post_json(
+        "drafts/bulk-action",
+        request.model_dump(),
+    )
+
+
+@router.post(
+    "/drafts/bulk-send",
+    summary="Bulk send approved training drafts",
+    description="Sends selected approved drafts after dashboard safety confirmation.",
+)
+async def bulk_send_training_drafts(
+    request: AdminPlanningBulkSendDraftsRequest,
+    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+    authorization: Annotated[str | None, Header()] = None,
+) -> Any:
+    return await gateway.post_json(
+        "drafts/bulk-send",
+        request.model_dump(exclude_none=True),
+        authorization=authorization,
     )
 
 

@@ -1452,6 +1452,45 @@ class PlanningDatabase:
             ).fetchall()
             return [self._draft_row(row) for row in rows]
 
+    def count_training_drafts_by_status(
+        self,
+        *,
+        import_id: str | None = None,
+        session_key: str | None = None,
+        email_type: str | None = None,
+    ) -> dict[str, int]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if import_id:
+            clauses.append("import_id = ?")
+            params.append(import_id)
+        if session_key:
+            clauses.append("session_key = ?")
+            params.append(session_key)
+        if email_type:
+            clauses.append("email_type = ?")
+            params.append(email_type)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT status, COUNT(*) AS total
+                FROM training_email_drafts
+                {where}
+                GROUP BY status
+                """,
+                params,
+            ).fetchall()
+
+        counts = {str(row["status"] or "UNKNOWN"): int(row["total"] or 0) for row in rows}
+        counts["TOTAL"] = sum(counts.values())
+        counts["NEEDS_ACTION"] = sum(
+            counts.get(status, 0)
+            for status in ("WAITING_REVIEW", "EDITED", "NEEDS_CONTACTS", "APPROVED")
+        )
+        return counts
+
     def get_training_draft(self, draft_id: int) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(

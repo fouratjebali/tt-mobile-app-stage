@@ -145,6 +145,21 @@ class SendTrainingDraftRequest(BaseModel):
     confirmed_subject: str = ""
 
 
+class BulkTrainingDraftActionRequest(BaseModel):
+    draft_ids: list[int] = Field(min_length=1, max_length=100)
+    action: str = Field(pattern="^(approve|reject|regenerate)$")
+    reason: str = ""
+    email_type: str = "auto"
+    include_population: bool = True
+
+
+class BulkSendTrainingDraftsRequest(BaseModel):
+    draft_ids: list[int] = Field(min_length=1, max_length=50)
+    confirmed: bool = False
+    confirmed_draft_count: int | None = Field(default=None, ge=0)
+    confirmed_total_recipient_count: int | None = Field(default=None, ge=0)
+
+
 @lru_cache(maxsize=1)
 def get_agent() -> EmailAgent:
     return EmailAgent()
@@ -756,6 +771,66 @@ def list_training_drafts(
         "count": len(drafts),
         "drafts": drafts,
     }
+
+
+@app.get("/planning/drafts/review")
+def get_training_draft_review(
+    import_id: str | None = Query(default=None),
+    session_key: str | None = Query(default=None),
+    draft_status: str | None = Query(default=None),
+    email_type: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    return planning_import_service.get_training_draft_review(
+        import_id=import_id,
+        session_key=session_key,
+        status=draft_status,
+        email_type=email_type,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@app.post("/planning/drafts/bulk-action")
+def bulk_review_training_drafts(
+    request: BulkTrainingDraftActionRequest,
+) -> dict[str, Any]:
+    try:
+        return planning_import_service.bulk_review_training_drafts(
+            draft_ids=request.draft_ids,
+            action=request.action,
+            reason=request.reason,
+            email_type=request.email_type,
+            include_population=request.include_population,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/planning/drafts/bulk-send")
+def bulk_send_training_drafts(
+    request: BulkSendTrainingDraftsRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    session = _require_outlook_session(authorization)
+    try:
+        return planning_import_service.bulk_send_training_drafts(
+            draft_ids=request.draft_ids,
+            outlook_sender=outlook_graph_client,
+            access_token=session.access_token,
+            confirmed=request.confirmed,
+            confirmed_draft_count=request.confirmed_draft_count,
+            confirmed_total_recipient_count=request.confirmed_total_recipient_count,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
 
 @app.get("/planning/send-history")
