@@ -446,15 +446,83 @@ async def update_automation_settings(
 )
 async def run_planning_automation(
     request: AdminPlanningRunAutomationRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
+    payload = request.model_dump(exclude_none=True)
+    payload["requested_by"] = request.requested_by or current_user.email
     return await gateway.post_json(
         "automation/run",
-        request.model_dump(exclude_none=True),
+        payload,
+    )
+
+
+@router.get(
+    "/automation/jobs",
+    summary="List planning automation jobs",
+    description="Lists automation runs with filters for admin monitoring.",
+)
+async def list_planning_automation_jobs(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+    import_id: str | None = Query(default=None),
+    job_status: str | None = Query(default=None),
+    job_type: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> Any:
+    return await gateway.get(
+        "automation/jobs",
+        params={
+            "import_id": import_id,
+            "job_status": job_status,
+            "job_type": job_type,
+            "limit": limit,
+            "offset": offset,
+        },
+    )
+
+
+@router.get(
+    "/automation/jobs/{job_id}",
+    summary="Get planning automation job",
+    description="Returns one automation run with its captured result and logs.",
+)
+async def get_planning_automation_job(
+    job_id: int,
+    _: Annotated[User, Depends(get_current_admin_user)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+) -> Any:
+    return await gateway.get(f"automation/jobs/{job_id}")
+
+
+@router.get(
+    "/automation/jobs/{job_id}/logs",
+    summary="List planning automation job logs",
+    description="Returns step logs for one planning automation run.",
+)
+async def list_planning_automation_job_logs(
+    job_id: int,
+    _: Annotated[User, Depends(get_current_admin_user)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> Any:
+    return await gateway.get(
+        f"automation/jobs/{job_id}/logs",
+        params={"limit": limit, "offset": offset},
     )
 
 

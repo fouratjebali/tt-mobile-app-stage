@@ -15,6 +15,7 @@ from app.schemas.admin_planning import (  # noqa: E402
     AdminPlanningBulkSendDraftsRequest,
     AdminPlanningGenerateDraftsRequest,
     AdminPlanningResponsableRequest,
+    AdminPlanningRunAutomationRequest,
     AdminPlanningSendDraftRequest,
     AdminPlanningUpdateDraftRequest,
 )
@@ -64,6 +65,9 @@ def test_admin_planning_router_uses_standard_admin_prefix():
     assert "/admin/planning/imports" in route_paths
     assert "/admin/planning/sessions" in route_paths
     assert "/admin/planning/responsables" in route_paths
+    assert "/admin/planning/automation/jobs" in route_paths
+    assert "/admin/planning/automation/jobs/{job_id}" in route_paths
+    assert "/admin/planning/automation/jobs/{job_id}/logs" in route_paths
     assert "/admin/planning/drafts/review" in route_paths
     assert "/admin/planning/drafts/bulk-action" in route_paths
     assert "/admin/planning/drafts/bulk-send" in route_paths
@@ -195,6 +199,78 @@ def test_admin_planning_write_routes_forward_clean_payloads():
             None,
             {"subject": "Objet", "recipients": ["rh@tt.tn"]},
         ),
+    ]
+
+
+def test_admin_automation_jobs_routes_forward_filters_and_admin_identity():
+    gateway = FakePlanningGateway()
+    viewer = SimpleNamespace(role="viewer")
+    editor = SimpleNamespace(role="reviewer", email="admin@tunisietelecom.tn")
+
+    asyncio.run(
+        admin_planning.run_planning_automation(
+            AdminPlanningRunAutomationRequest(
+                import_id="import-1",
+                email_type="confirmation_presence",
+                include_population=True,
+                limit=20,
+                replace_existing=True,
+            ),
+            editor,
+            gateway,
+        )
+    )
+    asyncio.run(
+        admin_planning.list_planning_automation_jobs(
+            viewer,
+            gateway,
+            import_id="import-1",
+            job_status="OK",
+            job_type="draft_generation",
+            limit=25,
+            offset=50,
+        )
+    )
+    asyncio.run(admin_planning.get_planning_automation_job(7, viewer, gateway))
+    asyncio.run(
+        admin_planning.list_planning_automation_job_logs(
+            7,
+            viewer,
+            gateway,
+            limit=10,
+            offset=5,
+        )
+    )
+
+    assert gateway.calls == [
+        (
+            "POST",
+            "automation/run",
+            None,
+            {
+                "import_id": "import-1",
+                "email_type": "confirmation_presence",
+                "include_population": True,
+                "limit": 20,
+                "replace_existing": True,
+                "requested_by": "admin@tunisietelecom.tn",
+                "_auth": None,
+            },
+        ),
+        (
+            "GET",
+            "automation/jobs",
+            {
+                "import_id": "import-1",
+                "job_status": "OK",
+                "job_type": "draft_generation",
+                "limit": 25,
+                "offset": 50,
+            },
+            None,
+        ),
+        ("GET", "automation/jobs/7", None, None),
+        ("GET", "automation/jobs/7/logs", {"limit": 10, "offset": 5}, None),
     ]
 
 

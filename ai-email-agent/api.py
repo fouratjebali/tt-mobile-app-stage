@@ -96,6 +96,7 @@ class RunPlanningAutomationRequest(BaseModel):
     include_population: bool | None = None
     limit: int | None = Field(default=None, ge=1, le=1000)
     replace_existing: bool = False
+    requested_by: str = ""
 
 
 class AutomationSettingsRequest(BaseModel):
@@ -711,12 +712,72 @@ def run_planning_automation(request: RunPlanningAutomationRequest) -> dict[str, 
             include_population=request.include_population,
             limit=request.limit,
             replace_existing=request.replace_existing,
+            requested_by=request.requested_by,
         )
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
+
+@app.get("/planning/automation/jobs")
+def list_planning_automation_jobs(
+    import_id: str | None = Query(default=None),
+    job_status: str | None = Query(default=None),
+    job_type: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    result = planning_import_service.list_automation_jobs(
+        import_id=import_id,
+        status=job_status,
+        job_type=job_type,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "status": "ok",
+        "count": len(result["jobs"]),
+        **result,
+    }
+
+
+@app.get("/planning/automation/jobs/{job_id}")
+def get_planning_automation_job(job_id: int) -> dict[str, Any]:
+    job = planning_import_service.get_automation_job(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Automation job {job_id} not found.",
+        )
+    return {
+        "status": "ok",
+        "job": job,
+    }
+
+
+@app.get("/planning/automation/jobs/{job_id}/logs")
+def list_planning_automation_job_logs(
+    job_id: int,
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    if planning_import_service.get_automation_job(job_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Automation job {job_id} not found.",
+        )
+    logs = planning_import_service.list_automation_job_logs(
+        job_id,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "status": "ok",
+        "count": len(logs),
+        "logs": logs,
+    }
 
 
 @app.get("/planning/automation/settings")

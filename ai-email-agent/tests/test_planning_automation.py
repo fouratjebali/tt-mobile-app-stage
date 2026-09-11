@@ -97,16 +97,48 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
     assert draft["recipients"] == ["rh.reseaux@tunisietelecom.tn"]
     assert draft["metadata"]["recipient_role"] == "responsable_rh_direction"
     assert draft["metadata"]["participant_count"] == 1
+    assert first_payload["job_id"] > 0
+
+    jobs_response = client.get(
+        "/planning/automation/jobs",
+        params={"import_id": import_id, "job_status": "OK"},
+    )
+    assert jobs_response.status_code == 200
+    jobs_payload = jobs_response.json()
+    assert jobs_payload["count"] == 1
+    assert jobs_payload["jobs"][0]["requested_by"] == ""
+    assert jobs_payload["jobs"][0]["result"]["generated"] == 1
+
+    job_detail_response = client.get(
+        f"/planning/automation/jobs/{first_payload['job_id']}"
+    )
+    assert job_detail_response.status_code == 200
+    job = job_detail_response.json()["job"]
+    assert job["status"] == "OK"
+    assert job["import_id"] == import_id
+    assert len(job["logs"]) >= 4
+
+    logs_response = client.get(
+        f"/planning/automation/jobs/{first_payload['job_id']}/logs"
+    )
+    assert logs_response.status_code == 200
+    assert logs_response.json()["logs"][0]["message"] == "Automation job started."
 
     second_run = client.post(
         "/planning/automation/run",
-        json={"import_id": import_id},
+        json={"import_id": import_id, "requested_by": "planner@tunisietelecom.tn"},
     )
 
     assert second_run.status_code == 200
     second_payload = second_run.json()
     assert second_payload["generated"] == 0
     assert second_payload["skipped_existing"] == 1
+
+    requested_jobs = client.get(
+        "/planning/automation/jobs",
+        params={"import_id": import_id, "limit": 10},
+    ).json()["jobs"]
+    assert requested_jobs[0]["requested_by"] == "planner@tunisietelecom.tn"
 
 
 def test_manual_contact_save_can_complete_missing_participant(tmp_path):

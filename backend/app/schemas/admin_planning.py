@@ -23,6 +23,7 @@ class AdminPlanningRunAutomationRequest(BaseModel):
     include_population: bool | None = None
     limit: int | None = Field(default=None, ge=1, le=1000)
     replace_existing: bool = False
+    requested_by: str | None = None
 
 
 class AdminPlanningAutomationSettingsRequest(BaseModel):

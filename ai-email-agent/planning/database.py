@@ -222,6 +222,42 @@ class PlanningDatabase:
                     max_drafts_per_run
                 )
                 VALUES (1, 1, 'auto', 1, 100);
+
+                CREATE TABLE IF NOT EXISTS planning_automation_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_type TEXT NOT NULL DEFAULT 'draft_generation',
+                    import_id TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'RUNNING',
+                    requested_by TEXT NOT NULL DEFAULT '',
+                    parameters_json TEXT NOT NULL DEFAULT '{}',
+                    result_json TEXT NOT NULL DEFAULT '{}',
+                    error TEXT NOT NULL DEFAULT '',
+                    started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    finished_at TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_planning_automation_jobs_import
+                    ON planning_automation_jobs(import_id);
+                CREATE INDEX IF NOT EXISTS idx_planning_automation_jobs_status
+                    ON planning_automation_jobs(status);
+                CREATE INDEX IF NOT EXISTS idx_planning_automation_jobs_started
+                    ON planning_automation_jobs(started_at);
+
+                CREATE TABLE IF NOT EXISTS planning_automation_job_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id INTEGER NOT NULL,
+                    level TEXT NOT NULL DEFAULT 'info',
+                    message TEXT NOT NULL DEFAULT '',
+                    context_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (job_id)
+                        REFERENCES planning_automation_jobs(id)
+                        ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_planning_automation_job_logs_job
+                    ON planning_automation_job_logs(job_id);
                 """
             )
             self._ensure_column(connection, "employee_contacts", "normalized_name", "TEXT NOT NULL DEFAULT ''")
@@ -327,6 +363,208 @@ class PlanningDatabase:
             )
             connection.commit()
         return self.get_automation_settings()
+
+    def start_automation_job(
+        self,
+        *,
+        job_type: str,
+        import_id: str = "",
+        requested_by: str = "",
+        parameters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO planning_automation_jobs (
+                    job_type,
+                    import_id,
+                    status,
+                    requested_by,
+                    parameters_json,
+                    result_json,
+                    error,
+                    started_at,
+                    created_at
+                )
+                VALUES (?, ?, 'RUNNING', ?, ?, '{}', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                (
+                    job_type.strip() or "draft_generation",
+                    import_id.strip(),
+                    requested_by.strip(),
+                    _json(parameters or {}),
+                ),
+            )
+            connection.commit()
+            job_id = int(cursor.lastrowid)
+        self.append_automation_job_log(
+            job_id,
+            level="info",
+            message="Automation job started.",
+            context={"import_id": import_id.strip()},
+        )
+        job = self.get_automation_job(job_id)
+        return job or {"id": job_id, "status": "RUNNING"}
+
+    def append_automation_job_log(
+        self,
+        job_id: int,
+        *,
+        level: str = "info",
+        message: str,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO planning_automation_job_logs (
+                    job_id,
+                    level,
+                    message,
+                    context_json,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (
+                    int(job_id),
+                    level.strip().lower() or "info",
+                    message.strip(),
+                    _json(context or {}),
+                ),
+            )
+            connection.commit()
+
+    def finish_automation_job(
+        self,
+        job_id: int,
+        *,
+        status: str,
+        result: dict[str, Any] | None = None,
+        error: str = "",
+    ) -> dict[str, Any] | None:
+        normalized_status = status.strip().upper() or "OK"
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE planning_automation_jobs
+                SET
+                    status = ?,
+                    result_json = ?,
+                    error = ?,
+                    finished_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    normalized_status,
+                    _json(result or {}),
+                    error.strip(),
+                    int(job_id),
+                ),
+            )
+            connection.commit()
+        self.append_automation_job_log(
+            job_id,
+            level="error" if normalized_status == "ERROR" else "info",
+            message=(
+                "Automation job failed."
+                if normalized_status == "ERROR"
+                else "Automation job finished."
+            ),
+            context={"status": normalized_status},
+        )
+        return self.get_automation_job(job_id)
+
+    def list_automation_jobs(
+        self,
+        *,
+        import_id: str | None = None,
+        status: str | None = None,
+        job_type: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if import_id:
+            clauses.append("import_id = ?")
+            params.append(import_id)
+        if status:
+            clauses.append("LOWER(status) = LOWER(?)")
+            params.append(status)
+        if job_type:
+            clauses.append("LOWER(job_type) = LOWER(?)")
+            params.append(job_type)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        with self._connect() as connection:
+            total_row = connection.execute(
+                f"""
+                SELECT COUNT(*) AS total
+                FROM planning_automation_jobs
+                {where}
+                """,
+                params,
+            ).fetchone()
+            rows = connection.execute(
+                f"""
+                SELECT *
+                FROM planning_automation_jobs
+                {where}
+                ORDER BY started_at DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                [*params, limit, offset],
+            ).fetchall()
+
+        return {
+            "jobs": [self._automation_job_row(row) for row in rows],
+            "total": int(total_row["total"] if total_row else 0),
+            "limit": limit,
+            "offset": offset,
+            "filters": {
+                "import_id": import_id or "",
+                "status": status or "",
+                "job_type": job_type or "",
+            },
+        }
+
+    def get_automation_job(self, job_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM planning_automation_jobs
+                WHERE id = ?
+                """,
+                (int(job_id),),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            **self._automation_job_row(row),
+            "logs": self.list_automation_job_logs(job_id),
+        }
+
+    def list_automation_job_logs(
+        self,
+        job_id: int,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM planning_automation_job_logs
+                WHERE job_id = ?
+                ORDER BY id ASC
+                LIMIT ? OFFSET ?
+                """,
+                (int(job_id), limit, offset),
+            ).fetchall()
+        return [self._automation_job_log_row(row) for row in rows]
 
     def save_import(self, result: PlanningImportResult) -> None:
         with self._connect() as connection:
@@ -2428,6 +2666,31 @@ class PlanningDatabase:
             "metadata": _loads(row["metadata_json"]) or {},
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
+        }
+
+    def _automation_job_row(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": int(row["id"]),
+            "job_type": row["job_type"] or "",
+            "import_id": row["import_id"] or "",
+            "status": row["status"] or "",
+            "requested_by": row["requested_by"] or "",
+            "parameters": _loads(row["parameters_json"]) or {},
+            "result": _loads(row["result_json"]) or {},
+            "error": row["error"] or "",
+            "started_at": row["started_at"] or "",
+            "finished_at": row["finished_at"] or "",
+            "created_at": row["created_at"] or "",
+        }
+
+    def _automation_job_log_row(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": int(row["id"]),
+            "job_id": int(row["job_id"]),
+            "level": row["level"] or "info",
+            "message": row["message"] or "",
+            "context": _loads(row["context_json"]) or {},
+            "created_at": row["created_at"] or "",
         }
 
 

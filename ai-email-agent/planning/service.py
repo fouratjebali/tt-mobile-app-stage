@@ -545,6 +545,7 @@ class PlanningImportService:
         include_population: bool | None = None,
         limit: int | None = None,
         replace_existing: bool = False,
+        requested_by: str = "",
     ) -> dict[str, Any]:
         automation_settings = self.database.get_automation_settings()
         resolved_email_type = email_type or automation_settings["default_email_type"]
@@ -558,9 +559,24 @@ class PlanningImportService:
         if safe_import_id is None:
             imports = self.database.list_imports()
             safe_import_id = imports[0]["import_id"] if imports else None
+        job = self.database.start_automation_job(
+            job_type="draft_generation",
+            import_id=safe_import_id or "",
+            requested_by=requested_by,
+            parameters={
+                "import_id": safe_import_id or "",
+                "email_type": resolved_email_type,
+                "include_population": resolved_include_population,
+                "limit": resolved_limit,
+                "replace_existing": replace_existing,
+            },
+        )
+        job_id = int(job["id"])
+
         if not safe_import_id:
-            return {
+            result = {
                 "status": "empty",
+                "job_id": job_id,
                 "import_id": "",
                 "mapped": 0,
                 "unmatched": 0,
@@ -569,36 +585,122 @@ class PlanningImportService:
                 "errors": [],
                 "drafts": [],
             }
+            self.database.append_automation_job_log(
+                job_id,
+                level="warning",
+                message="No planning import found for automation.",
+            )
+            self.database.finish_automation_job(job_id, status="EMPTY", result=result)
+            return result
 
-        mapping = self.database.apply_contact_mapping(import_id=safe_import_id)
-        generated = self.generate_training_drafts(
+        try:
+            self.database.append_automation_job_log(
+                job_id,
+                message="Applying responsible contact mapping.",
+                context={"import_id": safe_import_id},
+            )
+            mapping = self.database.apply_contact_mapping(import_id=safe_import_id)
+            self.database.append_automation_job_log(
+                job_id,
+                message="Responsible contact mapping finished.",
+                context={
+                    "mapped": mapping["mapped"],
+                    "unmatched": mapping["unmatched"],
+                },
+            )
+            generated = self.generate_training_drafts(
+                import_id=safe_import_id,
+                email_type=resolved_email_type,
+                include_population=resolved_include_population,
+                limit=resolved_limit,
+                skip_existing=not replace_existing,
+                replace_existing=replace_existing,
+            )
+            status = "ok"
+            if generated["errors"]:
+                status = "partial"
+            result = {
+                "status": status,
+                "job_id": job_id,
+                "import_id": safe_import_id,
+                "mapped": mapping["mapped"],
+                "unmatched": mapping["unmatched"],
+                "generated": generated["generated"],
+                "skipped_existing": generated["skipped_existing"],
+                "deleted_existing": generated.get("deleted_existing", 0),
+                "errors": generated["errors"],
+                "settings": {
+                    **automation_settings,
+                    "default_email_type": resolved_email_type,
+                    "include_population": resolved_include_population,
+                    "max_drafts_per_run": resolved_limit,
+                },
+                "drafts": generated["drafts"],
+            }
+            self.database.append_automation_job_log(
+                job_id,
+                level="warning" if generated["errors"] else "info",
+                message="Training draft generation finished.",
+                context={
+                    "generated": generated["generated"],
+                    "skipped_existing": generated["skipped_existing"],
+                    "deleted_existing": generated.get("deleted_existing", 0),
+                    "error_count": len(generated["errors"]),
+                },
+            )
+            self.database.finish_automation_job(
+                job_id,
+                status="PARTIAL" if generated["errors"] else "OK",
+                result=result,
+            )
+            return result
+        except Exception as exc:
+            self.database.append_automation_job_log(
+                job_id,
+                level="error",
+                message="Automation job stopped with an error.",
+                context={"error": str(exc)},
+            )
+            self.database.finish_automation_job(
+                job_id,
+                status="ERROR",
+                error=str(exc),
+            )
+            raise
+
+    def list_automation_jobs(
+        self,
+        *,
+        import_id: str | None = None,
+        status: str | None = None,
+        job_type: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        safe_import_id = sanitize_import_id(import_id) if import_id else None
+        return self.database.list_automation_jobs(
             import_id=safe_import_id,
-            email_type=resolved_email_type,
-            include_population=resolved_include_population,
-            limit=resolved_limit,
-            skip_existing=not replace_existing,
-            replace_existing=replace_existing,
+            status=status,
+            job_type=job_type,
+            limit=limit,
+            offset=offset,
         )
-        status = "ok"
-        if generated["errors"]:
-            status = "partial"
-        return {
-            "status": status,
-            "import_id": safe_import_id,
-            "mapped": mapping["mapped"],
-            "unmatched": mapping["unmatched"],
-            "generated": generated["generated"],
-            "skipped_existing": generated["skipped_existing"],
-            "deleted_existing": generated.get("deleted_existing", 0),
-            "errors": generated["errors"],
-            "settings": {
-                **automation_settings,
-                "default_email_type": resolved_email_type,
-                "include_population": resolved_include_population,
-                "max_drafts_per_run": resolved_limit,
-            },
-            "drafts": generated["drafts"],
-        }
+
+    def get_automation_job(self, job_id: int) -> dict[str, Any] | None:
+        return self.database.get_automation_job(job_id)
+
+    def list_automation_job_logs(
+        self,
+        job_id: int,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        return self.database.list_automation_job_logs(
+            job_id,
+            limit=limit,
+            offset=offset,
+        )
 
     def _can_generate_training_draft(self, session: dict[str, Any]) -> bool:
         if not (session.get("participants") or []):
