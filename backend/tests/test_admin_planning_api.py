@@ -69,6 +69,22 @@ def test_admin_planning_read_routes_forward_to_planning_service():
             admin_user,
             gateway,
             import_id="import-1",
+            year="2026",
+            month="09",
+            date_from="2026-09-01",
+            date_to="2026-09-30",
+            status="confirmed",
+            domain="IT",
+            training_mode="presentiel",
+            training_type="inter",
+            cabinet="TT Formation",
+            location="Tunis",
+            responsible="Salim",
+            search="securite",
+            has_participants=True,
+            missing_contacts=False,
+            sort_by="module",
+            sort_direction="desc",
             limit=25,
             offset=50,
         )
@@ -79,10 +95,30 @@ def test_admin_planning_read_routes_forward_to_planning_service():
         "count": 1,
         "imports": [{"import_id": "import-1"}],
     }
-    assert sessions["params"] == {"import_id": "import-1", "limit": 25, "offset": 50}
+    assert sessions["params"] == {
+        "import_id": "import-1",
+        "year": "2026",
+        "month": "09",
+        "date_from": "2026-09-01",
+        "date_to": "2026-09-30",
+        "session_status": "confirmed",
+        "domain": "IT",
+        "training_mode": "presentiel",
+        "training_type": "inter",
+        "cabinet": "TT Formation",
+        "location": "Tunis",
+        "responsible": "Salim",
+        "search": "securite",
+        "has_participants": True,
+        "missing_contacts": False,
+        "sort_by": "module",
+        "sort_direction": "desc",
+        "limit": 25,
+        "offset": 50,
+    }
     assert gateway.calls[:2] == [
         ("GET", "imports", None, None),
-        ("GET", "sessions", {"import_id": "import-1", "limit": 25, "offset": 50}, None),
+        ("GET", "sessions", sessions["params"], None),
     ]
 
 

@@ -414,6 +414,139 @@ def test_planning_import_api_stores_and_lists_import(tmp_path, monkeypatch):
     assert detail_response.json()["session"]["module"] == "Formation securite"
 
 
+def test_planning_sessions_api_supports_strong_filters(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    content = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Statut",
+                "Domaine d'activite",
+                "Mode Formation",
+                "Module",
+                "Cabinet",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Annee",
+                "Mois",
+                "Matricules",
+                "Nom & Prenom",
+                "Grande residence",
+            ],
+            [
+                "S-SEP-1",
+                "CONFIRMED",
+                "IT",
+                "Presentiel",
+                "Securite reseau",
+                "TT Formation",
+                "2026-09-04",
+                "2026-09-05",
+                "Tunis",
+                "2026",
+                "09",
+                "10001",
+                "BEN ALI Sami",
+                "DIRECTION REGIONALE TUNIS",
+            ],
+            [
+                "S-OCT-1",
+                "PLANNED",
+                "TELCO",
+                "A distance",
+                "IPMSAN Nokia",
+                "Cabinet Nokia",
+                "2026-10-10",
+                "2026-10-11",
+                "Ariana",
+                "2026",
+                "10",
+                "",
+                "",
+                "",
+            ],
+            [
+                "S-OLD-1",
+                "CONFIRMED",
+                "IT",
+                "Presentiel",
+                "Gestion projet",
+                "TT Formation",
+                "2025-09-02",
+                "2025-09-03",
+                "Sfax",
+                "2025",
+                "09",
+                "",
+                "",
+                "",
+            ],
+        ]
+    )
+    client = TestClient(app)
+
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                content,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert import_response.status_code == 200
+    import_id = import_response.json()["import_id"]
+
+    filtered = client.get(
+        "/planning/sessions",
+        params={
+            "import_id": import_id,
+            "year": "2026",
+            "month": "9",
+            "date_from": "2026-09-01",
+            "date_to": "2026-09-30",
+            "session_status": "confirm",
+            "domain": "it",
+            "training_mode": "present",
+            "cabinet": "tt",
+            "location": "tun",
+            "search": "securite",
+            "has_participants": True,
+            "missing_contacts": True,
+            "limit": 1,
+            "offset": 0,
+        },
+    )
+
+    assert filtered.status_code == 200
+    payload = filtered.json()
+    assert payload["count"] == 1
+    assert payload["total"] == 1
+    assert payload["limit"] == 1
+    assert payload["offset"] == 0
+    assert payload["sessions"][0]["code_session"] == "S-SEP-1"
+    assert payload["sessions"][0]["participant_count"] == 1
+    assert payload["sessions"][0]["missing_email_count"] == 1
+    assert payload["filters"]["year"] == "2026"
+    assert payload["filters"]["month"] == "9"
+
+    empty = client.get(
+        "/planning/sessions",
+        params={
+            "import_id": import_id,
+            "year": "2026",
+            "month": "9",
+            "missing_contacts": False,
+        },
+    )
+    assert empty.status_code == 200
+    assert empty.json()["total"] == 0
+
+
 def test_planning_import_api_lists_missing_contacts(tmp_path):
     from api import planning_import_service
 
@@ -1063,8 +1196,8 @@ def test_training_draft_generation_can_replace_existing_responsible_drafts(tmp_p
                 "Exploitation des IPMSAN Nokia",
                 "Formateur interne",
                 "Maher ben Hassine",
-                "2026-09-10",
-                "2026-09-11",
+                "2026-09-20",
+                "2026-09-21",
                 "Salle1 DCSI pole El Ghazela",
                 "75266",
                 "BOUNEB Zied",

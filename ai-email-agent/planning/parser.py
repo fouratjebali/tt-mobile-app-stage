@@ -18,7 +18,7 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "code_session": ("code session",),
     "lms_session_number": ("n session lms", "no session lms", "numero session lms"),
     "malek_number": ("n malek", "no malek", "numero malek"),
-    "status": ("etat",),
+    "status": ("etat", "statut", "status"),
     "axis": ("axe strategique de la formation",),
     "domain": ("domaine d'activite", "domaine d activite"),
     "project": ("projet",),
@@ -489,6 +489,9 @@ def _normalize_status(value: str) -> str:
         "planifiee": "PLANNED",
         "planifie": "PLANNED",
         "pc": "CONFIRMED",
+        "confirmed": "CONFIRMED",
+        "confirmee": "CONFIRMED",
+        "confirme": "CONFIRMED",
     }
     return status_map.get(normalized, normalized.upper())
 

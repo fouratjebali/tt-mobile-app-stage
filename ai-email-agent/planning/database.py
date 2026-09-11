@@ -597,16 +597,101 @@ class PlanningDatabase:
         self,
         *,
         import_id: str | None = None,
+        year: str | int | None = None,
+        month: str | int | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        status: str | None = None,
+        domain: str | None = None,
+        training_mode: str | None = None,
+        training_type: str | None = None,
+        cabinet: str | None = None,
+        location: str | None = None,
+        responsible: str | None = None,
+        search: str | None = None,
+        has_participants: bool | None = None,
+        missing_contacts: bool | None = None,
+        sort_by: str = "start_date",
+        sort_direction: str = "asc",
         limit: int = 100,
         offset: int = 0,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         clauses: list[str] = []
         params: list[Any] = []
+        having_clauses: list[str] = []
         if import_id:
             clauses.append("s.import_id = ?")
             params.append(import_id)
+        if year is not None and str(year).strip():
+            year_value = str(year).strip()
+            clauses.append(
+                "(s.year = ? OR substr(s.start_date, 1, 4) = ? OR substr(s.end_date, 1, 4) = ?)"
+            )
+            params.extend([year_value, year_value, year_value])
+        if month is not None and str(month).strip():
+            month_value = _normalize_month_filter(month)
+            clauses.append(
+                """
+                (
+                    s.month = ?
+                    OR printf('%02d', CAST(s.month AS INTEGER)) = ?
+                    OR substr(s.start_date, 6, 2) = ?
+                    OR substr(s.end_date, 6, 2) = ?
+                )
+                """
+            )
+            params.extend([str(month).strip(), month_value, month_value, month_value])
+        if date_from:
+            clauses.append("COALESCE(NULLIF(s.end_date, ''), s.start_date) >= ?")
+            params.append(date_from.strip())
+        if date_to:
+            clauses.append("s.start_date <= ?")
+            params.append(date_to.strip())
+        for column, value in (
+            ("status", status),
+            ("domain", domain),
+            ("training_mode", training_mode),
+            ("training_type", training_type),
+            ("cabinet", cabinet),
+            ("location", location),
+            ("responsible_engagement", responsible),
+        ):
+            if value and value.strip():
+                clauses.append(f"lower(s.{column}) LIKE lower(?)")
+                params.append(f"%{value.strip()}%")
+        if search and search.strip():
+            pattern = f"%{search.strip()}%"
+            clauses.append(
+                """
+                (
+                    lower(s.session_key) LIKE lower(?)
+                    OR lower(s.code_session) LIKE lower(?)
+                    OR lower(s.module_code) LIKE lower(?)
+                    OR lower(s.module) LIKE lower(?)
+                    OR lower(s.domain) LIKE lower(?)
+                    OR lower(s.project) LIKE lower(?)
+                    OR lower(s.cabinet) LIKE lower(?)
+                    OR lower(s.trainer) LIKE lower(?)
+                    OR lower(s.selected_trainer) LIKE lower(?)
+                    OR lower(s.location) LIKE lower(?)
+                    OR lower(s.responsible_engagement) LIKE lower(?)
+                )
+                """
+            )
+            params.extend([pattern] * 11)
+        if has_participants is True:
+            having_clauses.append("COUNT(p.id) > 0")
+        elif has_participants is False:
+            having_clauses.append("COUNT(p.id) = 0")
+        if missing_contacts is True:
+            having_clauses.append(_missing_email_count_sql() + " > 0")
+        elif missing_contacts is False:
+            having_clauses.append(_missing_email_count_sql() + " = 0")
+
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        params.extend([limit, offset])
+        having = f"HAVING {' AND '.join(having_clauses)}" if having_clauses else ""
+        order_by = _session_order_by(sort_by, sort_direction)
+        list_params = [*params, limit, offset]
 
         with self._connect() as connection:
             rows = connection.execute(
@@ -614,22 +699,57 @@ class PlanningDatabase:
                 SELECT
                     s.*,
                     COUNT(p.id) AS participant_count,
-                    SUM(
-                        CASE
-                            WHEN p.id IS NOT NULL AND p.responsible_email = '' THEN 1
-                            ELSE 0
-                        END
-                    ) AS missing_email_count
+                    {_missing_email_count_sql()} AS missing_email_count
                 FROM training_sessions s
                 LEFT JOIN training_participants p ON p.session_id = s.id
                 {where}
                 GROUP BY s.id
-                ORDER BY s.start_date, s.module, s.id
+                {having}
+                {order_by}
                 LIMIT ? OFFSET ?
                 """,
-                params,
+                list_params,
             ).fetchall()
-            return [self._session_summary(row) for row in rows]
+            count_row = connection.execute(
+                f"""
+                SELECT COUNT(*) AS total
+                FROM (
+                    SELECT s.id
+                    FROM training_sessions s
+                    LEFT JOIN training_participants p ON p.session_id = s.id
+                    {where}
+                    GROUP BY s.id
+                    {having}
+                ) filtered_sessions
+                """,
+                params,
+            ).fetchone()
+            total = int(count_row["total"] or 0) if count_row is not None else 0
+            return {
+                "sessions": [self._session_summary(row) for row in rows],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "filters": {
+                    "import_id": import_id,
+                    "year": str(year).strip() if year is not None else None,
+                    "month": str(month).strip() if month is not None else None,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                    "status": status,
+                    "domain": domain,
+                    "training_mode": training_mode,
+                    "training_type": training_type,
+                    "cabinet": cabinet,
+                    "location": location,
+                    "responsible": responsible,
+                    "search": search,
+                    "has_participants": has_participants,
+                    "missing_contacts": missing_contacts,
+                    "sort_by": sort_by,
+                    "sort_direction": sort_direction,
+                },
+            }
 
     def get_session(
         self,
@@ -2104,6 +2224,39 @@ class PlanningDatabase:
 
 def sanitize_import_id(import_id: str) -> str:
     return "".join(char for char in import_id if char.isalnum() or char in ("-", "_"))
+
+
+def _normalize_month_filter(month: str | int) -> str:
+    value = str(month).strip()
+    try:
+        number = int(value)
+    except ValueError:
+        return value
+    return f"{max(1, min(12, number)):02d}"
+
+
+def _missing_email_count_sql() -> str:
+    return (
+        "SUM(CASE WHEN p.id IS NOT NULL AND p.responsible_email = '' "
+        "THEN 1 ELSE 0 END)"
+    )
+
+
+def _session_order_by(sort_by: str, sort_direction: str) -> str:
+    columns = {
+        "start_date": "s.start_date",
+        "end_date": "s.end_date",
+        "module": "s.module",
+        "status": "s.status",
+        "domain": "s.domain",
+        "cabinet": "s.cabinet",
+        "location": "s.location",
+        "participants": "participant_count",
+        "missing_contacts": "missing_email_count",
+    }
+    column = columns.get(str(sort_by or "").strip().lower(), "s.start_date")
+    direction = "DESC" if str(sort_direction or "").strip().lower() == "desc" else "ASC"
+    return f"ORDER BY {column} {direction}, s.start_date ASC, s.module ASC, s.id ASC"
 
 
 def _json(value: Any) -> str:

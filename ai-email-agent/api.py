@@ -398,18 +398,50 @@ def get_planning_import(import_id: str) -> dict[str, Any]:
 @app.get("/planning/sessions")
 def list_planning_sessions(
     import_id: str | None = Query(default=None),
+    year: str | None = Query(default=None),
+    month: str | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    session_status: str | None = Query(default=None),
+    domain: str | None = Query(default=None),
+    training_mode: str | None = Query(default=None),
+    training_type: str | None = Query(default=None),
+    cabinet: str | None = Query(default=None),
+    location: str | None = Query(default=None),
+    responsible: str | None = Query(default=None),
+    search: str | None = Query(default=None),
+    has_participants: bool | None = Query(default=None),
+    missing_contacts: bool | None = Query(default=None),
+    sort_by: str = Query(default="start_date"),
+    sort_direction: str = Query(default="asc"),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
-    sessions = planning_import_service.list_sessions(
+    result = planning_import_service.list_sessions(
         import_id=import_id,
+        year=year,
+        month=month,
+        date_from=date_from,
+        date_to=date_to,
+        status=session_status,
+        domain=domain,
+        training_mode=training_mode,
+        training_type=training_type,
+        cabinet=cabinet,
+        location=location,
+        responsible=responsible,
+        search=search,
+        has_participants=has_participants,
+        missing_contacts=missing_contacts,
+        sort_by=sort_by,
+        sort_direction=sort_direction,
         limit=limit,
         offset=offset,
     )
     return {
         "status": "ok",
-        "count": len(sessions),
-        "sessions": sessions,
+        "count": len(result["sessions"]),
+        **result,
     }
 
 

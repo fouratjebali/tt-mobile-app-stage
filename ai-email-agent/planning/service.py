@@ -231,12 +231,44 @@ class PlanningImportService:
         self,
         *,
         import_id: str | None = None,
+        year: str | int | None = None,
+        month: str | int | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        status: str | None = None,
+        domain: str | None = None,
+        training_mode: str | None = None,
+        training_type: str | None = None,
+        cabinet: str | None = None,
+        location: str | None = None,
+        responsible: str | None = None,
+        search: str | None = None,
+        has_participants: bool | None = None,
+        missing_contacts: bool | None = None,
+        sort_by: str = "start_date",
+        sort_direction: str = "asc",
         limit: int = 100,
         offset: int = 0,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         safe_import_id = sanitize_import_id(import_id) if import_id else None
         return self.database.list_sessions(
             import_id=safe_import_id,
+            year=year,
+            month=month,
+            date_from=date_from,
+            date_to=date_to,
+            status=status,
+            domain=domain,
+            training_mode=training_mode,
+            training_type=training_type,
+            cabinet=cabinet,
+            location=location,
+            responsible=responsible,
+            search=search,
+            has_participants=has_participants,
+            missing_contacts=missing_contacts,
+            sort_by=sort_by,
+            sort_direction=sort_direction,
             limit=limit,
             offset=offset,
         )
@@ -392,14 +424,14 @@ class PlanningImportService:
             session = self.database.get_session(session_key, import_id=safe_import_id)
             sessions = [session] if session is not None else []
         else:
-            summaries = self.database.list_sessions(
+            session_page = self.database.list_sessions(
                 import_id=safe_import_id,
                 limit=limit,
                 offset=0,
             )
             sessions = [
                 full_session
-                for summary in summaries
+                for summary in session_page["sessions"]
                 if (
                     full_session := self.database.get_session(
                         summary["session_key"],
