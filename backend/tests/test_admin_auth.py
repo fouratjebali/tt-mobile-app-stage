@@ -14,6 +14,7 @@ from app.api.dependencies import (  # noqa: E402
     get_current_admin_user,
 )
 from app.api.v1.routes.admin import update_user_active_state, update_user_role  # noqa: E402
+from app.core.config import Settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.models.auth import AuthSession, User, UserRole  # noqa: E402
 from app.repositories.auth_repository import AuthRepository  # noqa: E402
@@ -45,6 +46,14 @@ def test_new_users_default_to_regular_active_role():
         assert user.is_active is True
     finally:
         db.close()
+
+
+def test_standard_admin_api_prefix_contract():
+    settings = Settings()
+
+    assert settings.API_V1_PREFIX == "/api/v1"
+    assert settings.ADMIN_API_PREFIX == "/admin"
+    assert f"{settings.API_V1_PREFIX}{settings.ADMIN_API_PREFIX}" == "/api/v1/admin"
 
 
 def test_configured_admin_email_is_promoted():

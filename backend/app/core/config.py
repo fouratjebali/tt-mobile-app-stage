@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "TT Mail Assistant Backend"
     APP_VERSION: str = "0.1.0"
     API_V1_PREFIX: str = "/api/v1"
+    ADMIN_API_PREFIX: str = "/admin"
 
     POSTGRES_USER: str = "user"
     POSTGRES_PASSWORD: str = "password"
@@ -32,6 +33,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def normalize_database_url(self) -> "Settings":
+        self.API_V1_PREFIX = _normalize_api_prefix(self.API_V1_PREFIX)
+        self.ADMIN_API_PREFIX = _normalize_api_prefix(self.ADMIN_API_PREFIX)
         if self.DATABASE_URL.startswith("postgresql://"):
             self.DATABASE_URL = self.DATABASE_URL.replace(
                 "postgresql://", "postgresql+psycopg://", 1
@@ -43,6 +46,13 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+
+def _normalize_api_prefix(prefix: str) -> str:
+    cleaned = str(prefix or "").strip()
+    if not cleaned:
+        return ""
+    return f"/{cleaned.strip('/')}"
 
 
 settings = Settings()

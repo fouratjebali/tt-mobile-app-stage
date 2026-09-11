@@ -14,12 +14,13 @@ from app.api.v1.routes import (
     planning,
     sentiment,
 )
+from app.core.config import settings
 
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
-api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(admin.router, prefix=settings.ADMIN_API_PREFIX, tags=["admin"])
 api_router.include_router(
     email.router,
     prefix="/email",

@@ -86,6 +86,7 @@ def create_app() -> FastAPI:
             "message": "TT Mail Assistant Backend is running",
             "docs": "/docs",
             "health": f"{settings.API_V1_PREFIX}/health",
+            "admin": f"{settings.API_V1_PREFIX}{settings.ADMIN_API_PREFIX}",
         }
 
     return app
