@@ -71,6 +71,13 @@ def test_standard_admin_api_prefix_contract():
     assert f"{settings.API_V1_PREFIX}{settings.ADMIN_API_PREFIX}" == "/api/v1/admin"
 
 
+def test_backend_allows_local_admin_dashboard_origin():
+    settings = Settings()
+
+    assert "http://localhost:4200" in settings.cors_allowed_origins
+    assert "http://127.0.0.1:4200" in settings.cors_allowed_origins
+
+
 def test_admin_audit_log_routes_are_exposed():
     from app.api.v1.routes import admin, auth
 

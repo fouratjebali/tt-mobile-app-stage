@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     ADMIN_DASHBOARD_PASSWORD: str = ""
     ADMIN_DASHBOARD_EMAIL: str = ""
     ADMIN_DASHBOARD_DISPLAY_NAME: str = "Dashboard Admin"
+    CORS_ALLOWED_ORIGINS: str = (
+        "http://localhost:4200,"
+        "http://127.0.0.1:4200,"
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173,"
+        "http://localhost:3000,"
+        "http://127.0.0.1:3000"
+    )
 
     HTTP_TIMEOUT_SECONDS: float = 120.0
     HEALTHCHECK_TIMEOUT_SECONDS: float = 4.0
@@ -50,6 +58,16 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        if self.CORS_ALLOWED_ORIGINS.strip() == "*":
+            return ["*"]
+        return [
+            origin.strip()
+            for origin in self.CORS_ALLOWED_ORIGINS.split(",")
+            if origin.strip()
+        ]
 
 
 def _normalize_api_prefix(prefix: str) -> str:
