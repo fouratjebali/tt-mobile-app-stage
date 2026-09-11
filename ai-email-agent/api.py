@@ -113,6 +113,15 @@ class SaveEmployeeContactRequest(BaseModel):
     hr_responsible: str = ""
 
 
+class SaveResponsibleContactRequest(BaseModel):
+    role: str = Field(default="rh", pattern="^(rh|dir|director|directeur)$")
+    residence: str = Field(min_length=1)
+    email: str = Field(min_length=3)
+    full_name: str = ""
+    direction: str = ""
+    hr_responsible: str = ""
+
+
 class UpdateTrainingDraftRequest(BaseModel):
     subject: str | None = None
     body: str | None = None
@@ -546,6 +555,85 @@ def list_employee_contacts(
         "status": "ok",
         "count": len(contacts),
         "contacts": contacts,
+    }
+
+
+@app.get("/planning/responsables")
+def list_responsable_directory(
+    search: str | None = Query(default=None),
+    role: str | None = Query(default=None),
+    residence: str | None = Query(default=None),
+    direction: str | None = Query(default=None),
+    has_email: bool | None = Query(default=None),
+    duplicate_emails: bool | None = Query(default=None),
+    source_file: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    result = planning_import_service.list_responsibles(
+        search=search,
+        role=role,
+        residence=residence,
+        direction=direction,
+        has_email=has_email,
+        duplicate_emails=duplicate_emails,
+        source_file=source_file,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "status": "ok",
+        "count": len(result["responsables"]),
+        **result,
+    }
+
+
+@app.get("/planning/responsables/{contact_key}")
+def get_responsable_directory_contact(contact_key: str) -> dict[str, Any]:
+    responsable = planning_import_service.get_responsible(contact_key)
+    if responsable is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Responsable {contact_key} not found.",
+        )
+    return {
+        "status": "ok",
+        "responsable": responsable,
+    }
+
+
+@app.post("/planning/responsables")
+def save_responsable_directory_contact(
+    request: SaveResponsibleContactRequest,
+) -> dict[str, Any]:
+    try:
+        return planning_import_service.save_responsible(
+            role=request.role,
+            residence=request.residence,
+            email=request.email,
+            full_name=request.full_name,
+            direction=request.direction,
+            hr_responsible=request.hr_responsible,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.delete("/planning/responsables/{contact_key}")
+def delete_responsable_directory_contact(contact_key: str) -> dict[str, Any]:
+    deleted = planning_import_service.delete_responsible(contact_key)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Responsable {contact_key} not found.",
+        )
+    return {
+        "status": "ok",
+        "deleted": True,
+        "contact_key": contact_key,
     }
 
 

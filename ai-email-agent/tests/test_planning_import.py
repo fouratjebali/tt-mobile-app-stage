@@ -695,6 +695,85 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
     assert "responsible_email" not in participant["missing_fields"]
 
 
+def test_responsables_directory_api_filters_and_manages_contacts(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    contacts = workbook_bytes(
+        [
+            ["Grande residence", "Resp RH", "DIR C/R"],
+            [
+                "DIRECTION REGIONALE GABES",
+                "rh.gabes@tunisietelecom.tn",
+                "dir.gabes@tunisietelecom.tn",
+            ],
+            [
+                "DIRECTION REGIONALE SFAX",
+                "rh.gabes@tunisietelecom.tn",
+                "dir.sfax@tunisietelecom.tn",
+            ],
+        ]
+    )
+
+    import_response = client.post(
+        "/planning/contacts/import",
+        files={
+            "files": (
+                "responsables.xlsx",
+                contacts,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert import_response.status_code == 200
+    assert import_response.json()["imported"] == 4
+
+    list_response = client.get(
+        "/planning/responsables",
+        params={
+            "role": "rh",
+            "residence": "gabes",
+            "duplicate_emails": True,
+        },
+    )
+    assert list_response.status_code == 200
+    payload = list_response.json()
+    assert payload["count"] == 1
+    assert payload["total"] == 1
+    responsable = payload["responsables"][0]
+    assert responsable["role"] == "rh"
+    assert responsable["email"] == "rh.gabes@tunisietelecom.tn"
+    assert responsable["duplicate_email_count"] == 2
+    assert responsable["needs_review"] is True
+
+    detail_response = client.get(
+        f"/planning/responsables/{responsable['contact_key']}"
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json()["responsable"]["residence"] == "DIRECTION REGIONALE GABES"
+
+    save_response = client.post(
+        "/planning/responsables",
+        json={
+            "role": "dir",
+            "residence": "DIRECTION REGIONALE KEBILI",
+            "email": "dir.kebili@tunisietelecom.tn",
+        },
+    )
+    assert save_response.status_code == 200
+    saved = save_response.json()["responsable"]
+    assert saved["role"] == "dir"
+    assert saved["full_name"] == "Dir C/R DIRECTION REGIONALE KEBILI"
+
+    delete_response = client.delete(f"/planning/responsables/{saved['contact_key']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["deleted"] is True
+
+    missing_response = client.get(f"/planning/responsables/{saved['contact_key']}")
+    assert missing_response.status_code == 404
+
+
 def test_combined_session_and_candidate_workbooks_are_merged(tmp_path):
     from api import planning_import_service
 

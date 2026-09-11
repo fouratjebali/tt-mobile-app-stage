@@ -12,6 +12,7 @@ from app.core.config import settings  # noqa: E402
 from app.schemas.admin_planning import (  # noqa: E402
     AdminPlanningAutomationSettingsRequest,
     AdminPlanningGenerateDraftsRequest,
+    AdminPlanningResponsableRequest,
     AdminPlanningSendDraftRequest,
     AdminPlanningUpdateDraftRequest,
 )
@@ -42,6 +43,10 @@ class FakePlanningGateway:
         self.calls.append(("PATCH", path, params, payload))
         return {"status": "ok", "path": path, "payload": payload}
 
+    async def delete(self, path: str, params=None):
+        self.calls.append(("DELETE", path, params, None))
+        return {"status": "ok", "path": path, "deleted": True}
+
     async def post_files(self, path: str, files: list[UploadFile], *, params=None):
         filenames = [file.filename for file in files]
         self.calls.append(("FILES", path, params, filenames))
@@ -56,6 +61,7 @@ def test_admin_planning_router_uses_standard_admin_prefix():
 
     assert "/admin/planning/imports" in route_paths
     assert "/admin/planning/sessions" in route_paths
+    assert "/admin/planning/responsables" in route_paths
     assert "/admin/planning/drafts/{draft_id}/send" in route_paths
 
 
@@ -184,6 +190,97 @@ def test_admin_planning_write_routes_forward_clean_payloads():
             None,
             {"subject": "Objet", "recipients": ["rh@tt.tn"]},
         ),
+    ]
+
+
+def test_admin_responsables_directory_routes_forward_filters_and_mutations():
+    gateway = FakePlanningGateway()
+    viewer = SimpleNamespace(role="viewer")
+    editor = SimpleNamespace(role="reviewer")
+
+    asyncio.run(
+        admin_planning.list_responsables_directory(
+            viewer,
+            gateway,
+            search="gabes",
+            role="rh",
+            residence="DIRECTION REGIONALE GABES",
+            direction="GABES",
+            has_email=True,
+            duplicate_emails=False,
+            source_file="annuaire.xlsx",
+            limit=50,
+            offset=10,
+        )
+    )
+    asyncio.run(
+        admin_planning.import_responsables_directory(
+            editor,
+            gateway,
+            [UploadFile(filename="annuaire.xlsx", file=BytesIO(b"data"))],
+            import_id="import-1",
+        )
+    )
+    asyncio.run(
+        admin_planning.save_responsable_directory_contact(
+            AdminPlanningResponsableRequest(
+                role="dir",
+                residence="DIRECTION REGIONALE KEBILI",
+                email="dir.kebili@tunisietelecom.tn",
+            ),
+            editor,
+            gateway,
+        )
+    )
+    asyncio.run(
+        admin_planning.get_responsable_directory_contact(
+            "responsible:dir:kebili",
+            viewer,
+            gateway,
+        )
+    )
+    asyncio.run(
+        admin_planning.delete_responsable_directory_contact(
+            "responsible:dir:kebili",
+            editor,
+            gateway,
+        )
+    )
+
+    assert gateway.calls == [
+        (
+            "GET",
+            "responsables",
+            {
+                "search": "gabes",
+                "role": "rh",
+                "residence": "DIRECTION REGIONALE GABES",
+                "direction": "GABES",
+                "has_email": True,
+                "duplicate_emails": False,
+                "source_file": "annuaire.xlsx",
+                "limit": 50,
+                "offset": 10,
+            },
+            None,
+        ),
+        ("FILES", "contacts/import", {"import_id": "import-1"}, ["annuaire.xlsx"]),
+        (
+            "POST",
+            "responsables",
+            None,
+            {
+                "role": "dir",
+                "residence": "DIRECTION REGIONALE KEBILI",
+                "email": "dir.kebili@tunisietelecom.tn",
+                "full_name": "",
+                "direction": "",
+                "hr_responsible": "",
+                "_auth": None,
+            },
+        ),
+        ("GET", "responsables/responsible:dir:kebili", None, None),
+        ("DELETE", "responsables/responsible:dir:kebili", None, None),
     ]
 
 

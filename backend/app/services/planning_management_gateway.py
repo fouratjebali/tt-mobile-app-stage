@@ -39,6 +39,9 @@ class PlanningManagementGateway:
     ) -> Any:
         return await self._request("PATCH", path, params=params, json=payload)
 
+    async def delete(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        return await self._request("DELETE", path, params=params)
+
     async def post_files(
         self,
         path: str,

@@ -40,6 +40,15 @@ class AdminPlanningContactRequest(BaseModel):
     hr_responsible: str = ""
 
 
+class AdminPlanningResponsableRequest(BaseModel):
+    role: str = Field(default="rh", pattern="^(rh|dir|director|directeur)$")
+    residence: str = Field(min_length=1)
+    email: str = Field(min_length=3)
+    full_name: str = ""
+    direction: str = ""
+    hr_responsible: str = ""
+
+
 class AdminPlanningUpdateDraftRequest(BaseModel):
     subject: str | None = None
     body: str | None = None

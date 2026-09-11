@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from planning.contact_parser import EmployeeContact, normalize_name
+from planning.contact_parser import EmployeeContact, normalize_name, responsible_key
 from planning.models import (
     PlanningFileResult,
     PlanningImportResult,
@@ -1051,6 +1051,176 @@ class PlanningDatabase:
                 (limit, offset),
             ).fetchall()
             return [_contact_row(row) for row in rows]
+
+    def list_responsibles(
+        self,
+        *,
+        search: str | None = None,
+        role: str | None = None,
+        residence: str | None = None,
+        direction: str | None = None,
+        has_email: bool | None = None,
+        duplicate_emails: bool | None = None,
+        source_file: str | None = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        clauses = [_responsible_contact_sql()]
+        params: list[Any] = []
+        if role and role.strip():
+            role_filter = role.strip().lower()
+            if role_filter == "rh":
+                clauses.append(_responsible_role_sql("rh"))
+            elif role_filter in {"dir", "director", "directeur"}:
+                clauses.append(_responsible_role_sql("dir"))
+        if residence and residence.strip():
+            clauses.append("lower(residence) LIKE lower(?)")
+            params.append(f"%{residence.strip()}%")
+        if direction and direction.strip():
+            clauses.append("lower(direction) LIKE lower(?)")
+            params.append(f"%{direction.strip()}%")
+        if source_file and source_file.strip():
+            clauses.append("lower(source_file) LIKE lower(?)")
+            params.append(f"%{source_file.strip()}%")
+        if has_email is True:
+            clauses.append("email != ''")
+        elif has_email is False:
+            clauses.append("email = ''")
+        if search and search.strip():
+            pattern = f"%{search.strip()}%"
+            clauses.append(
+                """
+                (
+                    lower(full_name) LIKE lower(?)
+                    OR lower(normalized_name) LIKE lower(?)
+                    OR lower(email) LIKE lower(?)
+                    OR lower(residence) LIKE lower(?)
+                    OR lower(direction) LIKE lower(?)
+                    OR lower(hr_responsible) LIKE lower(?)
+                )
+                """
+            )
+            params.extend([pattern] * 6)
+
+        where = f"WHERE {' AND '.join(clauses)}"
+        duplicate_clause = "duplicate_email_count > 1"
+        filtered_where = where
+        if duplicate_emails is not None:
+            filtered_where = f"{where} AND {duplicate_clause if duplicate_emails else 'duplicate_email_count <= 1'}"
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT *
+                FROM ({_responsible_contact_select_sql()})
+                {filtered_where}
+                ORDER BY
+                    CASE WHEN email != '' THEN 0 ELSE 1 END,
+                    residence,
+                    CASE role WHEN 'rh' THEN 0 WHEN 'dir' THEN 1 ELSE 2 END,
+                    full_name,
+                    contact_key
+                LIMIT ? OFFSET ?
+                """,
+                [*params, limit, offset],
+            ).fetchall()
+            count_row = connection.execute(
+                f"""
+                SELECT COUNT(*) AS total
+                FROM ({_responsible_contact_select_sql()})
+                {filtered_where}
+                """,
+                params,
+            ).fetchone()
+        total = int(count_row["total"] or 0) if count_row is not None else 0
+        return {
+            "responsables": [_responsible_directory_row(row) for row in rows],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "filters": {
+                "search": search,
+                "role": role,
+                "residence": residence,
+                "direction": direction,
+                "has_email": has_email,
+                "duplicate_emails": duplicate_emails,
+                "source_file": source_file,
+            },
+        }
+
+    def get_responsible(self, contact_key: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                f"""
+                SELECT *
+                FROM ({_responsible_contact_select_sql()})
+                WHERE contact_key = ?
+                LIMIT 1
+                """,
+                (contact_key,),
+            ).fetchone()
+        return _responsible_directory_row(row) if row is not None else None
+
+    def save_responsible(
+        self,
+        *,
+        role: str,
+        residence: str,
+        email: str,
+        full_name: str = "",
+        direction: str = "",
+        hr_responsible: str = "",
+        source_file: str = "admin",
+    ) -> dict[str, Any]:
+        role_value = "dir" if role.strip().lower() in {"dir", "director", "directeur"} else "rh"
+        residence_value = residence.strip()
+        email_value = email.strip().lower()
+        if not residence_value:
+            raise ValueError("A grande residence is required.")
+        if "@" not in email_value:
+            raise ValueError("A valid responsable email is required.")
+
+        display_name = full_name.strip()
+        if not display_name:
+            display_name = (
+                f"Dir C/R {residence_value}"
+                if role_value == "dir"
+                else f"Resp RH {residence_value}"
+            )
+        contact = EmployeeContact(
+            matricule=responsible_key(role_value, residence_value, email_value),
+            full_name=display_name,
+            email=email_value,
+            residence=residence_value,
+            direction=direction.strip() or residence_value,
+            hr_responsible=hr_responsible.strip()
+            or (display_name if role_value == "rh" else ""),
+            source_file=source_file,
+        )
+        saved = self.save_contacts([contact])
+        responsable = self.get_responsible(contact.matricule)
+        return {
+            "status": "ok",
+            **saved,
+            "responsable": responsable,
+        }
+
+    def delete_responsible(self, contact_key: str) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM employee_contacts
+                WHERE matricule = ? AND (
+                    lower(matricule) LIKE 'responsible:%'
+                    OR lower(full_name) LIKE 'resp rh%'
+                    OR lower(full_name) LIKE 'dir c/r%'
+                )
+                """,
+                (contact_key.strip(),),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
 
     def _responsible_contact_lookup(
         self,
@@ -2311,6 +2481,77 @@ def _contact_row(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+def _responsible_directory_row(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "contact_key": row["contact_key"],
+        "role": row["role"],
+        "full_name": row["full_name"],
+        "email": row["email"],
+        "has_email": bool(row["email"]),
+        "residence": row["residence"],
+        "direction": row["direction"],
+        "hr_responsible": row["hr_responsible"],
+        "source_file": row["source_file"],
+        "source_row": row["source_row"],
+        "updated_at": row["updated_at"],
+        "duplicate_email_count": int(row["duplicate_email_count"] or 0),
+        "needs_review": bool(row["email"] and int(row["duplicate_email_count"] or 0) > 1),
+    }
+
+
+def _responsible_contact_select_sql() -> str:
+    return f"""
+        SELECT
+            matricule AS contact_key,
+            CASE
+                WHEN {_responsible_role_sql('rh')} THEN 'rh'
+                WHEN {_responsible_role_sql('dir')} THEN 'dir'
+                ELSE ''
+            END AS role,
+            matricule,
+            normalized_name,
+            full_name,
+            email,
+            residence,
+            direction,
+            hr_responsible,
+            source_file,
+            source_row,
+            updated_at,
+            CASE
+                WHEN email = '' THEN 0
+                ELSE (
+                    SELECT COUNT(*)
+                    FROM employee_contacts duplicates
+                    WHERE lower(duplicates.email) = lower(employee_contacts.email)
+                )
+            END AS duplicate_email_count
+        FROM employee_contacts
+    """
+
+
+def _responsible_contact_sql() -> str:
+    return (
+        "(lower(matricule) LIKE 'responsible:%' "
+        "OR lower(full_name) LIKE 'resp rh%' "
+        "OR lower(full_name) LIKE 'responsable rh%' "
+        "OR lower(full_name) LIKE 'dir c/r%')"
+    )
+
+
+def _responsible_role_sql(role: str) -> str:
+    if role == "dir":
+        return (
+            "(lower(matricule) LIKE 'responsible:dir:%' "
+            "OR lower(full_name) LIKE 'dir c/r%')"
+        )
+    return (
+        "(lower(matricule) LIKE 'responsible:rh:%' "
+        "OR lower(full_name) LIKE 'responsable rh%' "
+        "OR lower(full_name) LIKE 'resp rh%')"
+    )
+
+
 def _normalize_participant_name(value: str) -> str:
     return normalize_name(value)
 
@@ -2320,7 +2561,11 @@ def _responsible_role(row: sqlite3.Row | None) -> str:
         return ""
     matricule = str(row["matricule"] or "").lower()
     full_name = str(row["full_name"] or "").lower()
-    if matricule.startswith("responsible:rh") or full_name.startswith("resp rh"):
+    if (
+        matricule.startswith("responsible:rh")
+        or full_name.startswith("resp rh")
+        or full_name.startswith("responsable rh")
+    ):
         return "rh"
     if matricule.startswith("responsible:dir") or full_name.startswith("dir c/r"):
         return "dir"

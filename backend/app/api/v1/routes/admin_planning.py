@@ -13,6 +13,7 @@ from app.schemas.admin_planning import (
     AdminPlanningGenerateDraftsRequest,
     AdminPlanningRegenerateDraftRequest,
     AdminPlanningRejectDraftRequest,
+    AdminPlanningResponsableRequest,
     AdminPlanningRunAutomationRequest,
     AdminPlanningSendDraftRequest,
     AdminPlanningUpdateDraftRequest,
@@ -235,6 +236,115 @@ async def import_responsible_contacts(
         files,
         params={"import_id": import_id},
     )
+
+
+@router.post(
+    "/responsables/import",
+    summary="Import responsables directory",
+    description="Uploads responsable RH and DIR C/R directory files.",
+)
+async def import_responsables_directory(
+    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+    files: Annotated[list[UploadFile], File(...)],
+    import_id: str | None = Query(default=None),
+) -> Any:
+    return await gateway.post_files(
+        "contacts/import",
+        files,
+        params={"import_id": import_id},
+    )
+
+
+@router.get(
+    "/responsables",
+    summary="List responsables directory",
+    description="Lists RH and DIR C/R responsables with search and quality filters.",
+)
+async def list_responsables_directory(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+    search: str | None = Query(default=None),
+    role: str | None = Query(default=None),
+    residence: str | None = Query(default=None),
+    direction: str | None = Query(default=None),
+    has_email: bool | None = Query(default=None),
+    duplicate_emails: bool | None = Query(default=None),
+    source_file: str | None = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> Any:
+    return await gateway.get(
+        "responsables",
+        params={
+            "search": search,
+            "role": role,
+            "residence": residence,
+            "direction": direction,
+            "has_email": has_email,
+            "duplicate_emails": duplicate_emails,
+            "source_file": source_file,
+            "limit": limit,
+            "offset": offset,
+        },
+    )
+
+
+@router.post(
+    "/responsables",
+    summary="Save responsable directory contact",
+    description="Creates or updates one RH or DIR C/R responsable contact.",
+)
+async def save_responsable_directory_contact(
+    request: AdminPlanningResponsableRequest,
+    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+) -> Any:
+    return await gateway.post_json(
+        "responsables",
+        request.model_dump(),
+    )
+
+
+@router.get(
+    "/responsables/{contact_key}",
+    summary="Get responsable directory contact",
+    description="Returns one RH or DIR C/R responsable contact by contact key.",
+)
+async def get_responsable_directory_contact(
+    contact_key: str,
+    _: Annotated[User, Depends(get_current_admin_user)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+) -> Any:
+    return await gateway.get(f"responsables/{contact_key}")
+
+
+@router.delete(
+    "/responsables/{contact_key}",
+    summary="Delete responsable directory contact",
+    description="Deletes one RH or DIR C/R responsable contact.",
+)
+async def delete_responsable_directory_contact(
+    contact_key: str,
+    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+) -> Any:
+    return await gateway.delete(f"responsables/{contact_key}")
 
 
 @router.get(

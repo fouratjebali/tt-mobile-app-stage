@@ -371,6 +371,57 @@ class PlanningImportService:
     def list_contacts(self, *, limit: int = 200, offset: int = 0) -> list[dict[str, Any]]:
         return self.database.list_contacts(limit=limit, offset=offset)
 
+    def list_responsibles(
+        self,
+        *,
+        search: str | None = None,
+        role: str | None = None,
+        residence: str | None = None,
+        direction: str | None = None,
+        has_email: bool | None = None,
+        duplicate_emails: bool | None = None,
+        source_file: str | None = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        return self.database.list_responsibles(
+            search=search,
+            role=role,
+            residence=residence,
+            direction=direction,
+            has_email=has_email,
+            duplicate_emails=duplicate_emails,
+            source_file=source_file,
+            limit=limit,
+            offset=offset,
+        )
+
+    def get_responsible(self, contact_key: str) -> dict[str, Any] | None:
+        return self.database.get_responsible(contact_key)
+
+    def save_responsible(
+        self,
+        *,
+        role: str,
+        residence: str,
+        email: str,
+        full_name: str = "",
+        direction: str = "",
+        hr_responsible: str = "",
+    ) -> dict[str, Any]:
+        return self.database.save_responsible(
+            role=role,
+            residence=residence,
+            email=email,
+            full_name=full_name,
+            direction=direction,
+            hr_responsible=hr_responsible,
+            source_file="admin",
+        )
+
+    def delete_responsible(self, contact_key: str) -> bool:
+        return self.database.delete_responsible(contact_key)
+
     def apply_contact_mapping(self, *, import_id: str | None = None) -> dict[str, Any]:
         safe_import_id = sanitize_import_id(import_id) if import_id else None
         return self.database.apply_contact_mapping(import_id=safe_import_id)
