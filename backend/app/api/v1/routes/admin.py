@@ -1,13 +1,18 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_admin_manager, get_current_admin_user
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.auth import User
+from app.repositories.admin_dashboard_repository import AdminDashboardRepository
 from app.repositories.auth_repository import AuthRepository
 from app.schemas.admin import (
+    AdminOverviewResponse,
+    AdminOverviewSystem,
     AdminUserResponse,
     AdminUsersResponse,
     UpdateAdminUserActiveRequest,
@@ -28,6 +33,31 @@ def admin_me(
     user: Annotated[User, Depends(get_current_admin_user)],
 ) -> AdminUserResponse:
     return _to_admin_user_response(user)
+
+
+@router.get(
+    "/overview",
+    response_model=AdminOverviewResponse,
+    summary="Get admin dashboard overview",
+    description="Returns top-level users, email workflow and notification counters.",
+)
+def admin_overview(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> AdminOverviewResponse:
+    payload = AdminDashboardRepository(db).overview()
+    return AdminOverviewResponse(
+        generated_at=datetime.now(tz=UTC),
+        users=payload["users"],
+        email=payload["email"],
+        notifications=payload["notifications"],
+        training=payload["training"],
+        system=AdminOverviewSystem(
+            api_prefix=settings.API_V1_PREFIX,
+            admin_api_prefix=settings.ADMIN_API_PREFIX,
+            admin_base_path=f"{settings.API_V1_PREFIX}{settings.ADMIN_API_PREFIX}",
+        ),
+    )
 
 
 @router.get(
