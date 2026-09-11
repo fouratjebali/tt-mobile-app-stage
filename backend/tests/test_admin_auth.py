@@ -14,9 +14,15 @@ from app.api.dependencies import (  # noqa: E402
     get_current_admin_planning_editor,
     get_current_admin_user,
 )
-from app.api.v1.routes.admin import update_user_active_state, update_user_role  # noqa: E402
+from app.api.v1.routes.admin import (  # noqa: E402
+    get_audit_log,
+    list_audit_logs,
+    update_user_active_state,
+    update_user_role,
+)
 from app.core.config import Settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
+from app.models.audit import AuditLog  # noqa: E402
 from app.models.auth import AuthSession, User, UserRole  # noqa: E402
 from app.repositories.auth_repository import AuthRepository  # noqa: E402
 from app.schemas.admin import (  # noqa: E402
@@ -28,7 +34,10 @@ from app.services.auth_service import AuthService  # noqa: E402
 
 def _session():
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(bind=engine, tables=[User.__table__, AuthSession.__table__])
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[User.__table__, AuthSession.__table__, AuditLog.__table__],
+    )
     session_factory = sessionmaker(bind=engine)
     return session_factory()
 
@@ -55,6 +64,15 @@ def test_standard_admin_api_prefix_contract():
     assert settings.API_V1_PREFIX == "/api/v1"
     assert settings.ADMIN_API_PREFIX == "/admin"
     assert f"{settings.API_V1_PREFIX}{settings.ADMIN_API_PREFIX}" == "/api/v1/admin"
+
+
+def test_admin_audit_log_routes_are_exposed():
+    from app.api.v1.routes import admin
+
+    route_paths = {f"/admin{route.path}" for route in admin.router.routes}
+
+    assert "/admin/audit-logs" in route_paths
+    assert "/admin/audit-logs/{log_id}" in route_paths
 
 
 def test_configured_admin_email_is_promoted():
@@ -160,5 +178,65 @@ def test_admin_cannot_remove_own_role_or_disable_self():
                 db=db,
             )
         assert active_exc.value.status_code == 400
+    finally:
+        db.close()
+
+
+def test_admin_user_mutations_create_audit_logs():
+    db = _session()
+    try:
+        repository = AuthRepository(db)
+        admin = repository.upsert_user(
+            google_sub="microsoft:admin",
+            email="admin@tunisietelecom.tn",
+            display_name="Admin",
+            photo_url=None,
+        )
+        repository.update_user_role(user_id=admin.id, role=UserRole.ADMIN)
+        user = repository.upsert_user(
+            google_sub="microsoft:reviewer",
+            email="reviewer@tunisietelecom.tn",
+            display_name="Reviewer",
+            photo_url=None,
+        )
+
+        updated_role = update_user_role(
+            user_id=user.id,
+            request=UpdateAdminUserRoleRequest(role=UserRole.REVIEWER),
+            admin_user=admin,
+            db=db,
+        )
+        updated_active = update_user_active_state(
+            user_id=user.id,
+            request=UpdateAdminUserActiveRequest(is_active=False),
+            admin_user=admin,
+            db=db,
+        )
+
+        assert updated_role.role == UserRole.REVIEWER.value
+        assert updated_active.is_active is False
+
+        audit_page = list_audit_logs(
+            admin,
+            db,
+            actor_email="admin@tunisietelecom.tn",
+            action=None,
+            resource_type="user",
+            resource_id=None,
+            status="success",
+            search="reviewer",
+            date_from=None,
+            date_to=None,
+            limit=10,
+            offset=0,
+        )
+        assert audit_page.total == 2
+        assert audit_page.logs[0].actor_email == "admin@tunisietelecom.tn"
+        assert audit_page.logs[0].resource_type == "user"
+        assert audit_page.logs[0].metadata["target_email"] == "reviewer@tunisietelecom.tn"
+
+        detail = get_audit_log(audit_page.logs[0].id, admin, db)
+        assert detail.id == audit_page.logs[0].id
+        assert detail.status == "success"
     finally:
         db.close()

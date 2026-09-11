@@ -9,7 +9,9 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models.auth import User
 from app.repositories.admin_dashboard_repository import AdminDashboardRepository
+from app.repositories.audit_repository import AuditRepository, audit_metadata
 from app.repositories.auth_repository import AuthRepository
+from app.schemas.audit import AuditLogResponse, AuditLogsResponse
 from app.schemas.admin import (
     AdminOverviewResponse,
     AdminOverviewSystem,
@@ -61,6 +63,66 @@ def admin_overview(
 
 
 @router.get(
+    "/audit-logs",
+    response_model=AuditLogsResponse,
+    summary="List audit logs",
+    description="Lists admin dashboard actions for compliance and troubleshooting.",
+)
+def list_audit_logs(
+    _: Annotated[User, Depends(get_current_admin_manager)],
+    db: Annotated[Session, Depends(get_db)],
+    actor_email: str | None = Query(default=None, min_length=1),
+    action: str | None = Query(default=None, min_length=1),
+    resource_type: str | None = Query(default=None, min_length=1),
+    resource_id: str | None = Query(default=None, min_length=1),
+    status: str | None = Query(default=None, min_length=1),
+    search: str | None = Query(default=None, min_length=1),
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> AuditLogsResponse:
+    logs, total = AuditRepository(db).list(
+        actor_email=actor_email,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        status=status,
+        search=search,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
+    return AuditLogsResponse(
+        logs=[_to_audit_log_response(log) for log in logs],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/audit-logs/{log_id}",
+    response_model=AuditLogResponse,
+    summary="Get audit log",
+    description="Returns one audit log entry.",
+)
+def get_audit_log(
+    log_id: str,
+    _: Annotated[User, Depends(get_current_admin_manager)],
+    db: Annotated[Session, Depends(get_db)],
+) -> AuditLogResponse:
+    log = AuditRepository(db).get(log_id)
+    if log is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Audit log not found.",
+        )
+    return _to_audit_log_response(log)
+
+
+@router.get(
     "/users",
     response_model=AdminUsersResponse,
     summary="List users",
@@ -104,12 +166,26 @@ def update_user_role(
             detail="You cannot remove your own administrator role.",
         )
 
-    user = AuthRepository(db).update_user_role(user_id=user_id, role=request.role)
+    repository = AuthRepository(db)
+    target_user = repository.get_user_by_id(user_id)
+    previous_role = target_user.role if target_user is not None else ""
+    user = repository.update_user_role(user_id=user_id, role=request.role)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    AuditRepository(db).create(
+        actor=admin_user,
+        action="admin.user.role.update",
+        resource_type="user",
+        resource_id=user.id,
+        metadata={
+            "target_email": user.email,
+            "previous_role": previous_role,
+            "new_role": user.role,
+        },
+    )
     return _to_admin_user_response(user)
 
 
@@ -131,7 +207,10 @@ def update_user_active_state(
             detail="You cannot disable your own administrator account.",
         )
 
-    user = AuthRepository(db).update_user_active_state(
+    repository = AuthRepository(db)
+    target_user = repository.get_user_by_id(user_id)
+    previous_active = target_user.is_active if target_user is not None else None
+    user = repository.update_user_active_state(
         user_id=user_id,
         is_active=request.is_active,
     )
@@ -140,6 +219,17 @@ def update_user_active_state(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    AuditRepository(db).create(
+        actor=admin_user,
+        action="admin.user.active.update",
+        resource_type="user",
+        resource_id=user.id,
+        metadata={
+            "target_email": user.email,
+            "previous_active": previous_active,
+            "new_active": user.is_active,
+        },
+    )
     return _to_admin_user_response(user)
 
 
@@ -153,4 +243,19 @@ def _to_admin_user_response(user: User) -> AdminUserResponse:
         is_active=user.is_active,
         created_at=user.created_at,
         updated_at=user.updated_at,
+    )
+
+
+def _to_audit_log_response(log) -> AuditLogResponse:
+    return AuditLogResponse(
+        id=log.id,
+        actor_user_id=log.actor_user_id,
+        actor_email=log.actor_email,
+        actor_role=log.actor_role,
+        action=log.action,
+        resource_type=log.resource_type,
+        resource_id=log.resource_id,
+        status=log.status,
+        metadata=audit_metadata(log),
+        created_at=log.created_at,
     )

@@ -6,7 +6,9 @@ from app.api.dependencies import (
     get_current_admin_planning_editor,
     get_current_admin_user,
 )
+from app.db.session import SessionLocal
 from app.models.auth import User
+from app.repositories.audit_repository import AuditRepository
 from app.schemas.admin_planning import (
     AdminPlanningAutomationSettingsRequest,
     AdminPlanningBulkDraftActionRequest,
@@ -51,14 +53,16 @@ async def preview_planning_import(
     description="Uploads and stores training planning files in the planning service.",
 )
 async def import_planning_files(
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
     files: Annotated[list[UploadFile], File(...)],
 ) -> Any:
-    return await gateway.post_files("import", files)
+    result = await gateway.post_files("import", files)
+    _record_planning_audit(current_user, "admin.planning.import.create", result=result)
+    return result
 
 
 @router.get(
@@ -225,7 +229,7 @@ async def list_contact_review(
     description="Uploads responsable RH and DIR C/R contact files.",
 )
 async def import_responsible_contacts(
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
@@ -233,11 +237,18 @@ async def import_responsible_contacts(
     files: Annotated[list[UploadFile], File(...)],
     import_id: str | None = Query(default=None),
 ) -> Any:
-    return await gateway.post_files(
+    result = await gateway.post_files(
         "contacts/import",
         files,
         params={"import_id": import_id},
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.contacts.import",
+        resource_id=import_id or "",
+        result=result,
+    )
+    return result
 
 
 @router.post(
@@ -246,7 +257,7 @@ async def import_responsible_contacts(
     description="Uploads responsable RH and DIR C/R directory files.",
 )
 async def import_responsables_directory(
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
@@ -254,11 +265,18 @@ async def import_responsables_directory(
     files: Annotated[list[UploadFile], File(...)],
     import_id: str | None = Query(default=None),
 ) -> Any:
-    return await gateway.post_files(
+    result = await gateway.post_files(
         "contacts/import",
         files,
         params={"import_id": import_id},
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.responsables.import",
+        resource_id=import_id or "",
+        result=result,
+    )
+    return result
 
 
 @router.get(
@@ -305,16 +323,23 @@ async def list_responsables_directory(
 )
 async def save_responsable_directory_contact(
     request: AdminPlanningResponsableRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.post_json(
+    result = await gateway.post_json(
         "responsables",
         request.model_dump(),
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.responsable.save",
+        resource_id=request.residence,
+        result=result,
+    )
+    return result
 
 
 @router.get(
@@ -340,13 +365,20 @@ async def get_responsable_directory_contact(
 )
 async def delete_responsable_directory_contact(
     contact_key: str,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.delete(f"responsables/{contact_key}")
+    result = await gateway.delete(f"responsables/{contact_key}")
+    _record_planning_audit(
+        current_user,
+        "admin.planning.responsable.delete",
+        resource_id=contact_key,
+        result=result,
+    )
+    return result
 
 
 @router.get(
@@ -373,16 +405,23 @@ async def list_responsible_contacts(
 )
 async def save_responsible_contact(
     request: AdminPlanningContactRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.post_json(
+    result = await gateway.post_json(
         "contacts",
         request.model_dump(),
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.contact.save",
+        resource_id=request.matricule or request.full_name,
+        result=result,
+    )
+    return result
 
 
 @router.post(
@@ -391,18 +430,25 @@ async def save_responsible_contact(
     description="Applies known responsible contacts to imported participants.",
 )
 async def apply_contact_mapping(
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
     import_id: str | None = Query(default=None),
 ) -> Any:
-    return await gateway.post_json(
+    result = await gateway.post_json(
         "contacts/apply",
         {},
         params={"import_id": import_id},
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.contacts.apply",
+        resource_id=import_id or "",
+        result=result,
+    )
+    return result
 
 
 @router.get(
@@ -427,16 +473,22 @@ async def get_automation_settings(
 )
 async def update_automation_settings(
     request: AdminPlanningAutomationSettingsRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.patch_json(
+    result = await gateway.patch_json(
         "automation/settings",
         request.model_dump(exclude_none=True),
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.automation.settings.update",
+        result=result,
+    )
+    return result
 
 
 @router.post(
@@ -454,10 +506,17 @@ async def run_planning_automation(
 ) -> Any:
     payload = request.model_dump(exclude_none=True)
     payload["requested_by"] = request.requested_by or current_user.email
-    return await gateway.post_json(
+    result = await gateway.post_json(
         "automation/run",
         payload,
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.automation.run",
+        resource_id=payload.get("import_id", ""),
+        result=result,
+    )
+    return result
 
 
 @router.get(
@@ -533,16 +592,23 @@ async def list_planning_automation_job_logs(
 )
 async def generate_training_drafts(
     request: AdminPlanningGenerateDraftsRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.post_json(
+    result = await gateway.post_json(
         "drafts/generate",
         request.model_dump(),
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.drafts.generate",
+        resource_id=request.import_id or request.session_key or "",
+        result=result,
+    )
+    return result
 
 
 @router.get(
@@ -614,16 +680,23 @@ async def get_training_draft_review(
 )
 async def bulk_review_training_drafts(
     request: AdminPlanningBulkDraftActionRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.post_json(
+    result = await gateway.post_json(
         "drafts/bulk-action",
         request.model_dump(),
     )
+    _record_planning_audit(
+        current_user,
+        f"admin.planning.drafts.bulk.{request.action}",
+        resource_id=",".join(str(draft_id) for draft_id in request.draft_ids),
+        result=result,
+    )
+    return result
 
 
 @router.post(
@@ -633,18 +706,25 @@ async def bulk_review_training_drafts(
 )
 async def bulk_send_training_drafts(
     request: AdminPlanningBulkSendDraftsRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
     authorization: Annotated[str | None, Header()] = None,
 ) -> Any:
-    return await gateway.post_json(
+    result = await gateway.post_json(
         "drafts/bulk-send",
         request.model_dump(exclude_none=True),
         authorization=authorization,
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.drafts.bulk.send",
+        resource_id=",".join(str(draft_id) for draft_id in request.draft_ids),
+        result=result,
+    )
+    return result
 
 
 @router.get(
@@ -700,16 +780,23 @@ async def get_training_draft(
 async def update_training_draft(
     draft_id: int,
     request: AdminPlanningUpdateDraftRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.patch_json(
+    result = await gateway.patch_json(
         f"drafts/{draft_id}",
         request.model_dump(exclude_none=True),
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.draft.update",
+        resource_id=str(draft_id),
+        result=result,
+    )
+    return result
 
 
 @router.post(
@@ -720,16 +807,23 @@ async def update_training_draft(
 async def regenerate_training_draft(
     draft_id: int,
     request: AdminPlanningRegenerateDraftRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.post_json(
+    result = await gateway.post_json(
         f"drafts/{draft_id}/regenerate",
         request.model_dump(),
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.draft.regenerate",
+        resource_id=str(draft_id),
+        result=result,
+    )
+    return result
 
 
 @router.post(
@@ -739,13 +833,20 @@ async def regenerate_training_draft(
 )
 async def approve_training_draft(
     draft_id: int,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.post_json(f"drafts/{draft_id}/approve", {})
+    result = await gateway.post_json(f"drafts/{draft_id}/approve", {})
+    _record_planning_audit(
+        current_user,
+        "admin.planning.draft.approve",
+        resource_id=str(draft_id),
+        result=result,
+    )
+    return result
 
 
 @router.post(
@@ -756,16 +857,23 @@ async def approve_training_draft(
 async def reject_training_draft(
     draft_id: int,
     request: AdminPlanningRejectDraftRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
-    return await gateway.post_json(
+    result = await gateway.post_json(
         f"drafts/{draft_id}/reject",
         request.model_dump(),
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.draft.reject",
+        resource_id=str(draft_id),
+        result=result,
+    )
+    return result
 
 
 @router.post(
@@ -776,15 +884,93 @@ async def reject_training_draft(
 async def send_training_draft(
     draft_id: int,
     request: AdminPlanningSendDraftRequest,
-    _: Annotated[User, Depends(get_current_admin_planning_editor)],
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     gateway: Annotated[
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
     authorization: Annotated[str | None, Header()] = None,
 ) -> Any:
-    return await gateway.post_json(
+    result = await gateway.post_json(
         f"drafts/{draft_id}/send",
         request.model_dump(exclude_none=True),
         authorization=authorization,
     )
+    _record_planning_audit(
+        current_user,
+        "admin.planning.draft.send",
+        resource_id=str(draft_id),
+        result=result,
+    )
+    return result
+
+
+def _record_planning_audit(
+    actor: User,
+    action: str,
+    *,
+    resource_id: str = "",
+    result: Any = None,
+) -> None:
+    try:
+        with SessionLocal() as db:
+            AuditRepository(db).create(
+                actor=actor,
+                action=action,
+                resource_type="planning",
+                resource_id=resource_id,
+                status=_audit_status(result),
+                metadata=_compact_planning_metadata(result),
+            )
+    except Exception:
+        pass
+
+
+def _audit_status(result: Any) -> str:
+    if not isinstance(result, dict):
+        return "success"
+    status_value = str(result.get("status") or "success").strip().lower()
+    if status_value in {"ok", "sent", "success"}:
+        return "success"
+    if status_value in {"partial", "empty"}:
+        return status_value
+    if status_value in {"error", "failed"}:
+        return "error"
+    return status_value or "success"
+
+
+def _compact_planning_metadata(result: Any) -> dict[str, Any]:
+    if not isinstance(result, dict):
+        return {}
+
+    metadata: dict[str, Any] = {}
+    for key in (
+        "status",
+        "import_id",
+        "count",
+        "total",
+        "generated",
+        "succeeded",
+        "failed",
+        "mapped",
+        "unmatched",
+        "skipped_existing",
+        "deleted_existing",
+        "imported",
+        "skipped",
+    ):
+        if key in result:
+            metadata[key] = result[key]
+
+    draft = result.get("draft")
+    if isinstance(draft, dict):
+        metadata["draft_id"] = draft.get("id")
+        metadata["draft_status"] = draft.get("status")
+
+    if isinstance(result.get("drafts"), list):
+        metadata["draft_count"] = len(result["drafts"])
+
+    if isinstance(result.get("errors"), list):
+        metadata["error_count"] = len(result["errors"])
+
+    return metadata
