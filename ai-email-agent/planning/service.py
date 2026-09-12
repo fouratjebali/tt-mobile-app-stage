@@ -228,6 +228,43 @@ class PlanningImportService:
             return None
         return self.database.get_import(safe_id)
 
+    def get_analytics_overview(
+        self,
+        *,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> dict[str, Any]:
+        return self.database.get_analytics_overview(
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+    def get_file_analytics(
+        self,
+        *,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.database.get_file_analytics(
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+        )
+
+    def get_draft_analytics(
+        self,
+        *,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return self.database.get_draft_analytics(
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+        )
+
     def list_sessions(
         self,
         *,

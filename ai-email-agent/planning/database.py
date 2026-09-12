@@ -766,6 +766,259 @@ class PlanningDatabase:
             ).fetchall()
             return [self._import_summary(connection, row) for row in rows]
 
+    def get_analytics_overview(
+        self,
+        *,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> dict[str, Any]:
+        import_where, import_params = _date_filter(
+            "created_at",
+            date_from=date_from,
+            date_to=date_to,
+        )
+        draft_where, draft_params = _date_filter(
+            "created_at",
+            date_from=date_from,
+            date_to=date_to,
+        )
+        send_where, send_params = _date_filter(
+            "sent_at",
+            date_from=date_from,
+            date_to=date_to,
+        )
+        job_where, job_params = _date_filter(
+            "created_at",
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+        with self._connect() as connection:
+            import_row = connection.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS total_imports,
+                    COALESCE(SUM(total_sessions), 0) AS imported_sessions,
+                    COALESCE(SUM(total_participants), 0) AS imported_participants,
+                    COALESCE(SUM(warning_count), 0) AS warning_count,
+                    COALESCE(SUM(error_count), 0) AS error_count
+                FROM planning_imports
+                {import_where}
+                """,
+                import_params,
+            ).fetchone()
+            file_row = connection.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS total_files,
+                    SUM(CASE WHEN lower(filename) LIKE '%.xlsx' THEN 1 ELSE 0 END) AS excel_files,
+                    SUM(CASE WHEN lower(filename) LIKE '%.csv' THEN 1 ELSE 0 END) AS csv_files,
+                    SUM(CASE WHEN upper(status) IN ('OK', 'SUCCESS', 'READY', 'IMPORTED') THEN 1 ELSE 0 END) AS successful_files,
+                    SUM(CASE WHEN upper(status) IN ('ERROR', 'FAILED') OR errors_json != '[]' THEN 1 ELSE 0 END) AS failed_files
+                FROM planning_files
+                WHERE import_id IN (
+                    SELECT import_id
+                    FROM planning_imports
+                    {import_where}
+                )
+                """,
+                import_params,
+            ).fetchone()
+            draft_row = connection.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS total_drafts,
+                    SUM(CASE WHEN status IN ('WAITING_REVIEW', 'EDITED', 'NEEDS_CONTACTS', 'APPROVED') THEN 1 ELSE 0 END) AS active_drafts,
+                    SUM(CASE WHEN status = 'SENT' THEN 1 ELSE 0 END) AS sent_drafts,
+                    SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_drafts
+                FROM training_email_drafts
+                {draft_where}
+                """,
+                draft_params,
+            ).fetchone()
+            send_row = connection.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS total_send_logs,
+                    SUM(CASE WHEN lower(status) = 'sent' THEN 1 ELSE 0 END) AS sent_logs,
+                    SUM(CASE WHEN lower(status) = 'error' THEN 1 ELSE 0 END) AS error_logs
+                FROM training_email_send_logs
+                {send_where}
+                """,
+                send_params,
+            ).fetchone()
+            job_row = connection.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS total_jobs,
+                    SUM(CASE WHEN upper(status) IN ('SUCCESS', 'COMPLETED', 'DONE') THEN 1 ELSE 0 END) AS successful_jobs,
+                    SUM(CASE WHEN upper(status) IN ('ERROR', 'FAILED') THEN 1 ELSE 0 END) AS failed_jobs,
+                    SUM(CASE WHEN upper(status) = 'RUNNING' THEN 1 ELSE 0 END) AS running_jobs
+                FROM planning_automation_jobs
+                {job_where}
+                """,
+                job_params,
+            ).fetchone()
+
+        return {
+            "status": "ok",
+            "filters": {"date_from": date_from or "", "date_to": date_to or ""},
+            "imports": _clean_count_row(import_row),
+            "files": _clean_count_row(file_row),
+            "drafts": _clean_count_row(draft_row),
+            "send_history": _clean_count_row(send_row),
+            "automation": _clean_count_row(job_row),
+        }
+
+    def get_file_analytics(
+        self,
+        *,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        import_where, params = _date_filter(
+            "i.created_at",
+            date_from=date_from,
+            date_to=date_to,
+        )
+        where = f"WHERE {import_where[6:]}" if import_where else ""
+        with self._connect() as connection:
+            status_rows = connection.execute(
+                f"""
+                SELECT f.status, COUNT(*) AS count
+                FROM planning_files AS f
+                JOIN planning_imports AS i ON i.import_id = f.import_id
+                {where}
+                GROUP BY f.status
+                ORDER BY count DESC, f.status
+                """,
+                params,
+            ).fetchall()
+            extension_rows = connection.execute(
+                f"""
+                SELECT
+                    CASE
+                        WHEN lower(f.filename) LIKE '%.xlsx' THEN 'xlsx'
+                        WHEN lower(f.filename) LIKE '%.csv' THEN 'csv'
+                        ELSE 'other'
+                    END AS extension,
+                    COUNT(*) AS count
+                FROM planning_files AS f
+                JOIN planning_imports AS i ON i.import_id = f.import_id
+                {where}
+                GROUP BY extension
+                ORDER BY count DESC, extension
+                """,
+                params,
+            ).fetchall()
+            recent_rows = connection.execute(
+                f"""
+                SELECT
+                    f.id,
+                    f.import_id,
+                    f.filename,
+                    f.status,
+                    f.warnings_json,
+                    f.errors_json,
+                    i.created_at,
+                    i.total_sessions,
+                    i.total_participants
+                FROM planning_files AS f
+                JOIN planning_imports AS i ON i.import_id = f.import_id
+                {where}
+                ORDER BY i.created_at DESC, f.id DESC
+                LIMIT ?
+                """,
+                [*params, limit],
+            ).fetchall()
+
+        recent_files = []
+        for row in recent_rows:
+            item = dict(row)
+            warnings = _loads(item.pop("warnings_json", "[]"))
+            errors = _loads(item.pop("errors_json", "[]"))
+            item["warning_count"] = len(warnings)
+            item["error_count"] = len(errors)
+            recent_files.append(item)
+
+        return {
+            "status": "ok",
+            "filters": {"date_from": date_from or "", "date_to": date_to or ""},
+            "by_status": [dict(row) for row in status_rows],
+            "by_extension": [dict(row) for row in extension_rows],
+            "recent_files": recent_files,
+        }
+
+    def get_draft_analytics(
+        self,
+        *,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        where, params = _date_filter(
+            "created_at",
+            date_from=date_from,
+            date_to=date_to,
+        )
+        with self._connect() as connection:
+            status_rows = connection.execute(
+                f"""
+                SELECT status, COUNT(*) AS count
+                FROM training_email_drafts
+                {where}
+                GROUP BY status
+                ORDER BY count DESC, status
+                """,
+                params,
+            ).fetchall()
+            type_rows = connection.execute(
+                f"""
+                SELECT email_type, COUNT(*) AS count
+                FROM training_email_drafts
+                {where}
+                GROUP BY email_type
+                ORDER BY count DESC, email_type
+                """,
+                params,
+            ).fetchall()
+            daily_rows = connection.execute(
+                f"""
+                SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS count
+                FROM training_email_drafts
+                {where}
+                GROUP BY day
+                ORDER BY day DESC
+                LIMIT ?
+                """,
+                [*params, limit],
+            ).fetchall()
+            import_rows = connection.execute(
+                f"""
+                SELECT
+                    COALESCE(import_id, '') AS import_id,
+                    COUNT(*) AS draft_count,
+                    SUM(CASE WHEN status = 'SENT' THEN 1 ELSE 0 END) AS sent_count,
+                    SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_count
+                FROM training_email_drafts
+                {where}
+                GROUP BY import_id
+                ORDER BY draft_count DESC, import_id
+                LIMIT ?
+                """,
+                [*params, limit],
+            ).fetchall()
+
+        return {
+            "status": "ok",
+            "filters": {"date_from": date_from or "", "date_to": date_to or ""},
+            "by_status": [dict(row) for row in status_rows],
+            "by_email_type": [dict(row) for row in type_rows],
+            "by_day": [dict(row) for row in daily_rows],
+            "by_import": [_clean_count_row(row) for row in import_rows],
+        }
+
     def get_import(self, import_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
@@ -2723,3 +2976,32 @@ def _unique_email_rows(rows: list[sqlite3.Row]) -> list[sqlite3.Row]:
         if email:
             by_email[email] = row
     return list(by_email.values())
+
+
+def _date_filter(
+    column: str,
+    *,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> tuple[str, list[Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if date_from:
+        clauses.append(f"{column} >= ?")
+        params.append(date_from)
+    if date_to:
+        clauses.append(f"{column} <= ?")
+        params.append(date_to)
+    if not clauses:
+        return "", params
+    return f"WHERE {' AND '.join(clauses)}", params
+
+
+def _clean_count_row(row: sqlite3.Row | dict[str, Any] | None) -> dict[str, Any]:
+    if row is None:
+        return {}
+    data = dict(row)
+    return {
+        key: (0 if value is None else int(value) if isinstance(value, (int, float)) else value)
+        for key, value in data.items()
+    }

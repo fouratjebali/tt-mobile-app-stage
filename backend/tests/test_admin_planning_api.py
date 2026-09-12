@@ -12,6 +12,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 from app.api.v1.routes import admin_planning  # noqa: E402
 from app.core.config import settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
+from app.models.audit import AuditLog  # noqa: E402
 from app.models.responsable import Responsable  # noqa: E402
 from app.schemas.admin_planning import (  # noqa: E402
     AdminPlanningAutomationSettingsRequest,
@@ -69,6 +70,10 @@ def test_admin_planning_router_uses_standard_admin_prefix():
     assert "/admin/planning/imports" in route_paths
     assert "/admin/planning/sessions" in route_paths
     assert "/admin/planning/responsables" in route_paths
+    assert "/admin/planning/analytics/overview" in route_paths
+    assert "/admin/planning/analytics/files" in route_paths
+    assert "/admin/planning/analytics/drafts" in route_paths
+    assert "/admin/planning/analytics/users" in route_paths
     assert "/admin/planning/automation/jobs" in route_paths
     assert "/admin/planning/automation/jobs/{job_id}" in route_paths
     assert "/admin/planning/automation/jobs/{job_id}/logs" in route_paths
@@ -139,6 +144,137 @@ def test_admin_planning_read_routes_forward_to_planning_service():
         ("GET", "imports", None, None),
         ("GET", "sessions", sessions["params"], None),
     ]
+
+
+def test_admin_planning_analytics_routes_forward_to_planning_service():
+    gateway = FakePlanningGateway()
+    admin_user = SimpleNamespace(role="viewer")
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[AuditLog.__table__])
+    db = sessionmaker(bind=engine)()
+
+    try:
+        overview = asyncio.run(
+            admin_planning.get_planning_analytics_overview(
+                admin_user,
+                gateway,
+                db,
+                date_from="2026-09-01",
+                date_to="2026-09-30",
+            )
+        )
+        files = asyncio.run(
+            admin_planning.get_planning_file_analytics(
+                admin_user,
+                gateway,
+                date_from="2026-09-01",
+                date_to="2026-09-30",
+                limit=12,
+            )
+        )
+        drafts = asyncio.run(
+            admin_planning.get_planning_draft_analytics(
+                admin_user,
+                gateway,
+                date_from="2026-09-01",
+                date_to="2026-09-30",
+                limit=15,
+            )
+        )
+
+        assert overview["path"] == "analytics/overview"
+        assert overview["admin_usage"] == {
+            "users": 0,
+            "actions_total": 0,
+            "imports_created": 0,
+            "files_treated": 0,
+            "drafts_prepared": 0,
+            "drafts_reviewed": 0,
+            "drafts_sent": 0,
+        }
+        assert files["path"] == "analytics/files"
+        assert drafts["path"] == "analytics/drafts"
+        assert gateway.calls[:3] == [
+            (
+                "GET",
+                "analytics/overview",
+                {"date_from": "2026-09-01", "date_to": "2026-09-30"},
+                None,
+            ),
+            (
+                "GET",
+                "analytics/files",
+                {"date_from": "2026-09-01", "date_to": "2026-09-30", "limit": 12},
+                None,
+            ),
+            (
+                "GET",
+                "analytics/drafts",
+                {"date_from": "2026-09-01", "date_to": "2026-09-30", "limit": 15},
+                None,
+            ),
+        ]
+    finally:
+        db.close()
+
+
+def test_admin_planning_user_analytics_group_audit_logs():
+    admin_user = SimpleNamespace(role="viewer")
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[AuditLog.__table__])
+    db = sessionmaker(bind=engine)()
+    db.add_all(
+        [
+            AuditLog(
+                actor_user_id="user-1",
+                actor_email="admin@tt.tn",
+                actor_role="admin",
+                action="admin.planning.import.create",
+                resource_type="planning",
+                resource_id="import-1",
+                metadata_json='{"file_count": 2}',
+            ),
+            AuditLog(
+                actor_user_id="user-1",
+                actor_email="admin@tt.tn",
+                actor_role="admin",
+                action="admin.planning.drafts.generate",
+                resource_type="planning",
+                resource_id="import-1",
+                metadata_json='{"draft_count": 8}',
+            ),
+            AuditLog(
+                actor_user_id="user-2",
+                actor_email="reviewer@tt.tn",
+                actor_role="reviewer",
+                action="admin.planning.draft.reject",
+                resource_type="planning",
+                resource_id="7",
+                metadata_json='{"draft_id": 7}',
+            ),
+        ]
+    )
+    db.commit()
+
+    try:
+        usage = admin_planning.get_planning_user_analytics(
+            admin_user,
+            db,
+            date_from=None,
+            date_to=None,
+            limit=20,
+            offset=0,
+        )
+
+        assert usage["total"] == 2
+        assert usage["users"][0]["actor_email"] == "admin@tt.tn"
+        assert usage["users"][0]["imports_created"] == 1
+        assert usage["users"][0]["files_treated"] == 2
+        assert usage["users"][0]["drafts_prepared"] == 8
+        assert usage["users"][1]["actor_email"] == "reviewer@tt.tn"
+        assert usage["users"][1]["drafts_reviewed"] == 1
+    finally:
+        db.close()
 
 
 def test_admin_planning_write_routes_forward_clean_payloads():

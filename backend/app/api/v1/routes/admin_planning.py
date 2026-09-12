@@ -1,6 +1,9 @@
+from datetime import datetime
+import json
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Header, Query, UploadFile
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import (
@@ -8,6 +11,7 @@ from app.api.dependencies import (
     get_current_admin_user,
 )
 from app.db.session import SessionLocal, get_db
+from app.models.audit import AuditLog
 from app.models.auth import User
 from app.repositories.audit_repository import AuditRepository
 from app.schemas.admin_planning import (
@@ -31,6 +35,98 @@ from app.services.responsable_directory_service import ResponsableDirectoryServi
 
 
 router = APIRouter()
+
+
+@router.get(
+    "/analytics/overview",
+    summary="Get planning analytics overview",
+    description="Returns import, file, draft, send and automation counters for dashboard cards.",
+)
+async def get_planning_analytics_overview(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+    db: Annotated[Session, Depends(get_db)],
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+) -> dict[str, Any]:
+    payload = await gateway.get(
+        "analytics/overview",
+        params={"date_from": date_from, "date_to": date_to},
+    )
+    if isinstance(payload, dict):
+        payload["admin_usage"] = _planning_usage_summary(
+            db,
+            date_from=_parse_admin_date(date_from),
+            date_to=_parse_admin_date(date_to),
+        )
+    return payload
+
+
+@router.get(
+    "/analytics/files",
+    summary="Get planning file analytics",
+    description="Returns treated Excel/CSV file counts by status and recent imported files.",
+)
+async def get_planning_file_analytics(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> Any:
+    return await gateway.get(
+        "analytics/files",
+        params={"date_from": date_from, "date_to": date_to, "limit": limit},
+    )
+
+
+@router.get(
+    "/analytics/drafts",
+    summary="Get planning draft analytics",
+    description="Returns draft counts by status, type, day and import batch.",
+)
+async def get_planning_draft_analytics(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> Any:
+    return await gateway.get(
+        "analytics/drafts",
+        params={"date_from": date_from, "date_to": date_to, "limit": limit},
+    )
+
+
+@router.get(
+    "/analytics/users",
+    summary="Get planning usage by admin user",
+    description="Groups planning imports, draft generation and review actions by dashboard user.",
+)
+def get_planning_user_analytics(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    db: Annotated[Session, Depends(get_db)],
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    return _planning_usage_by_user(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post(
@@ -945,6 +1041,156 @@ def _record_planning_audit(
         pass
 
 
+def _planning_usage_summary(
+    db: Session,
+    *,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> dict[str, int]:
+    usage = _planning_usage_by_user(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        limit=10000,
+        offset=0,
+    )
+    return {
+        "users": usage["total"],
+        "actions_total": sum(item["actions_total"] for item in usage["users"]),
+        "imports_created": sum(item["imports_created"] for item in usage["users"]),
+        "files_treated": sum(item["files_treated"] for item in usage["users"]),
+        "drafts_prepared": sum(item["drafts_prepared"] for item in usage["users"]),
+        "drafts_reviewed": sum(item["drafts_reviewed"] for item in usage["users"]),
+        "drafts_sent": sum(item["drafts_sent"] for item in usage["users"]),
+    }
+
+
+def _planning_usage_by_user(
+    db: Session,
+    *,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    clauses = [
+        AuditLog.resource_type == "planning",
+        AuditLog.action.like("admin.planning.%"),
+    ]
+    if date_from is not None:
+        clauses.append(AuditLog.created_at >= date_from)
+    if date_to is not None:
+        clauses.append(AuditLog.created_at <= date_to)
+
+    rows = list(db.scalars(select(AuditLog).where(*clauses)))
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        key = row.actor_email or row.actor_user_id or "unknown"
+        item = grouped.setdefault(
+            key,
+            {
+                "actor_user_id": row.actor_user_id,
+                "actor_email": row.actor_email or "unknown",
+                "actor_role": row.actor_role,
+                "actions_total": 0,
+                "imports_created": 0,
+                "files_treated": 0,
+                "drafts_prepared": 0,
+                "drafts_reviewed": 0,
+                "drafts_sent": 0,
+                "last_action_at": "",
+            },
+        )
+        metadata = _audit_metadata_dict(row)
+        item["actions_total"] += 1
+        item["last_action_at"] = max(
+            str(item["last_action_at"] or ""),
+            row.created_at.isoformat() if row.created_at else "",
+        )
+        if row.action == "admin.planning.import.create":
+            item["imports_created"] += 1
+            item["files_treated"] += _metadata_count(metadata, "file_count")
+        elif row.action == "admin.planning.drafts.generate":
+            item["drafts_prepared"] += _metadata_count(
+                metadata,
+                "draft_count",
+                "generated",
+                "count",
+            )
+        elif row.action.startswith("admin.planning.drafts.bulk."):
+            if row.action.endswith(".send"):
+                item["drafts_sent"] += _metadata_count(
+                    metadata,
+                    "succeeded",
+                    "draft_count",
+                    "count",
+                )
+            else:
+                item["drafts_reviewed"] += _metadata_count(
+                    metadata,
+                    "succeeded",
+                    "draft_count",
+                    "count",
+                    default=1,
+                )
+        elif row.action in {
+            "admin.planning.draft.approve",
+            "admin.planning.draft.reject",
+            "admin.planning.draft.regenerate",
+            "admin.planning.draft.update",
+        }:
+            item["drafts_reviewed"] += 1
+        elif row.action == "admin.planning.draft.send":
+            item["drafts_sent"] += 1
+
+    users = sorted(
+        grouped.values(),
+        key=lambda item: (item["drafts_prepared"], item["actions_total"], item["last_action_at"]),
+        reverse=True,
+    )
+    paged = users[offset : offset + limit]
+    return {
+        "status": "ok",
+        "total": len(users),
+        "limit": limit,
+        "offset": offset,
+        "users": paged,
+    }
+
+
+def _audit_metadata_dict(log: AuditLog) -> dict[str, Any]:
+    try:
+        payload = json.loads(log.metadata_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _metadata_count(
+    metadata: dict[str, Any],
+    *keys: str,
+    default: int = 0,
+) -> int:
+    for key in keys:
+        value = metadata.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            return int(value)
+        if isinstance(value, str) and value.strip().isdigit():
+            return int(value.strip())
+    return default
+
+
+def _parse_admin_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 def _planning_responsables_payload(db: Session) -> list[dict[str, Any]]:
     try:
         return ResponsableDirectoryService(db).list_all_for_planning()
@@ -975,6 +1221,8 @@ def _compact_planning_metadata(result: Any) -> dict[str, Any]:
         "import_id",
         "count",
         "total",
+        "total_sessions",
+        "total_participants",
         "generated",
         "succeeded",
         "failed",
@@ -987,6 +1235,11 @@ def _compact_planning_metadata(result: Any) -> dict[str, Any]:
     ):
         if key in result:
             metadata[key] = result[key]
+
+    if isinstance(result.get("files"), list):
+        metadata["file_count"] = len(result["files"])
+    if isinstance(result.get("filenames"), list):
+        metadata["file_count"] = len(result["filenames"])
 
     draft = result.get("draft")
     if isinstance(draft, dict):

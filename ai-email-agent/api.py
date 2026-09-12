@@ -922,6 +922,43 @@ def get_training_draft_review(
     )
 
 
+@app.get("/planning/analytics/overview")
+def get_planning_analytics_overview(
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+) -> dict[str, Any]:
+    return planning_import_service.get_analytics_overview(
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+@app.get("/planning/analytics/files")
+def get_planning_file_analytics(
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> dict[str, Any]:
+    return planning_import_service.get_file_analytics(
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+    )
+
+
+@app.get("/planning/analytics/drafts")
+def get_planning_draft_analytics(
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> dict[str, Any]:
+    return planning_import_service.get_draft_analytics(
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+    )
+
+
 @app.post("/planning/drafts/bulk-action")
 def bulk_review_training_drafts(
     request: BulkTrainingDraftActionRequest,

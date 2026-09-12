@@ -230,6 +230,65 @@ def test_training_draft_can_be_marked_manually_sent(tmp_path):
     assert sent["metadata"]["provider_message_id"] == "manual_outlook_send"
 
 
+def test_training_analytics_endpoints_return_counts(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Cabinet",
+                "Formateur",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricule",
+                "Nom & Prenom",
+            ],
+            [
+                "CRM-01",
+                "Gestion de la relation client",
+                "TT",
+                "Formateur",
+                "2026-09-14",
+                "2026-09-15",
+                "Tunis",
+                "20002",
+                "TRABELSI Karim",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    import_id = import_response.json()["import_id"]
+    client.post(
+        "/planning/drafts/generate",
+        json={"import_id": import_id, "email_type": "confirmation_presence"},
+    )
+
+    overview = client.get("/planning/analytics/overview")
+    files = client.get("/planning/analytics/files")
+    drafts = client.get("/planning/analytics/drafts")
+
+    assert overview.status_code == 200
+    assert overview.json()["imports"]["total_imports"] == 1
+    assert overview.json()["files"]["excel_files"] == 1
+    assert overview.json()["drafts"]["total_drafts"] == 1
+    assert files.json()["by_extension"] == [{"extension": "xlsx", "count": 1}]
+    assert drafts.json()["by_email_type"][0]["email_type"] == "confirmation_presence"
+
+
 def test_training_draft_can_be_regenerated_in_place(tmp_path):
     from api import planning_import_service
 
