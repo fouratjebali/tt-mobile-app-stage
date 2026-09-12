@@ -4179,8 +4179,6 @@ class _DraftReviewSheet extends StatefulWidget {
 
 class _DraftReviewSheetState extends State<_DraftReviewSheet> {
   late final TextEditingController _subjectController;
-  late final TextEditingController _recipientsController;
-  late final TextEditingController _ccController;
   late final TextEditingController _bodyController;
   late TrainingDraft _draft;
   bool _saving = false;
@@ -4190,18 +4188,12 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
     super.initState();
     _draft = widget.draft;
     _subjectController = TextEditingController(text: _draft.subject);
-    _recipientsController = TextEditingController(
-      text: _draft.recipients.join(', '),
-    );
-    _ccController = TextEditingController(text: _draft.cc.join(', '));
     _bodyController = TextEditingController(text: _draft.body);
   }
 
   @override
   void dispose() {
     _subjectController.dispose();
-    _recipientsController.dispose();
-    _ccController.dispose();
     _bodyController.dispose();
     super.dispose();
   }
@@ -4213,8 +4205,8 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
         draft: _draft,
         subject: _subjectController.text,
         body: _bodyController.text,
-        recipients: _splitEmails(_recipientsController.text),
-        cc: _splitEmails(_ccController.text),
+        recipients: _draft.recipients,
+        cc: _draft.cc,
       );
       _applySavedDraft(saved);
       return saved;
@@ -4260,8 +4252,6 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
     setState(() {
       _draft = draft;
       _subjectController.text = draft.subject;
-      _recipientsController.text = draft.recipients.join(', ');
-      _ccController.text = draft.cc.join(', ');
       _bodyController.text = draft.body;
     });
   }
@@ -4324,22 +4314,6 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
             const SizedBox(height: 14),
             _TrainingDraftSummary(draft: _draft, tone: tone),
             const SizedBox(height: 14),
-            _LabeledField(
-              label: l10n.t('formations.recipients'),
-              controller: _recipientsController,
-              hint: 'responsable@tunisietelecom.tn',
-              tone: tone,
-              enabled: canEdit,
-            ),
-            const SizedBox(height: 12),
-            _LabeledField(
-              label: l10n.t('formations.cc'),
-              controller: _ccController,
-              hint: l10n.t('formations.optional'),
-              tone: tone,
-              enabled: canEdit,
-            ),
-            const SizedBox(height: 12),
             _LabeledField(
               label: l10n.t('formations.subject'),
               controller: _subjectController,
@@ -4443,16 +4417,6 @@ class _TrainingDraftSummary extends StatelessWidget {
                 responsibles.isEmpty
                     ? l10n.t('formations.noResponsibleRecipient')
                     : responsibles,
-            tone: tone,
-          ),
-          const SizedBox(height: 10),
-          _DraftMetaRow(
-            icon: Icons.mail_outline_rounded,
-            label: l10n.t('formations.recipients'),
-            value:
-                draft.recipients.isEmpty
-                    ? l10n.t('formations.noRecipients')
-                    : draft.recipients.join(', '),
             tone: tone,
           ),
         ],
@@ -5044,12 +5008,4 @@ String _formatHistoryDate(String value) {
   String twoDigits(int number) => number.toString().padLeft(2, '0');
   return '${twoDigits(local.day)}/${twoDigits(local.month)}/${local.year} '
       '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
-}
-
-List<String> _splitEmails(String value) {
-  return value
-      .split(RegExp(r'[,;\n]'))
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toList();
 }
