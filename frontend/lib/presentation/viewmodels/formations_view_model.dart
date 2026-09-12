@@ -19,18 +19,32 @@ class FormationsViewModel extends ChangeNotifier {
   List<TrainingDraft> drafts = const [];
   List<TrainingSendHistory> sendHistory = const [];
   List<MissingPlanningContact> missingContacts = const [];
+  ResponsableDirectoryPage? responsableDirectoryPage;
+  List<ResponsableDirectoryItem> responsables = const [];
   PlanningContactReviewSummary? contactReviewSummary;
   List<PlanningContactReview> contactReviews = const [];
   Map<String, dynamic>? lastAutomation;
   String draftStatusFilter = 'all';
   String draftEmailTypeFilter = 'all';
+  String responsableSearch = '';
+  int responsableOffset = 0;
+  static const int responsablePageSize = 20;
 
   int get sessions => activeImport?.totalSessions ?? 0;
   int get participants => activeImport?.totalParticipants ?? 0;
   int get missingCount => activeImport?.missingEmailCount ?? 0;
   int get draftsCount => drafts.length;
-  int get responsibleCount => contactReviewSummary?.total ?? 0;
+  int get responsibleCount =>
+      responsableDirectoryPage?.total ?? contactReviewSummary?.total ?? 0;
   int get responsibleMissingCount => contactReviewSummary?.missing ?? 0;
+  int get responsablePageIndex =>
+      responsablePageSize == 0 ? 0 : responsableOffset ~/ responsablePageSize;
+  int get responsablePageCount {
+    final total = responsibleCount;
+    if (total == 0) return 1;
+    return (total / responsablePageSize).ceil();
+  }
+
   int get waitingReviewCount =>
       drafts
           .where(
@@ -56,6 +70,7 @@ class FormationsViewModel extends ChangeNotifier {
       automationSettings = await _planningApiService.getAutomationSettings();
       imports = await _planningApiService.listImports();
       activeImport = imports.isNotEmpty ? imports.first : null;
+      await _loadResponsables();
       await _loadDetails();
       state = LoadState.success;
     } catch (error) {
@@ -141,6 +156,43 @@ class FormationsViewModel extends ChangeNotifier {
         );
       }
       await _loadDetails();
+      state = LoadState.success;
+    } catch (error) {
+      errorMessage = error.toString();
+      state = LoadState.error;
+    }
+    notifyListeners();
+  }
+
+  Future<void> setResponsableSearch(String value) async {
+    final next = value.trim();
+    if (responsableSearch == next && responsableOffset == 0) return;
+    responsableSearch = next;
+    responsableOffset = 0;
+    await reloadResponsables();
+  }
+
+  Future<void> nextResponsablePage() async {
+    if (responsableOffset + responsablePageSize >= responsibleCount) return;
+    responsableOffset += responsablePageSize;
+    await reloadResponsables();
+  }
+
+  Future<void> previousResponsablePage() async {
+    if (responsableOffset == 0) return;
+    responsableOffset =
+        (responsableOffset - responsablePageSize)
+            .clamp(0, responsibleCount)
+            .toInt();
+    await reloadResponsables();
+  }
+
+  Future<void> reloadResponsables() async {
+    state = LoadState.loading;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _loadResponsables();
       state = LoadState.success;
     } catch (error) {
       errorMessage = error.toString();
@@ -362,6 +414,15 @@ class FormationsViewModel extends ChangeNotifier {
       importId: importId,
     );
     contactReviews = contactReviewSummary?.contacts ?? const [];
+  }
+
+  Future<void> _loadResponsables() async {
+    responsableDirectoryPage = await _planningApiService.listResponsables(
+      search: responsableSearch,
+      limit: responsablePageSize,
+      offset: responsableOffset,
+    );
+    responsables = responsableDirectoryPage?.responsables ?? const [];
   }
 
   Future<void> _reloadDrafts() async {

@@ -131,7 +131,7 @@ const Map<String, String> _english = {
   'formations.importStepTitle': 'Session planning',
   'formations.importStepSubtitle': 'Import the training session Excel file.',
   'formations.contactsStepTitle': 'Responsible contacts',
-  'formations.contactsStepSubtitle': 'Import RH/DR/DC contacts for sending.',
+  'formations.contactsStepSubtitle': 'Search the RH/DR/DC directory.',
   'formations.calendarStepTitle': 'Calendar',
   'formations.calendarStepSubtitle': 'Review sessions by training date.',
   'formations.draftsStepTitle': 'Drafts',
@@ -150,7 +150,7 @@ const Map<String, String> _english = {
       'Check responsible confirmation emails before sending.',
   'formations.contactsPageTitle': 'Responsible contacts',
   'formations.contactsPageSubtitle':
-      'Complete missing RH/DR/DC recipient emails.',
+      'Search and review the responsible directory.',
   'formations.historyPageTitle': 'Sent emails',
   'formations.historyPageSubtitle': 'Review what was sent from Outlook.',
   'formations.uploadTitle': 'Session planning file',
@@ -200,9 +200,15 @@ const Map<String, String> _english = {
       'Automation completed. Drafts are ready for review.',
   'formations.contactsTitle': 'Responsible directory',
   'formations.contactsSubtitle':
-      'Upload the Excel or CSV file that contains RH/DR/DC names, residences, directions, and emails.',
+      'Responsible contacts are loaded from the database.',
+  'formations.candidatesTitle': 'Candidate list',
+  'formations.candidatesSubtitle':
+      'Upload the Excel or CSV file with candidates by session.',
   'formations.contactsUpload': 'Upload contacts',
   'formations.contactsImported': 'Responsible contacts imported and applied.',
+  'formations.responsableSearch': 'Search',
+  'formations.responsableSearchHint': 'Search by name, function, or residence',
+  'formations.noResponsables': 'No responsible contact found.',
   'formations.contactPickError': 'Unable to read the selected contact files.',
   'formations.fixContact': 'Fix recipient',
   'formations.emailAddress': 'Responsible email',
@@ -531,8 +537,7 @@ const Map<String, String> _french = {
   'formations.importStepSubtitle':
       'Importer le fichier Excel des sessions de formation.',
   'formations.contactsStepTitle': 'Responsables',
-  'formations.contactsStepSubtitle':
-      'Importer les contacts RH/DR/DC pour l envoi.',
+  'formations.contactsStepSubtitle': 'Rechercher dans l annuaire RH/DR/DC.',
   'formations.calendarStepTitle': 'Calendrier',
   'formations.calendarStepSubtitle':
       'Verifier les sessions par date de formation.',
@@ -552,7 +557,7 @@ const Map<String, String> _french = {
       'Verifier les emails de confirmation responsables avant envoi.',
   'formations.contactsPageTitle': 'Responsables',
   'formations.contactsPageSubtitle':
-      'Completer les emails destinataires RH/DR/DC manquants.',
+      'Rechercher et consulter l annuaire des responsables.',
   'formations.historyPageTitle': 'Emails envoyes',
   'formations.historyPageSubtitle': 'Voir ce qui a ete envoye depuis Outlook.',
   'formations.uploadTitle': 'Fichier planning des sessions',
@@ -603,9 +608,16 @@ const Map<String, String> _french = {
       'Automatisation terminee. Brouillons prets pour verification.',
   'formations.contactsTitle': 'Annuaire responsables',
   'formations.contactsSubtitle':
-      'Importez le fichier Excel ou CSV avec noms RH/DR/DC, residences, directions et emails.',
+      'Les responsables sont charges depuis la base de donnees.',
+  'formations.candidatesTitle': 'Liste des candidats',
+  'formations.candidatesSubtitle':
+      'Importez le fichier Excel ou CSV des candidats par session.',
   'formations.contactsUpload': 'Importer les contacts',
   'formations.contactsImported': 'Contacts responsables importes et appliques.',
+  'formations.responsableSearch': 'Rechercher',
+  'formations.responsableSearchHint':
+      'Rechercher par nom, fonction ou residence',
+  'formations.noResponsables': 'Aucun responsable trouve.',
   'formations.contactPickError':
       'Impossible de lire les fichiers contacts selectionnes.',
   'formations.fixContact': 'Corriger le destinataire',

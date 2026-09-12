@@ -4,11 +4,15 @@ from io import BytesIO
 from types import SimpleNamespace
 
 from starlette.datastructures import UploadFile
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 
 from app.api.v1.routes import admin_planning  # noqa: E402
 from app.core.config import settings  # noqa: E402
+from app.db.base import Base  # noqa: E402
+from app.models.responsable import Responsable  # noqa: E402
 from app.schemas.admin_planning import (  # noqa: E402
     AdminPlanningAutomationSettingsRequest,
     AdminPlanningBulkDraftActionRequest,
@@ -278,20 +282,37 @@ def test_admin_responsables_directory_routes_forward_filters_and_mutations():
     gateway = FakePlanningGateway()
     viewer = SimpleNamespace(role="viewer")
     editor = SimpleNamespace(role="reviewer")
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Responsable.__table__])
+    db = sessionmaker(bind=engine)()
+    db.add(
+        Responsable(
+            nom_complet="Sami Ben Hassine",
+            fonction="Responsable RH",
+            grande_residence="DIRECTION REGIONALE KEBILI",
+            normalized_name="sami ben hassine",
+            normalized_fonction="responsable rh",
+            normalized_grande_residence="direction regionale kebili",
+            source_file="Responsables_RH.xlsx",
+            source_sheet="Responsables RH",
+            source_row=50,
+        )
+    )
+    db.commit()
 
-    asyncio.run(
+    responsables = asyncio.run(
         admin_planning.list_responsables_directory(
             viewer,
-            gateway,
-            search="gabes",
-            role="rh",
-            residence="DIRECTION REGIONALE GABES",
-            direction="GABES",
-            has_email=True,
-            duplicate_emails=False,
-            source_file="annuaire.xlsx",
-            limit=50,
-            offset=10,
+            db,
+            search="sami",
+            role=None,
+            residence="DIRECTION REGIONALE KEBILI",
+            direction=None,
+            has_email=None,
+            duplicate_emails=None,
+            source_file=None,
+            limit=20,
+            offset=0,
         )
     )
     asyncio.run(
@@ -328,23 +349,9 @@ def test_admin_responsables_directory_routes_forward_filters_and_mutations():
         )
     )
 
+    assert responsables["total"] == 1
+    assert responsables["responsables"][0]["nom_complet"] == "Sami Ben Hassine"
     assert gateway.calls == [
-        (
-            "GET",
-            "responsables",
-            {
-                "search": "gabes",
-                "role": "rh",
-                "residence": "DIRECTION REGIONALE GABES",
-                "direction": "GABES",
-                "has_email": True,
-                "duplicate_emails": False,
-                "source_file": "annuaire.xlsx",
-                "limit": 50,
-                "offset": 10,
-            },
-            None,
-        ),
         ("FILES", "contacts/import", {"import_id": "import-1"}, ["annuaire.xlsx"]),
         (
             "POST",

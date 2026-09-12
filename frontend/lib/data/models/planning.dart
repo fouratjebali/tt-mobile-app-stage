@@ -408,6 +408,61 @@ class PlanningContactReviewSession {
   }
 }
 
+class ResponsableDirectoryPage {
+  const ResponsableDirectoryPage({
+    required this.total,
+    required this.count,
+    required this.limit,
+    required this.offset,
+    required this.responsables,
+  });
+
+  final int total;
+  final int count;
+  final int limit;
+  final int offset;
+  final List<ResponsableDirectoryItem> responsables;
+
+  factory ResponsableDirectoryPage.fromJson(Map<String, dynamic> json) {
+    return ResponsableDirectoryPage(
+      total: _int(json['total']),
+      count: _int(json['count']),
+      limit: _int(json['limit']) == 0 ? 20 : _int(json['limit']),
+      offset: _int(json['offset']),
+      responsables:
+          _list(json['responsables'])
+              .map((item) => ResponsableDirectoryItem.fromJson(_map(item)))
+              .toList(),
+    );
+  }
+}
+
+class ResponsableDirectoryItem {
+  const ResponsableDirectoryItem({
+    required this.id,
+    required this.nomComplet,
+    required this.fonction,
+    required this.grandeResidence,
+    required this.sourceFile,
+  });
+
+  final String id;
+  final String nomComplet;
+  final String fonction;
+  final String grandeResidence;
+  final String sourceFile;
+
+  factory ResponsableDirectoryItem.fromJson(Map<String, dynamic> json) {
+    return ResponsableDirectoryItem(
+      id: _string(json['id']),
+      nomComplet: _string(json['nom_complet']),
+      fonction: _string(json['fonction']),
+      grandeResidence: _string(json['grande_residence']),
+      sourceFile: _string(json['source_file']),
+    );
+  }
+}
+
 class MissingPlanningContact {
   const MissingPlanningContact({
     required this.matricule,

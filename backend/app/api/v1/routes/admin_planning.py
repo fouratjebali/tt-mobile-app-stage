@@ -1,12 +1,13 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Header, Query, UploadFile
+from sqlalchemy.orm import Session
 
 from app.api.dependencies import (
     get_current_admin_planning_editor,
     get_current_admin_user,
 )
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, get_db
 from app.models.auth import User
 from app.repositories.audit_repository import AuditRepository
 from app.schemas.admin_planning import (
@@ -26,6 +27,7 @@ from app.services.planning_management_gateway import (
     PlanningManagementGateway,
     get_planning_management_gateway,
 )
+from app.services.responsable_directory_service import ResponsableDirectoryService
 
 
 router = APIRouter()
@@ -286,10 +288,7 @@ async def import_responsables_directory(
 )
 async def list_responsables_directory(
     _: Annotated[User, Depends(get_current_admin_user)],
-    gateway: Annotated[
-        PlanningManagementGateway,
-        Depends(get_planning_management_gateway),
-    ],
+    db: Annotated[Session, Depends(get_db)],
     search: str | None = Query(default=None),
     role: str | None = Query(default=None),
     residence: str | None = Query(default=None),
@@ -297,22 +296,19 @@ async def list_responsables_directory(
     has_email: bool | None = Query(default=None),
     duplicate_emails: bool | None = Query(default=None),
     source_file: str | None = Query(default=None),
-    limit: int = Query(default=200, ge=1, le=1000),
+    limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> Any:
-    return await gateway.get(
-        "responsables",
-        params={
-            "search": search,
-            "role": role,
-            "residence": residence,
-            "direction": direction,
-            "has_email": has_email,
-            "duplicate_emails": duplicate_emails,
-            "source_file": source_file,
-            "limit": limit,
-            "offset": offset,
-        },
+    combined_search = " ".join(
+        value
+        for value in (search, role, direction, source_file)
+        if value is not None and str(value).strip()
+    )
+    return ResponsableDirectoryService(db).list_responsables(
+        search=combined_search or None,
+        grande_residence=residence,
+        limit=limit,
+        offset=offset,
     )
 
 

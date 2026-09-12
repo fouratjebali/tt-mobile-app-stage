@@ -177,18 +177,6 @@ class _FormationsScreenState extends State<FormationsScreen> {
     );
   }
 
-  Future<void> _openContactReview(PlanningContactReview contact) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder:
-          (context) =>
-              _ContactFixSheet(viewModel: _viewModel, contact: contact),
-    );
-  }
-
   Future<void> _openPlanningImportPage() async {
     await _openFormationPage(
       _FormationDetailPage(
@@ -265,14 +253,7 @@ class _FormationsScreenState extends State<FormationsScreen> {
         subtitleKey: 'formations.contactsPageSubtitle',
         builder:
             (context, tone) => [
-              _CandidateListPanel(onUpload: _pickContactFiles, tone: tone),
-              const SizedBox(height: 18),
-              _ContactMatchingReviewSection(
-                summary: _viewModel.contactReviewSummary,
-                contacts: _viewModel.contactReviews,
-                tone: tone,
-                onFix: _openContactReview,
-              ),
+              _ResponsablesDirectorySection(viewModel: _viewModel, tone: tone),
             ],
       ),
     );
@@ -1060,7 +1041,7 @@ class _CandidateListPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  l10n.t('formations.contactsTitle'),
+                  l10n.t('formations.candidatesTitle'),
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 15.5,
@@ -1069,7 +1050,7 @@ class _CandidateListPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  l10n.t('formations.contactsSubtitle'),
+                  l10n.t('formations.candidatesSubtitle'),
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 12.5,
@@ -2761,262 +2742,211 @@ class _SendHistoryCard extends StatelessWidget {
   }
 }
 
-class _ContactMatchingReviewSection extends StatelessWidget {
-  const _ContactMatchingReviewSection({
-    required this.summary,
-    required this.contacts,
+class _ResponsablesDirectorySection extends StatefulWidget {
+  const _ResponsablesDirectorySection({
+    required this.viewModel,
     required this.tone,
-    required this.onFix,
   });
 
-  final PlanningContactReviewSummary? summary;
-  final List<PlanningContactReview> contacts;
+  final FormationsViewModel viewModel;
   final _FormationTone tone;
-  final ValueChanged<PlanningContactReview> onFix;
+
+  @override
+  State<_ResponsablesDirectorySection> createState() =>
+      _ResponsablesDirectorySectionState();
+}
+
+class _ResponsablesDirectorySectionState
+    extends State<_ResponsablesDirectorySection> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(
+      text: widget.viewModel.responsableSearch,
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final currentSummary = summary;
-    if (currentSummary == null || currentSummary.total == 0) {
-      return const SizedBox.shrink();
-    }
-    final visibleContacts =
-        contacts.where((contact) => contact.needsReview).isEmpty
-            ? contacts.take(4).toList()
-            : contacts.where((contact) => contact.needsReview).take(8).toList();
+    final viewModel = widget.viewModel;
+    final tone = widget.tone;
+    final page = viewModel.responsableDirectoryPage;
+    final total = page?.total ?? 0;
+    final pageIndex = viewModel.responsablePageIndex;
+    final pageCount = viewModel.responsablePageCount;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(
-          title: l10n.t('formations.contactReviewTitle'),
-          count: currentSummary.needsReview,
+          title: l10n.t('formations.contactsTitle'),
+          count: total,
           tone: tone,
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: tone.softSurface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: tone.border),
+        TextField(
+          controller: _searchController,
+          textInputAction: TextInputAction.search,
+          onSubmitted: viewModel.setResponsableSearch,
+          decoration: InputDecoration(
+            hintText: l10n.t('formations.responsableSearchHint'),
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon:
+                _searchController.text.trim().isEmpty
+                    ? IconButton(
+                      onPressed:
+                          () => viewModel.setResponsableSearch(
+                            _searchController.text,
+                          ),
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      tooltip: l10n.t('formations.responsableSearch'),
+                    )
+                    : IconButton(
+                      onPressed: () {
+                        _searchController.clear();
+                        viewModel.setResponsableSearch('');
+                      },
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: l10n.t('settings.cancel'),
+                    ),
+            filled: true,
+            fillColor: tone.surface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: tone.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: tone.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AppPalette.deepTeal),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                currentSummary.needsReview == 0
-                    ? l10n.t('formations.contactReviewReady')
-                    : l10n.t('formations.contactReviewSubtitle'),
-                style: TextStyle(
-                  color: tone.muted,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _CompactMetric(
-                      label: l10n.t('formations.contactReviewMatched'),
-                      value: '${currentSummary.matched}',
-                      tone: tone,
-                      accent: AppPalette.deepTeal,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _CompactMetric(
-                      label: l10n.t('formations.contactReviewNameMatch'),
-                      value: '${currentSummary.review}',
-                      tone: tone,
-                      accent: AppPalette.amber,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _CompactMetric(
-                      label: l10n.t('formations.contactReviewMissing'),
-                      value: '${currentSummary.missing}',
-                      tone: tone,
-                      accent: AppPalette.clay,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 12),
-        for (final contact in visibleContacts) ...[
-          _ContactReviewCard(contact: contact, tone: tone, onFix: onFix),
-          const SizedBox(height: 8),
+        if (total == 0)
+          _InlineMessage(
+            icon: Icons.manage_search_rounded,
+            message: l10n.t('formations.noResponsables'),
+            tone: tone,
+          )
+        else ...[
+          _CalendarPaginationControls(
+            pageIndex: pageIndex,
+            pageCount: pageCount,
+            totalCount: total,
+            pageSize: FormationsViewModel.responsablePageSize,
+            tone: tone,
+            onPrevious:
+                viewModel.responsableOffset == 0
+                    ? null
+                    : viewModel.previousResponsablePage,
+            onNext:
+                viewModel.responsableOffset +
+                            FormationsViewModel.responsablePageSize >=
+                        total
+                    ? null
+                    : viewModel.nextResponsablePage,
+          ),
+          const SizedBox(height: 12),
+          for (final responsable in viewModel.responsables) ...[
+            _ResponsableDirectoryCard(responsable: responsable, tone: tone),
+            const SizedBox(height: 10),
+          ],
         ],
       ],
     );
   }
 }
 
-class _ContactReviewCard extends StatelessWidget {
-  const _ContactReviewCard({
-    required this.contact,
+class _ResponsableDirectoryCard extends StatelessWidget {
+  const _ResponsableDirectoryCard({
+    required this.responsable,
     required this.tone,
-    required this.onFix,
   });
 
-  final PlanningContactReview contact;
+  final ResponsableDirectoryItem responsable;
   final _FormationTone tone;
-  final ValueChanged<PlanningContactReview> onFix;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final accent =
-        contact.isMissing
-            ? AppPalette.clay
-            : contact.needsReview
-            ? AppPalette.amber
-            : AppPalette.deepTeal;
+    final isDirector = responsable.fonction.toLowerCase().contains('directeur');
+    final accent = isDirector ? AppPalette.deepTeal : AppPalette.blue;
     final icon =
-        contact.isMissing
-            ? Icons.person_search_rounded
-            : contact.needsReview
-            ? Icons.manage_search_rounded
-            : Icons.verified_user_outlined;
-    final email =
-        contact.displayEmail.isEmpty
-            ? l10n.t('formations.contactReviewNoEmail')
-            : contact.displayEmail;
-    final firstSession =
-        contact.sessions.isEmpty ? null : contact.sessions.first;
+        isDirector
+            ? Icons.account_tree_rounded
+            : Icons.supervisor_account_rounded;
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: tone.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: tone.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: accent),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: accent, size: 22),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        contact.fullName.isEmpty
-                            ? l10n.t('settings.user')
-                            : contact.fullName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: tone.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _StatusPill(
-                      label: _contactMatchLabel(context, contact),
-                      color: accent,
-                    ),
-                  ],
+                Text(
+                  responsable.nomComplet,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  email,
+                  responsable.fonction,
                   maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  responsable.grandeResidence,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  [
-                    if (contact.matricule.isNotEmpty) contact.matricule,
-                    '${contact.sessionCount} session(s)',
-                    if (firstSession?.module.isNotEmpty ?? false)
-                      firstSession!.module,
-                  ].join(' - '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: tone.muted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
                   ),
                 ),
               ],
-            ),
-          ),
-          IconButton(
-            onPressed: () => onFix(contact),
-            icon: const Icon(Icons.edit_rounded),
-            tooltip: l10n.t('formations.contactReviewEdit'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CompactMetric extends StatelessWidget {
-  const _CompactMetric({
-    required this.label,
-    required this.value,
-    required this.tone,
-    required this.accent,
-  });
-
-  final String label;
-  final String value;
-  final _FormationTone tone;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: tone.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: tone.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: accent,
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: tone.muted,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -3695,170 +3625,6 @@ class _SettingsDropdown<T> extends StatelessWidget {
       onChanged: (value) {
         if (value != null) onChanged(value);
       },
-    );
-  }
-}
-
-class _ContactFixSheet extends StatefulWidget {
-  const _ContactFixSheet({required this.viewModel, required this.contact});
-
-  final FormationsViewModel viewModel;
-  final PlanningContactReview contact;
-
-  @override
-  State<_ContactFixSheet> createState() => _ContactFixSheetState();
-}
-
-class _ContactFixSheetState extends State<_ContactFixSheet> {
-  late final TextEditingController _emailController;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _emailController = TextEditingController(text: widget.contact.displayEmail);
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final email = _emailController.text.trim();
-    if (!email.contains('@')) {
-      _showMessage(context.l10n.t('formations.invalidEmail'));
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      await widget.viewModel.saveReviewedContact(
-        contact: widget.contact,
-        email: email,
-      );
-      if (mounted) Navigator.of(context).pop();
-    } catch (error) {
-      if (mounted) _showMessage(error.toString());
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final tone = _FormationTone.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return Container(
-      margin: EdgeInsets.only(bottom: bottomInset),
-      decoration: BoxDecoration(
-        color: tone.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                width: 42,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: tone.border,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              l10n.t('formations.contactReviewEdit'),
-              style: TextStyle(
-                color: tone.text,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.contact.fullName,
-              style: TextStyle(
-                color: tone.text,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              [
-                if (widget.contact.matricule.isNotEmpty)
-                  widget.contact.matricule,
-                _contactMatchLabel(context, widget.contact),
-              ].join(' - '),
-              style: TextStyle(
-                color: tone.muted,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            if (widget.contact.reason.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _InlineMessage(
-                icon:
-                    widget.contact.needsReview
-                        ? Icons.info_outline_rounded
-                        : Icons.verified_outlined,
-                message: widget.contact.reason,
-                tone: tone,
-                accent:
-                    widget.contact.needsReview
-                        ? AppPalette.amber
-                        : AppPalette.deepTeal,
-              ),
-            ],
-            const SizedBox(height: 16),
-            _LabeledField(
-              label: l10n.t('formations.emailAddress'),
-              controller: _emailController,
-              hint: 'nom.prenom@tunisietelecom.tn',
-              tone: tone,
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _saving ? null : _save,
-                icon:
-                    _saving
-                        ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : const Icon(Icons.save_rounded),
-                label: Text(l10n.t('formations.saveContact')),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppPalette.deepTeal,
-                  foregroundColor: AppPalette.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -4685,17 +4451,6 @@ String _draftRegionLabel(TrainingDraft draft) {
   final residence = draft.responsibleResidence;
   if (residence.isNotEmpty) return residence;
   return draft.responsibleDirection;
-}
-
-String _contactMatchLabel(BuildContext context, PlanningContactReview contact) {
-  final l10n = context.l10n;
-  if (contact.isMissing) return l10n.t('formations.contactMatchMissing');
-  return switch (contact.matchMethod) {
-    'matricule' => l10n.t('formations.contactMatchMatricule'),
-    'name' => l10n.t('formations.contactMatchName'),
-    'planning' => l10n.t('formations.contactMatchPlanning'),
-    _ => l10n.t('formations.contactMatchReview'),
-  };
 }
 
 List<TrainingCalendarSession> _sessionsForMonth(

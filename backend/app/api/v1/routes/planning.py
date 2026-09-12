@@ -1,10 +1,37 @@
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 import httpx
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.db.session import get_db
+from app.services.responsable_directory_service import ResponsableDirectoryService
 
 
 router = APIRouter()
+
+
+@router.get(
+    "/responsables",
+    summary="List responsables from the backend directory",
+    description="Returns responsables stored in PostgreSQL with search and pagination.",
+)
+def list_responsables_directory(
+    db: Annotated[Session, Depends(get_db)],
+    search: str | None = Query(default=None),
+    fonction: str | None = Query(default=None),
+    grande_residence: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
+    return ResponsableDirectoryService(db).list_responsables(
+        search=search,
+        fonction=fonction,
+        grande_residence=grande_residence,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.api_route(

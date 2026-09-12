@@ -168,6 +168,28 @@ class PlanningApiService {
     );
   }
 
+  Future<ResponsableDirectoryPage> listResponsables({
+    String? search,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    return _planningRequest(
+      action: _PlanningAction.loadPlanning,
+      request: () async {
+        final data = await _apiService.get(
+          '/planning/responsables',
+          queryParameters: {
+            if (search != null && search.trim().isNotEmpty)
+              'search': search.trim(),
+            'limit': limit,
+            'offset': offset,
+          },
+        );
+        return ResponsableDirectoryPage.fromJson(_map(data));
+      },
+    );
+  }
+
   Future<PlanningContactReviewSummary> listContactReview({
     String? importId,
     bool reviewOnly = false,
