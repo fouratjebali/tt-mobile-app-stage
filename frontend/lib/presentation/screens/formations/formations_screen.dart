@@ -345,7 +345,6 @@ class _FormationsScreenState extends State<FormationsScreen> {
                 onCalendar: _openCalendarPage,
                 onDrafts: _openDraftsPage,
                 onHistory: _openSendHistoryPage,
-                onSettings: _openAutomationSettings,
               ),
               if (_viewModel.activeImport == null) ...[
                 const SizedBox(height: 20),
@@ -730,7 +729,6 @@ class _FormationWorkflowSection extends StatelessWidget {
     required this.onCalendar,
     required this.onDrafts,
     required this.onHistory,
-    required this.onSettings,
   });
 
   final FormationsViewModel viewModel;
@@ -740,7 +738,6 @@ class _FormationWorkflowSection extends StatelessWidget {
   final VoidCallback onCalendar;
   final VoidCallback onDrafts;
   final VoidCallback onHistory;
-  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -817,17 +814,6 @@ class _FormationWorkflowSection extends StatelessWidget {
           tone: tone,
           color: AppPalette.deepTeal,
           onTap: onHistory,
-        ),
-        const SizedBox(height: 10),
-        _WorkflowTile(
-          icon: Icons.tune_rounded,
-          title: l10n.t('formations.settingsStepTitle'),
-          subtitle: l10n.t('formations.settingsStepSubtitle'),
-          metric: '',
-          metricLabel: '',
-          tone: tone,
-          color: AppPalette.pine,
-          onTap: onSettings,
         ),
       ],
     );

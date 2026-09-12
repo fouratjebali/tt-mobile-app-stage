@@ -140,8 +140,6 @@ const Map<String, String> _english = {
   'formations.draftsStepSubtitle': 'Generate, edit, and approve.',
   'formations.historyStepTitle': 'Sent emails',
   'formations.historyStepSubtitle': 'Read recent Outlook Sent Items.',
-  'formations.settingsStepTitle': 'Automation',
-  'formations.settingsStepSubtitle': 'Adjust draft preparation rules.',
   'formations.importPageTitle': 'Import formations',
   'formations.importPageSubtitle':
       'Add the session planning, then the candidate list.',
@@ -556,8 +554,6 @@ const Map<String, String> _french = {
   'formations.draftsStepSubtitle': 'Generer, modifier et valider.',
   'formations.historyStepTitle': 'Emails envoyes',
   'formations.historyStepSubtitle': 'Lire les elements envoyes Outlook.',
-  'formations.settingsStepTitle': 'Automatisation',
-  'formations.settingsStepSubtitle': 'Regler la preparation des brouillons.',
   'formations.importPageTitle': 'Importer les formations',
   'formations.importPageSubtitle':
       'Ajoutez le planning des sessions puis la liste des candidats et responsables.',
