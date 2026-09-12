@@ -118,7 +118,7 @@ const Map<String, String> _english = {
   'home.groupDrafts': 'Group drafts',
   'home.groupDraftsShortcut': 'Prepare the same message for many recipients.',
   'home.formations': 'Formations',
-  'home.formationsShortcut': 'Import planning and send training emails.',
+  'home.formationsShortcut': 'Import planning and prepare training emails.',
   'formations.title': 'Formations',
   'formations.subtitle': 'Planning, participants, and Outlook drafts.',
   'formations.activePlan': 'Current planning is ready',
@@ -135,9 +135,9 @@ const Map<String, String> _english = {
   'formations.calendarStepTitle': 'Calendar',
   'formations.calendarStepSubtitle': 'Review sessions by training date.',
   'formations.draftsStepTitle': 'Drafts',
-  'formations.draftsStepSubtitle': 'Generate, edit, approve, and send.',
+  'formations.draftsStepSubtitle': 'Generate, edit, and approve.',
   'formations.historyStepTitle': 'Sent emails',
-  'formations.historyStepSubtitle': 'Check Outlook send attempts.',
+  'formations.historyStepSubtitle': 'Read recent Outlook Sent Items.',
   'formations.settingsStepTitle': 'Automation',
   'formations.settingsStepSubtitle': 'Adjust draft preparation rules.',
   'formations.importPageTitle': 'Import formations',
@@ -152,7 +152,8 @@ const Map<String, String> _english = {
   'formations.contactsPageSubtitle':
       'Search and review the responsible directory.',
   'formations.historyPageTitle': 'Sent emails',
-  'formations.historyPageSubtitle': 'Review what was sent from Outlook.',
+  'formations.historyPageSubtitle':
+      'Review recent messages from Outlook Sent Items.',
   'formations.uploadTitle': 'Session planning file',
   'formations.uploadSubtitle':
       'Upload Excel planning files to detect sessions, candidates, residences, and responsible contacts.',
@@ -285,9 +286,11 @@ const Map<String, String> _english = {
   'formations.filterRejected': 'Rejected',
   'formations.filterByType': 'Email type',
   'formations.filterAllTypes': 'All email types',
-  'formations.sendHistory': 'Send history',
+  'formations.sendHistory': 'Outlook sent messages',
   'formations.noSendHistory':
-      'Sent and failed Outlook attempts will appear here.',
+      'Messages sent manually from Outlook will appear here.',
+  'formations.manualOutlookSendHint':
+      'This draft is approved. Send it manually from Outlook; this history updates from Sent Items.',
   'formations.sentTo': 'To',
   'formations.sentAt': 'Sent at',
   'formations.contactsToComplete': 'Responsible contacts to complete',
@@ -313,7 +316,7 @@ const Map<String, String> _english = {
   'formations.regenerateAction': 'Regenerate',
   'formations.regenerateWarning':
       'This will replace the current subject, message, and recipients with a fresh generated version.',
-  'formations.regenerateDone': 'Draft regenerated. Review it before sending.',
+  'formations.regenerateDone': 'Draft regenerated. Review it before use.',
   'formations.recipients': 'Recipients',
   'formations.cc': 'Cc',
   'formations.optional': 'Optional',
@@ -322,13 +325,6 @@ const Map<String, String> _english = {
   'formations.reject': 'Reject',
   'formations.save': 'Save',
   'formations.approve': 'Approve',
-  'formations.sendWithOutlook': 'Send with Outlook',
-  'formations.sendSafetyTitle': 'Confirm before sending',
-  'formations.sendSafetyMessage':
-      'This message will be sent from Outlook. Check the subject and recipients one last time.',
-  'formations.sendSafetyRecipients': 'recipient(s)',
-  'formations.sendSafetyCheckbox':
-      'I checked the recipients and content, and I want to send this email.',
   'formations.statusApproved': 'approved',
   'formations.statusEdited': 'edited',
   'formations.statusNeedsContacts': 'contacts',
@@ -340,7 +336,7 @@ const Map<String, String> _english = {
   'formations.stepImport': 'Import sessions and candidates',
   'formations.stepValidate': 'Validate RH/DR/DC recipients',
   'formations.stepDraft': 'Prepare French Outlook emails',
-  'formations.stepSend': 'Review, edit, and send',
+  'formations.stepSend': 'Review and edit',
   'formations.emptyTitle': 'No planning imported',
   'formations.emptySubtitle':
       'Sessions, participants, drafts, and send history will appear after the first import.',
@@ -521,7 +517,7 @@ const Map<String, String> _french = {
       'Preparer le meme message pour plusieurs destinataires.',
   'home.formations': 'Formations',
   'home.formationsShortcut':
-      'Importer le planning et envoyer les emails de formation.',
+      'Importer le planning et preparer les emails de formation.',
   'formations.title': 'Formations',
   'formations.subtitle': 'Planning, participants et brouillons Outlook.',
   'formations.activePlan': 'Planning courant pret',
@@ -542,9 +538,9 @@ const Map<String, String> _french = {
   'formations.calendarStepSubtitle':
       'Verifier les sessions par date de formation.',
   'formations.draftsStepTitle': 'Brouillons',
-  'formations.draftsStepSubtitle': 'Generer, modifier, valider et envoyer.',
+  'formations.draftsStepSubtitle': 'Generer, modifier et valider.',
   'formations.historyStepTitle': 'Emails envoyes',
-  'formations.historyStepSubtitle': 'Controler les envois Outlook.',
+  'formations.historyStepSubtitle': 'Lire les elements envoyes Outlook.',
   'formations.settingsStepTitle': 'Automatisation',
   'formations.settingsStepSubtitle': 'Regler la preparation des brouillons.',
   'formations.importPageTitle': 'Importer les formations',
@@ -559,7 +555,8 @@ const Map<String, String> _french = {
   'formations.contactsPageSubtitle':
       'Rechercher et consulter l annuaire des responsables.',
   'formations.historyPageTitle': 'Emails envoyes',
-  'formations.historyPageSubtitle': 'Voir ce qui a ete envoye depuis Outlook.',
+  'formations.historyPageSubtitle':
+      'Consulter les messages recents dans Elements envoyes Outlook.',
   'formations.uploadTitle': 'Fichier planning des sessions',
   'formations.uploadSubtitle':
       'Importez les fichiers Excel pour detecter sessions, candidats, residences et responsables.',
@@ -695,9 +692,11 @@ const Map<String, String> _french = {
   'formations.filterRejected': 'Refuses',
   'formations.filterByType': 'Type d email',
   'formations.filterAllTypes': 'Tous les types',
-  'formations.sendHistory': 'Historique d envoi',
+  'formations.sendHistory': 'Messages envoyes Outlook',
   'formations.noSendHistory':
-      'Les envois Outlook et les echecs apparaitront ici.',
+      'Les messages envoyes manuellement depuis Outlook apparaitront ici.',
+  'formations.manualOutlookSendHint':
+      'Ce brouillon est valide. Envoyez-le manuellement depuis Outlook; cet historique vient des elements envoyes.',
   'formations.sentTo': 'A',
   'formations.sentAt': 'Envoye le',
   'formations.contactsToComplete': 'Responsables a completer',
@@ -723,7 +722,8 @@ const Map<String, String> _french = {
   'formations.regenerateAction': 'Regenerer',
   'formations.regenerateWarning':
       'Cette action remplacera l objet, le message et les destinataires par une nouvelle version generee.',
-  'formations.regenerateDone': 'Brouillon regenere. Verifiez le avant envoi.',
+  'formations.regenerateDone':
+      'Brouillon regenere. Verifiez le avant utilisation.',
   'formations.recipients': 'Destinataires',
   'formations.cc': 'Cc',
   'formations.optional': 'Optionnel',
@@ -732,13 +732,6 @@ const Map<String, String> _french = {
   'formations.reject': 'Refuser',
   'formations.save': 'Enregistrer',
   'formations.approve': 'Valider',
-  'formations.sendWithOutlook': 'Envoyer avec Outlook',
-  'formations.sendSafetyTitle': 'Confirmer avant envoi',
-  'formations.sendSafetyMessage':
-      'Ce message sera envoye depuis Outlook. Verifiez une derniere fois l objet et les destinataires.',
-  'formations.sendSafetyRecipients': 'destinataire(s)',
-  'formations.sendSafetyCheckbox':
-      'J ai verifie les destinataires et le contenu, et je veux envoyer cet email.',
   'formations.statusApproved': 'valide',
   'formations.statusEdited': 'modifie',
   'formations.statusNeedsContacts': 'contacts',
@@ -750,7 +743,7 @@ const Map<String, String> _french = {
   'formations.stepImport': 'Importer sessions et candidats',
   'formations.stepValidate': 'Verifier les destinataires RH/DR/DC',
   'formations.stepDraft': 'Preparer les emails Outlook en francais',
-  'formations.stepSend': 'Revoir, modifier et envoyer',
+  'formations.stepSend': 'Revoir et modifier',
   'formations.emptyTitle': 'Aucun planning importé',
   'formations.emptySubtitle':
       'Les sessions, participants, brouillons et historiques d’envoi apparaîtront après le premier import.',

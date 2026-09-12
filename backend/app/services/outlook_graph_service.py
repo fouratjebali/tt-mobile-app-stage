@@ -47,6 +47,55 @@ class OutlookGraphService:
         )
         return normalized
 
+    async def list_sent_messages(
+        self,
+        *,
+        user: User,
+        max_results: int,
+        skip: int = 0,
+        search: str | None = None,
+    ) -> list[dict[str, Any]]:
+        fetch_limit = max_results
+        if search:
+            fetch_limit = min(100, max(skip + max_results * 3, max_results))
+
+        params: dict[str, Any] = {
+            "$top": fetch_limit,
+            "$orderby": "sentDateTime desc",
+            "$select": (
+                "id,conversationId,subject,toRecipients,ccRecipients,"
+                "bodyPreview,sentDateTime,body"
+            ),
+        }
+        if not search:
+            params["$skip"] = skip
+
+        payload = await self._request(
+            user=user,
+            method="GET",
+            path="/me/mailFolders/sentitems/messages",
+            params=params,
+        )
+        messages = payload.get("value") if isinstance(payload, dict) else None
+        if not isinstance(messages, list):
+            return []
+        if search:
+            messages = [
+                message
+                for message in messages
+                if _message_matches_search(message, search)
+            ][skip : skip + max_results]
+
+        normalized = [
+            self._normalize_sent_message(index=skip + index + 1, message=message)
+            for index, message in enumerate(messages)
+        ]
+        normalized.sort(
+            key=lambda message: str(message.get("sent_at") or ""),
+            reverse=True,
+        )
+        return normalized
+
     async def get_message(self, *, user: User, message_id: str) -> dict[str, Any] | None:
         try:
             payload = await self._request(
@@ -216,6 +265,35 @@ class OutlookGraphService:
             "status": "PENDING_ANALYSIS",
         }
 
+    def _normalize_sent_message(
+        self,
+        *,
+        index: int,
+        message: dict[str, Any],
+    ) -> dict[str, Any]:
+        body = message.get("body") if isinstance(message.get("body"), dict) else {}
+        body_content = str(body.get("content") or "")
+        recipients = _recipient_list(message.get("toRecipients"))
+        graph_id = str(message.get("id") or "")
+        return {
+            "id": index,
+            "draft_id": 0,
+            "import_id": "",
+            "session_key": "",
+            "email_type": "outlook_sent",
+            "subject": str(message.get("subject") or "(no subject)"),
+            "recipient_email": ", ".join(recipients),
+            "recipients": recipients,
+            "status": "sent",
+            "provider_message_id": graph_id,
+            "error": "",
+            "sent_at": str(message.get("sentDateTime") or ""),
+            "body_preview": str(message.get("bodyPreview") or ""),
+            "body": _html_to_text(body_content),
+            "thread_id": message.get("conversationId"),
+            "source": "outlook_sent_items",
+        }
+
 
 def _sender_text(value: object) -> str:
     if not isinstance(value, dict):
@@ -228,6 +306,40 @@ def _sender_text(value: object) -> str:
     if name and email:
         return f"{name} <{email}>"
     return email or name
+
+
+def _recipient_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    recipients = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        address = item.get("emailAddress")
+        if not isinstance(address, dict):
+            continue
+        email = str(address.get("address") or "").strip()
+        name = str(address.get("name") or "").strip()
+        if name and email:
+            recipients.append(f"{name} <{email}>")
+        elif email or name:
+            recipients.append(email or name)
+    return recipients
+
+
+def _message_matches_search(message: dict[str, Any], query: str) -> bool:
+    normalized_query = query.strip().lower()
+    if not normalized_query:
+        return True
+    body = message.get("body") if isinstance(message.get("body"), dict) else {}
+    fields = [
+        str(message.get("subject") or ""),
+        str(message.get("bodyPreview") or ""),
+        str(body.get("content") or ""),
+        " ".join(_recipient_list(message.get("toRecipients"))),
+        " ".join(_recipient_list(message.get("ccRecipients"))),
+    ]
+    return any(normalized_query in field.lower() for field in fields)
 
 
 def _html_to_text(value: str) -> str:

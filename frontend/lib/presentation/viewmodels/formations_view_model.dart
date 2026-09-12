@@ -337,22 +337,6 @@ class FormationsViewModel extends ChangeNotifier {
     return updated;
   }
 
-  Future<TrainingDraft> sendDraft(TrainingDraft draft) async {
-    final updated = await _planningApiService.sendDraft(
-      draftId: draft.id,
-      confirmedRecipientCount: draft.recipients.length,
-      confirmedSubject: draft.subject,
-    );
-    _replaceDraft(updated);
-    final importId = activeImport?.importId;
-    if (importId != null && importId.isNotEmpty) {
-      sendHistory = await _planningApiService.listSendHistory(
-        importId: importId,
-      );
-    }
-    return updated;
-  }
-
   Future<void> saveMissingContact({
     required MissingPlanningContact contact,
     required String email,

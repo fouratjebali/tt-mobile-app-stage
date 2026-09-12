@@ -453,27 +453,6 @@ class PlanningApiService {
     );
   }
 
-  Future<TrainingDraft> sendDraft({
-    required int draftId,
-    required int confirmedRecipientCount,
-    required String confirmedSubject,
-  }) async {
-    return _planningRequest(
-      action: _PlanningAction.sendDraft,
-      request: () async {
-        final data = await _apiService.post(
-          '/planning/drafts/$draftId/send',
-          body: {
-            'confirmed': true,
-            'confirmed_recipient_count': confirmedRecipientCount,
-            'confirmed_subject': confirmedSubject,
-          },
-        );
-        return TrainingDraft.fromJson(_map(_map(data)['draft']));
-      },
-    );
-  }
-
   Future<T> _planningRequest<T>({
     required Future<T> Function() request,
     required _PlanningAction action,
@@ -583,8 +562,6 @@ class PlanningApiService {
         'Unable to approve this draft. Complete recipients and try again.',
       _PlanningAction.rejectDraft =>
         'Unable to reject this draft. Refresh it and try again.',
-      _PlanningAction.sendDraft =>
-        'Unable to send this draft. Confirm the recipients and try again.',
       _PlanningAction.saveAutomationSettings =>
         'Unable to save automation settings. Check the values and try again.',
       _PlanningAction.loadPlanning =>
@@ -608,7 +585,6 @@ enum _PlanningAction {
   regenerateDraft,
   approveDraft,
   rejectDraft,
-  sendDraft,
 }
 
 Map<String, dynamic> _map(Object? value) {

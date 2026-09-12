@@ -4,8 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 import httpx
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
+from app.models.auth import User
+from app.services.outlook_graph_service import OutlookGraphService
 from app.services.responsable_directory_service import ResponsableDirectoryService
 
 
@@ -32,6 +35,42 @@ def list_responsables_directory(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get(
+    "/send-history",
+    summary="List sent training emails from Outlook",
+    description=(
+        "Returns recent messages from the user's Outlook Sent Items folder. "
+        "Training drafts are sent manually from Outlook, so this endpoint does "
+        "not read the planning agent send log."
+    ),
+)
+async def list_outlook_sent_history(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    import_id: str | None = Query(default=None),
+    draft_id: int | None = Query(default=None),
+    send_status: str | None = Query(default=None),
+    search: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
+    _ = (import_id, draft_id, send_status)
+    history = await OutlookGraphService(db).list_sent_messages(
+        user=user,
+        max_results=limit,
+        skip=offset,
+        search=search,
+    )
+    return {
+        "status": "ok",
+        "source": "outlook_sent_items",
+        "count": len(history),
+        "limit": limit,
+        "offset": offset,
+        "history": history,
+    }
 
 
 @router.api_route(
