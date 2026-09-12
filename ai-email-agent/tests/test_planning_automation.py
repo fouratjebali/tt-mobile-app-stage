@@ -90,14 +90,15 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
 
     assert first_run.status_code == 200
     first_payload = first_run.json()
-    assert first_payload["mapped"] == 1
+    assert first_payload["mapped"] == 0
     assert first_payload["generated"] == 1
     assert first_payload["skipped_existing"] == 0
     draft = first_payload["drafts"][0]
     assert draft["recipients"] == []
+    assert draft["status"] == "NEEDS_CONTACTS"
     assert draft["metadata"]["recipient_role"] == "responsable_rh_direction"
     assert draft["metadata"]["participant_count"] == 1
-    assert draft["metadata"]["responsible_name"] == "Resp RH Reseaux"
+    assert draft["metadata"]["responsible_name"] == ""
     assert first_payload["job_id"] > 0
 
     jobs_response = client.get(
@@ -189,7 +190,7 @@ def test_manual_contact_save_can_complete_missing_participant(tmp_path):
         "/planning/missing-contacts",
         params={"import_id": import_id},
     )
-    assert missing_before.json()["count"] == 1
+    assert missing_before.json()["count"] == 0
 
     save_response = client.post(
         "/planning/contacts",
@@ -207,7 +208,7 @@ def test_manual_contact_save_can_complete_missing_participant(tmp_path):
         params={"import_id": import_id},
     )
     assert apply_response.status_code == 200
-    assert apply_response.json()["mapped"] == 1
+    assert apply_response.json()["mapped"] == 0
 
     missing_after = client.get(
         "/planning/missing-contacts",

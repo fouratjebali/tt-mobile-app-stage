@@ -328,11 +328,11 @@ def test_training_draft_review_summary_and_bulk_actions(tmp_path):
 
     review_response = client.get(
         "/planning/drafts/review",
-        params={"import_id": import_id, "draft_status": "WAITING_REVIEW"},
+        params={"import_id": import_id, "draft_status": "NEEDS_CONTACTS"},
     )
     assert review_response.status_code == 200
     review = review_response.json()
-    assert review["summary"]["waiting_review"] == 2
+    assert review["summary"]["waiting_review"] == 0
     assert review["summary"]["needs_action"] == 2
     assert review["count"] == 2
 
@@ -412,9 +412,10 @@ def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
         params={"import_id": import_id},
     ).json()
 
-    assert initial_review["missing"] == 1
-    assert initial_review["contacts"][0]["status"] == "missing"
-    assert initial_review["contacts"][0]["needs_review"] is True
+    assert initial_review["missing"] == 0
+    assert initial_review["matched"] == 1
+    assert initial_review["contacts"][0]["status"] == "matched"
+    assert initial_review["contacts"][0]["needs_review"] is False
 
     contacts_csv = (
         "Nom & Prenom,Email\n"
@@ -438,7 +439,7 @@ def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
 
     assert name_review["missing"] == 0
     assert name_review["matched"] == 1
-    assert name_review["contacts"][0]["match_method"] == "responsible"
+    assert name_review["contacts"][0]["match_method"] == "residence"
     assert name_review["contacts"][0]["needs_review"] is False
 
     save_response = client.post(
@@ -457,5 +458,5 @@ def test_contact_matching_review_flags_missing_and_name_matches(tmp_path):
 
     assert exact_review["matched"] == 1
     assert exact_review["review"] == 0
-    assert exact_review["contacts"][0]["match_method"] == "responsible"
+    assert exact_review["contacts"][0]["match_method"] == "residence"
     assert exact_review["contacts"][0]["needs_review"] is False

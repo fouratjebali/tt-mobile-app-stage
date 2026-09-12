@@ -114,7 +114,7 @@ class PlanningImportResult:
             for file_result in files
             for session in file_result.sessions
             for participant in session.participants
-            if "responsible_email" in participant.missing_fields
+            if participant.missing_fields
         )
         warning_count = sum(len(file_result.warnings) for file_result in files)
         error_count = sum(len(file_result.errors) for file_result in files)

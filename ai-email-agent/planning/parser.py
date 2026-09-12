@@ -16,7 +16,7 @@ from planning.models import PlanningFileResult, PlanningParticipant, TrainingSes
 
 HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "code_session": ("code session",),
-    "lms_session_number": ("n session lms", "no session lms", "numero session lms"),
+    "lms_session_number": ("n session lms", "no session lms", "numero session lms", "session lms"),
     "malek_number": ("n malek", "no malek", "numero malek"),
     "status": ("etat", "statut", "status"),
     "axis": ("axe strategique de la formation",),
@@ -29,12 +29,12 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "module": ("module",),
     "cabinet": ("cabinet",),
     "trainer": ("formateur", "formateur(s) retenu(s)", "formateurs retenus"),
-    "selected_trainer": ("formateur designe",),
-    "year": ("annee",),
+    "selected_trainer": ("formateur designe", "formateur d"),
+    "year": ("annee", "ann e"),
     "month": ("mois",),
     "week": ("semaine",),
-    "duration_days": ("duree (j)", "duree"),
-    "start_date": ("date debut",),
+    "duration_days": ("duree (j)", "duree", "dur e"),
+    "start_date": ("date debut", "date d but"),
     "end_date": ("date fin",),
     "schedule": ("horaire",),
     "hours_per_day": ("nbre d'heures/par jour", "nombre d'heures par jour"),
@@ -44,8 +44,8 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "responsible_engagement": ("responsable engagement",),
     "candidate_count": ("nbre candidats", "nombre candidats"),
     "matricule": ("matricules", "matricule"),
-    "full_name": ("nom & prenom", "nom et prenom", "nom prenom"),
-    "residence": ("grande residence",),
+    "full_name": ("nom & prenom", "nom et prenom", "nom prenom", "nom & pr"),
+    "residence": ("grande residence", "grande r"),
     "hr_responsible": ("resp rh", "responsable rh"),
     "direction": ("dir c/r", "direction", "direction regionale"),
     "consultation_code": ("cons", "consultation"),
@@ -73,7 +73,8 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "email": ("email", "mail", "adresse email", "adresse mail"),
 }
 
-MIN_SESSION_COLUMNS = {"module", "start_date", "end_date", "location"}
+MIN_SESSION_COLUMNS = {"code_session", "start_date", "end_date", "location"}
+MIN_CANDIDATE_COLUMNS = {"code_session", "matricule", "full_name", "residence"}
 
 
 class PlanningParseError(ValueError):
@@ -227,7 +228,9 @@ class PlanningExcelParser:
                     if any(alias in normalized for alias in aliases):
                         current_map[field_name] = cell.column
                         break
-            score = len(set(current_map) & (MIN_SESSION_COLUMNS | {"code_session", "module_code"}))
+            session_score = len(set(current_map) & MIN_SESSION_COLUMNS)
+            candidate_score = len(set(current_map) & MIN_CANDIDATE_COLUMNS)
+            score = max(session_score, candidate_score)
             if score > best_score:
                 best_row = row_index
                 best_map = current_map
@@ -254,10 +257,9 @@ class PlanningExcelParser:
             row_data.get(field, "").strip()
             for field in (
                 "code_session",
-                "module",
-                "module_code",
-                "project",
-                "start_date",
+            "module_code",
+            "project",
+            "start_date",
                 "full_name",
                 "matricule",
             )
@@ -336,14 +338,14 @@ class PlanningExcelParser:
         if director_email:
             direction = residence or ""
 
-        if not any((matricule, full_name, email, responsible_email, hr_email, director_email)):
+        if not any((matricule, full_name, email, responsible_email, hr_email, director_email, residence)):
             return None
 
         missing_fields: list[str] = []
-        if not responsible_email:
-            missing_fields.append("responsible_email")
         if not full_name:
             missing_fields.append("full_name")
+        if not residence:
+            missing_fields.append("residence")
 
         return PlanningParticipant(
             matricule=matricule,
@@ -364,13 +366,11 @@ class PlanningExcelParser:
 
     def _validate_session(self, session: TrainingSession) -> None:
         missing = []
-        if not session.module:
-            missing.append("module")
-        if not session.start_date:
+        if not session.start_date and not session.participants:
             missing.append("start_date")
-        if not session.end_date:
+        if not session.end_date and not session.participants:
             missing.append("end_date")
-        if not session.location:
+        if not session.location and not session.participants:
             missing.append("location")
         session.missing_fields = missing
 
@@ -432,7 +432,7 @@ class PlanningExcelParser:
 
 def _normalize_header(value: Any) -> str:
     text = _strip_accents(_format_cell_value(value)).lower()
-    text = text.replace("°", " ").replace("º", " ")
+    text = text.replace("°", " ").replace("º", " ").replace("�", " ")
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
@@ -456,7 +456,12 @@ def _format_cell_value(value: Any) -> str:
         return value.strftime("%H:%M")
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
-    return str(value).strip()
+    text = str(value).strip()
+    matched_date = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", text)
+    if matched_date:
+        day, month, year = matched_date.groups()
+        return f"{year}-{int(month):02d}-{int(day):02d}"
+    return text
 
 
 def _email_or_empty(value: str) -> str:

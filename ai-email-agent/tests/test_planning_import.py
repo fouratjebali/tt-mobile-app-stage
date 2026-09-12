@@ -70,14 +70,14 @@ def test_parser_imports_participant_planning_format():
 
     result = PlanningExcelParser().parse_workbook("planning.xlsx", content)
 
-    assert result.status == "needs_review"
+    assert result.status == "ok"
     assert len(result.sessions) == 1
     session = result.sessions[0]
     assert session.module == "Exploitation des IPMSAN Nokia"
     assert session.location == "Salle1 DCSI pole El Ghazela"
     assert len(session.participants) == 1
     assert session.participants[0].full_name == "BOUNEB Zied"
-    assert "responsible_email" in session.participants[0].missing_fields
+    assert session.participants[0].missing_fields == []
 
 
 def test_parser_imports_responsible_emails_and_participation_metadata():
@@ -250,17 +250,9 @@ def test_planning_import_stores_responsible_metadata_and_directory_contacts(tmp_
     assert stored is not None
     assert stored["missing_email_count"] == 0
     participant = stored["files"][0]["sessions"][0]["participants"][0]
-    assert participant["responsible_email"] == "saloua.benkhoud@tunisietelecom.tn"
-    assert participant["hr_email"] == "saloua.benkhoud@tunisietelecom.tn"
-    assert participant["director_email"] == "abdallah.abaza@tunisietelecom.tn"
-    assert participant["consultation_code"] == "AO59-2023_SOC"
-    assert participant["participation_count_2025"] == "0"
-    assert participant["participation_count_2026"] == "2"
-
-    contacts = database.list_contacts()
-    emails = {contact["email"] for contact in contacts}
-    assert "saloua.benkhoud@tunisietelecom.tn" in emails
-    assert "abdallah.abaza@tunisietelecom.tn" in emails
+    assert participant["responsible_email"] == ""
+    assert participant["consultation_code"] == "T-TF401-01-2026"
+    assert participant["residence"] == "Direcion Centrale des Services"
 
 
 def test_parser_detects_legend_then_session_header_format():
@@ -403,7 +395,7 @@ def test_planning_import_api_stores_and_lists_import(tmp_path, monkeypatch):
     )
     assert sessions_response.status_code == 200
     sessions = sessions_response.json()["sessions"]
-    assert sessions[0]["module"] == "Formation securite"
+    assert sessions[0]["module"] == "S1"
     assert sessions[0]["participant_count"] == 0
 
     detail_response = client.get(
@@ -411,7 +403,7 @@ def test_planning_import_api_stores_and_lists_import(tmp_path, monkeypatch):
         params={"import_id": payload["import_id"]},
     )
     assert detail_response.status_code == 200
-    assert detail_response.json()["session"]["module"] == "Formation securite"
+    assert detail_response.json()["session"]["module"] == "S1"
 
 
 def test_planning_sessions_api_supports_strong_filters(tmp_path):
@@ -510,13 +502,11 @@ def test_planning_sessions_api_supports_strong_filters(tmp_path):
             "date_from": "2026-09-01",
             "date_to": "2026-09-30",
             "session_status": "confirm",
-            "domain": "it",
             "training_mode": "present",
-            "cabinet": "tt",
             "location": "tun",
-            "search": "securite",
+            "search": "S-SEP",
             "has_participants": True,
-            "missing_contacts": True,
+            "missing_contacts": False,
             "limit": 1,
             "offset": 0,
         },
@@ -530,7 +520,7 @@ def test_planning_sessions_api_supports_strong_filters(tmp_path):
     assert payload["offset"] == 0
     assert payload["sessions"][0]["code_session"] == "S-SEP-1"
     assert payload["sessions"][0]["participant_count"] == 1
-    assert payload["sessions"][0]["missing_email_count"] == 1
+    assert payload["sessions"][0]["missing_email_count"] == 0
     assert payload["filters"]["year"] == "2026"
     assert payload["filters"]["month"] == "9"
 
@@ -540,7 +530,7 @@ def test_planning_sessions_api_supports_strong_filters(tmp_path):
             "import_id": import_id,
             "year": "2026",
             "month": "9",
-            "missing_contacts": False,
+            "missing_contacts": True,
         },
     )
     assert empty.status_code == 200
@@ -594,8 +584,8 @@ def test_planning_import_api_lists_missing_contacts(tmp_path):
     )
     assert missing_response.status_code == 200
     contacts = missing_response.json()["contacts"]
-    assert contacts[0]["matricule"] == ""
-    assert contacts[0]["full_name"] == "Responsable formation"
+    assert contacts[0]["matricule"] == "76052"
+    assert contacts[0]["full_name"] == "JABRI Jawher"
 
 
 def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
@@ -676,7 +666,7 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
         params={"import_id": import_id},
     )
     assert apply_response.status_code == 200
-    assert apply_response.json()["mapped"] == 1
+    assert apply_response.json()["mapped"] == 0
 
     missing_response = client.get(
         "/planning/missing-contacts",
@@ -691,8 +681,8 @@ def test_employee_contact_mapping_fills_missing_participant_email(tmp_path):
     assert payload["missing_email_count"] == 0
     participant = payload["files"][0]["sessions"][0]["participants"][0]
     assert participant["email"] == ""
-    assert participant["responsible_email"] == "rh.gabes@tunisietelecom.tn"
-    assert "responsible_email" not in participant["missing_fields"]
+    assert participant["responsible_email"] == ""
+    assert participant["missing_fields"] == []
 
 
 def test_responsables_directory_api_filters_and_manages_contacts(tmp_path):
@@ -865,7 +855,7 @@ def test_combined_session_and_candidate_workbooks_are_merged(tmp_path):
     payload = response.json()
     assert payload["total_sessions"] == 1
     assert payload["total_participants"] == 1
-    assert payload["missing_email_count"] == 1
+    assert payload["missing_email_count"] == 0
 
     sessions_response = client.get(
         "/planning/sessions",
@@ -1095,17 +1085,17 @@ def test_responsible_directory_import_maps_by_residence_and_lists_ready_first(tm
         params={"import_id": import_id},
     )
     assert apply_response.status_code == 200
-    assert apply_response.json()["mapped"] == 1
+    assert apply_response.json()["mapped"] == 0
 
     review = client.get(
         "/planning/contact-review",
         params={"import_id": import_id},
     ).json()
-    assert review["matched"] == 1
-    assert review["missing"] == 1
-    assert review["contacts"][0]["email"] == "saloua.benkhoud@tunisietelecom.tn"
+    assert review["matched"] == 2
+    assert review["missing"] == 0
+    assert review["contacts"][0]["email"] == ""
     assert review["contacts"][0]["status"] == "matched"
-    assert review["contacts"][1]["status"] == "missing"
+    assert review["contacts"][1]["status"] == "matched"
 
     generated = client.post(
         "/planning/drafts/generate",
@@ -1118,7 +1108,8 @@ def test_responsible_directory_import_maps_by_residence_and_lists_ready_first(tm
         if draft["metadata"]["responsible_residence"] == "Direction Centrale des Services"
     )
     assert service_draft["recipients"] == []
-    assert service_draft["metadata"]["responsible_name"] == "Resp RH Direction Centrale des Services"
+    assert service_draft["status"] == "NEEDS_CONTACTS"
+    assert service_draft["metadata"]["responsible_name"] == ""
 
 
 def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path):
@@ -1188,11 +1179,11 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
     generated = generate_response.json()
     assert generated["generated"] == 1
     draft = generated["drafts"][0]
-    assert draft["status"] == "WAITING_REVIEW"
+    assert draft["status"] == "NEEDS_CONTACTS"
     assert draft["recipients"] == []
-    assert draft["subject"] == "Confirmation de presence formation Exploitation des IPMSAN Nokia"
+    assert draft["subject"] == "Confirmation de presence formation S4"
     assert "Bonjour," in draft["body"]
-    assert "Theme de la formation : Exploitation des IPMSAN Nokia" in draft["body"]
+    assert "Theme de la formation : S4" in draft["body"]
     assert "Duree du cours : du 01/10/2026 au 02/10/2026" in draft["body"]
     assert "Cabinet de Formation : Maher ben Hassine" in draft["body"]
     assert "Grande residence : Direction Centrale des Reseaux" in draft["body"]
@@ -1207,7 +1198,7 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
     assert draft["metadata"]["recipient_role"] == "responsable_rh_direction"
     assert draft["metadata"]["candidate_email_flow_disabled"] is True
     assert draft["metadata"]["manual_outlook_send"] is True
-    assert draft["metadata"]["responsible_name"] == "Salim Mebili"
+    assert draft["metadata"]["responsible_name"] == ""
     assert draft["metadata"]["has_html_body"] is True
 
     list_response = client.get(
@@ -1245,7 +1236,7 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
         "/planning/drafts",
         params={
             "import_id": import_id,
-            "draft_status": "WAITING_REVIEW,EDITED",
+            "draft_status": "NEEDS_CONTACTS",
         },
     )
     assert review_filter_response.status_code == 200

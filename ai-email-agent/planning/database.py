@@ -21,6 +21,7 @@ from planning.training_agent import TrainingDraft
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data" / "tt_mail_assistant.db"
 EDITABLE_DRAFT_STATUSES = {"WAITING_REVIEW", "EDITED", "NEEDS_CONTACTS"}
+PLANNING_SCHEMA_VERSION = 2
 
 
 class PlanningDatabase:
@@ -32,6 +33,7 @@ class PlanningDatabase:
 
     def initialize(self) -> None:
         with self._connect() as connection:
+            self._migrate_planning_schema(connection)
             connection.executescript(
                 """
                 PRAGMA foreign_keys = ON;
@@ -67,18 +69,8 @@ class PlanningDatabase:
                     session_key TEXT NOT NULL,
                     code_session TEXT NOT NULL DEFAULT '',
                     lms_session_number TEXT NOT NULL DEFAULT '',
-                    malek_number TEXT NOT NULL DEFAULT '',
                     status TEXT NOT NULL DEFAULT 'UNKNOWN',
-                    axis TEXT NOT NULL DEFAULT '',
-                    domain TEXT NOT NULL DEFAULT '',
-                    project TEXT NOT NULL DEFAULT '',
-                    training_type TEXT NOT NULL DEFAULT '',
                     training_mode TEXT NOT NULL DEFAULT '',
-                    certification_nature TEXT NOT NULL DEFAULT '',
-                    module_code TEXT NOT NULL DEFAULT '',
-                    module TEXT NOT NULL DEFAULT '',
-                    cabinet TEXT NOT NULL DEFAULT '',
-                    trainer TEXT NOT NULL DEFAULT '',
                     selected_trainer TEXT NOT NULL DEFAULT '',
                     year TEXT NOT NULL DEFAULT '',
                     month TEXT NOT NULL DEFAULT '',
@@ -87,15 +79,12 @@ class PlanningDatabase:
                     start_date TEXT NOT NULL DEFAULT '',
                     end_date TEXT NOT NULL DEFAULT '',
                     schedule TEXT NOT NULL DEFAULT '',
-                    hours_per_day TEXT NOT NULL DEFAULT '',
                     total_hours TEXT NOT NULL DEFAULT '',
                     location TEXT NOT NULL DEFAULT '',
-                    accommodation_location TEXT NOT NULL DEFAULT '',
-                    responsible_engagement TEXT NOT NULL DEFAULT '',
                     candidate_count TEXT NOT NULL DEFAULT '',
                     source_file TEXT NOT NULL DEFAULT '',
                     source_sheet TEXT NOT NULL DEFAULT '',
-                    source_rows_json TEXT NOT NULL DEFAULT '[]',
+                    source_row INTEGER NOT NULL DEFAULT 0,
                     missing_fields_json TEXT NOT NULL DEFAULT '[]',
                     FOREIGN KEY (import_id)
                         REFERENCES planning_imports(import_id)
@@ -117,18 +106,12 @@ class PlanningDatabase:
                     import_id TEXT NOT NULL,
                     session_id INTEGER NOT NULL,
                     session_key TEXT NOT NULL,
+                    code_session TEXT NOT NULL DEFAULT '',
                     matricule TEXT NOT NULL DEFAULT '',
                     full_name TEXT NOT NULL DEFAULT '',
-                    email TEXT NOT NULL DEFAULT '',
-                    responsible_email TEXT NOT NULL DEFAULT '',
-                    hr_email TEXT NOT NULL DEFAULT '',
-                    director_email TEXT NOT NULL DEFAULT '',
                     residence TEXT NOT NULL DEFAULT '',
-                    direction TEXT NOT NULL DEFAULT '',
-                    hr_responsible TEXT NOT NULL DEFAULT '',
-                    consultation_code TEXT NOT NULL DEFAULT '',
-                    participation_count_2025 TEXT NOT NULL DEFAULT '',
-                    participation_count_2026 TEXT NOT NULL DEFAULT '',
+                    source_file TEXT NOT NULL DEFAULT '',
+                    source_sheet TEXT NOT NULL DEFAULT '',
                     source_row INTEGER NOT NULL DEFAULT 0,
                     missing_fields_json TEXT NOT NULL DEFAULT '[]',
                     FOREIGN KEY (import_id)
@@ -260,30 +243,48 @@ class PlanningDatabase:
                     ON planning_automation_job_logs(job_id);
                 """
             )
-            self._ensure_column(connection, "employee_contacts", "normalized_name", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "employee_contacts", "residence", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "employee_contacts", "source_file", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "employee_contacts", "source_row", "INTEGER NOT NULL DEFAULT 0")
-            self._ensure_column(connection, "training_participants", "responsible_email", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "training_participants", "hr_email", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "training_participants", "director_email", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "training_participants", "consultation_code", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "training_participants", "participation_count_2025", "TEXT NOT NULL DEFAULT ''")
-            self._ensure_column(connection, "training_participants", "participation_count_2026", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "training_email_drafts", "html_body", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "training_email_drafts", "metadata_json", "TEXT NOT NULL DEFAULT '{}'")
             connection.execute(
                 """
-                CREATE INDEX IF NOT EXISTS idx_employee_contacts_normalized_name
-                    ON employee_contacts(normalized_name)
-                """
+                INSERT OR REPLACE INTO planning_schema_meta (id, version)
+                VALUES (1, ?)
+                """,
+                (PLANNING_SCHEMA_VERSION,),
             )
-            connection.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_training_participants_responsible_email
-                    ON training_participants(responsible_email)
-                """
+            connection.commit()
+
+    def _migrate_planning_schema(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS planning_schema_meta (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                version INTEGER NOT NULL
             )
+            """
+        )
+        row = connection.execute(
+            "SELECT version FROM planning_schema_meta WHERE id = 1"
+        ).fetchone()
+        current_version = int(row["version"] or 0) if row is not None else 0
+        if current_version >= PLANNING_SCHEMA_VERSION:
+            return
+
+        connection.executescript(
+            """
+            PRAGMA foreign_keys = OFF;
+            DROP TABLE IF EXISTS training_email_send_logs;
+            DROP TABLE IF EXISTS training_email_drafts;
+            DROP TABLE IF EXISTS training_participants;
+            DROP TABLE IF EXISTS training_sessions;
+            DROP TABLE IF EXISTS planning_files;
+            DROP TABLE IF EXISTS planning_imports;
+            DROP TABLE IF EXISTS planning_automation_job_logs;
+            DROP TABLE IF EXISTS planning_automation_jobs;
+            DROP TABLE IF EXISTS planning_automation_settings;
+            PRAGMA foreign_keys = ON;
+            """
+        )
 
     def get_automation_settings(self) -> dict[str, Any]:
         with self._connect() as connection:
@@ -728,6 +729,7 @@ class PlanningDatabase:
                             import_id,
                             int(target["id"]),
                             str(target["session_key"]),
+                            str(target["code_session"] or ""),
                             participant,
                             session.source_file,
                         )
@@ -801,7 +803,7 @@ class PlanningDatabase:
                     SELECT *
                     FROM training_sessions
                     WHERE file_id = ?
-                    ORDER BY start_date, module, id
+                    ORDER BY start_date, code_session, id
                     """,
                     (file_row["id"],),
                 ).fetchall()
@@ -887,16 +889,15 @@ class PlanningDatabase:
             params.append(date_to.strip())
         for column, value in (
             ("status", status),
-            ("domain", domain),
             ("training_mode", training_mode),
-            ("training_type", training_type),
-            ("cabinet", cabinet),
             ("location", location),
-            ("responsible_engagement", responsible),
         ):
             if value and value.strip():
                 clauses.append(f"lower(s.{column}) LIKE lower(?)")
                 params.append(f"%{value.strip()}%")
+        for ignored_value in (domain, training_type, cabinet, responsible):
+            if ignored_value and ignored_value.strip():
+                params.extend([])
         if search and search.strip():
             pattern = f"%{search.strip()}%"
             clauses.append(
@@ -904,19 +905,13 @@ class PlanningDatabase:
                 (
                     lower(s.session_key) LIKE lower(?)
                     OR lower(s.code_session) LIKE lower(?)
-                    OR lower(s.module_code) LIKE lower(?)
-                    OR lower(s.module) LIKE lower(?)
-                    OR lower(s.domain) LIKE lower(?)
-                    OR lower(s.project) LIKE lower(?)
-                    OR lower(s.cabinet) LIKE lower(?)
-                    OR lower(s.trainer) LIKE lower(?)
                     OR lower(s.selected_trainer) LIKE lower(?)
                     OR lower(s.location) LIKE lower(?)
-                    OR lower(s.responsible_engagement) LIKE lower(?)
+                    OR lower(s.lms_session_number) LIKE lower(?)
                 )
                 """
             )
-            params.extend([pattern] * 11)
+            params.extend([pattern] * 5)
         if has_participants is True:
             having_clauses.append("COUNT(p.id) > 0")
         elif has_participants is False:
@@ -1022,7 +1017,7 @@ class PlanningDatabase:
         import_id: str | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
-        clauses = ["responsible_email = ''"]
+        clauses = ["(full_name = '' OR residence = '')"]
         params: list[Any] = []
         if import_id:
             clauses.append("import_id = ?")
@@ -1033,18 +1028,18 @@ class PlanningDatabase:
             rows = connection.execute(
                 f"""
                 SELECT
-                    '' AS matricule,
-                    COALESCE(NULLIF(hr_responsible, ''), NULLIF(direction, ''), NULLIF(residence, ''), 'Responsable formation') AS full_name,
-                    responsible_email,
+                    matricule,
+                    COALESCE(NULLIF(full_name, ''), 'Candidat sans nom') AS full_name,
+                    '' AS responsible_email,
                     residence,
-                    direction,
-                    hr_responsible,
+                    '' AS direction,
+                    '' AS hr_responsible,
                     COUNT(*) AS session_count,
                     MIN(source_row) AS first_source_row
                 FROM training_participants
                 WHERE {' AND '.join(clauses)}
-                GROUP BY responsible_email, residence, direction, hr_responsible
-                ORDER BY hr_responsible, direction, residence
+                GROUP BY matricule, full_name, residence
+                ORDER BY residence, full_name, matricule
                 LIMIT ?
                 """,
                 params,
@@ -1074,76 +1069,41 @@ class PlanningDatabase:
                     p.import_id,
                     p.matricule,
                     p.full_name,
-                    p.email,
-                    p.responsible_email,
                     p.residence,
-                    p.direction,
-                    p.hr_responsible,
                     p.source_row,
                     s.session_key,
-                    s.module,
+                    s.code_session,
                     s.start_date,
                     s.end_date
                 FROM training_participants AS p
                 JOIN training_sessions AS s
                     ON s.id = p.session_id
                 {where}
-                ORDER BY p.full_name, p.matricule, s.start_date, s.module
+                ORDER BY p.residence, p.full_name, p.matricule, s.start_date, s.code_session
                 """,
                 params,
             ).fetchall()
-            contacts = connection.execute(
-                """
-                SELECT
-                    matricule,
-                    normalized_name,
-                    full_name,
-                    email,
-                    residence,
-                    direction,
-                    hr_responsible,
-                    source_file,
-                    source_row,
-                    updated_at
-                FROM employee_contacts
-                WHERE email != ''
-                """
-            ).fetchall()
-            lookup = self._responsible_contact_lookup(contacts)
 
         grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
         for participant in participant_rows:
-            responsible_name = participant["hr_responsible"] or ""
-            direction = participant["direction"] or ""
             residence = participant["residence"] or ""
-            display_name = responsible_name or direction or residence or "Responsable formation"
+            direction = ""
+            responsible_name = residence
+            display_name = residence or "Grande residence manquante"
             normalized_name = _normalize_participant_name(display_name)
-            email = participant["responsible_email"] or ""
-            contact = self._match_responsible_contact(participant, lookup)
-            suggested_email = contact["email"] if contact is not None else ""
+            email = ""
+            suggested_email = ""
 
-            if not email and suggested_email:
-                status_value = "review"
-                match_method = _responsible_role(contact) or "directory"
-                needs_review = True
-                reason = "Responsible recipient found in imported directory. Please verify."
-            elif not email:
+            if not residence or not participant["full_name"]:
                 status_value = "missing"
                 match_method = "none"
                 needs_review = True
-                reason = "Responsible recipient email missing from planning."
-            elif contact is not None and str(contact["email"]).lower() == email.lower():
-                status_value = "matched"
-                match_method = "responsible"
-                needs_review = False
-                reason = "Responsible recipient matched by name."
-                suggested_email = email
+                reason = "Candidate name or grande residence is missing."
             else:
                 status_value = "matched"
-                match_method = "planning"
+                match_method = "residence"
                 needs_review = False
-                reason = "Responsible recipient provided by planning."
-                suggested_email = email
+                reason = "Candidate is linked to a grande residence."
 
             key = (normalized_name, residence, direction)
             if key not in grouped:
@@ -1158,7 +1118,7 @@ class PlanningDatabase:
                     "status": status_value,
                     "needs_review": needs_review,
                     "reason": reason,
-                    "contact_source": contact["source_file"] if contact is not None else "",
+                    "contact_source": "",
                     "session_count": 0,
                     "candidate_count": 0,
                     "sessions": [],
@@ -1169,7 +1129,7 @@ class PlanningDatabase:
                 item["sessions"].append(
                     {
                         "session_key": participant["session_key"] or "",
-                        "module": participant["module"] or "",
+                        "module": participant["code_session"] or "",
                         "start_date": participant["start_date"] or "",
                         "end_date": participant["end_date"] or "",
                     }
@@ -1518,92 +1478,9 @@ class PlanningDatabase:
         return None
 
     def apply_contact_mapping(self, *, import_id: str | None = None) -> dict[str, Any]:
-        with self._connect() as connection:
-            contacts = connection.execute(
-                """
-                SELECT
-                    matricule,
-                    normalized_name,
-                    full_name,
-                    email,
-                    residence,
-                    direction,
-                    hr_responsible,
-                    source_file
-                FROM employee_contacts
-                WHERE email != ''
-                """
-            ).fetchall()
-            lookup = self._responsible_contact_lookup(contacts)
-
-            clauses = ["responsible_email = ''"]
-            params: list[Any] = []
-            if import_id:
-                clauses.append("import_id = ?")
-                params.append(import_id)
-            participants = connection.execute(
-                f"""
-                SELECT
-                    id,
-                    import_id,
-                    matricule,
-                    full_name,
-                    responsible_email,
-                    residence,
-                    direction,
-                    hr_responsible,
-                    missing_fields_json
-                FROM training_participants
-                WHERE {' AND '.join(clauses)}
-                """,
-                params,
-            ).fetchall()
-
-            mapped = 0
-            unmatched = 0
-            for participant in participants:
-                contact = self._match_responsible_contact(participant, lookup)
-
-                if contact is None:
-                    unmatched += 1
-                    continue
-
-                missing_fields = [
-                    field
-                    for field in _loads(participant["missing_fields_json"])
-                    if field != "responsible_email"
-                ]
-                connection.execute(
-                    """
-                    UPDATE training_participants
-                    SET
-                        responsible_email = ?,
-                        residence = COALESCE(NULLIF(residence, ''), ?),
-                        direction = COALESCE(NULLIF(direction, ''), ?),
-                        hr_responsible = COALESCE(NULLIF(hr_responsible, ''), ?),
-                        missing_fields_json = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        contact["email"],
-                        contact["residence"],
-                        contact["direction"],
-                        contact["full_name"],
-                        _json(missing_fields),
-                        participant["id"],
-                    ),
-                )
-                mapped += 1
-
-            affected_imports = self._affected_import_ids(connection, import_id)
-            for affected_import_id in affected_imports:
-                self._refresh_import_counts(connection, affected_import_id)
-
-            connection.commit()
-
         return {
-            "mapped": mapped,
-            "unmatched": unmatched,
+            "mapped": 0,
+            "unmatched": 0,
             "import_id": import_id or "",
         }
 
@@ -2123,18 +2000,8 @@ class PlanningDatabase:
                 session_key,
                 code_session,
                 lms_session_number,
-                malek_number,
                 status,
-                axis,
-                domain,
-                project,
-                training_type,
                 training_mode,
-                certification_nature,
-                module_code,
-                module,
-                cabinet,
-                trainer,
                 selected_trainer,
                 year,
                 month,
@@ -2143,20 +2010,16 @@ class PlanningDatabase:
                 start_date,
                 end_date,
                 schedule,
-                hours_per_day,
                 total_hours,
                 location,
-                accommodation_location,
-                responsible_engagement,
                 candidate_count,
                 source_file,
                 source_sheet,
-                source_rows_json,
+                source_row,
                 missing_fields_json
             )
             VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             (
@@ -2165,19 +2028,9 @@ class PlanningDatabase:
                 session.session_key,
                 session.code_session,
                 session.lms_session_number,
-                session.malek_number,
                 session.status,
-                session.axis,
-                session.domain,
-                session.project,
-                session.training_type,
                 session.training_mode,
-                session.certification_nature,
-                session.module_code,
-                session.module,
-                session.cabinet,
-                session.trainer,
-                session.selected_trainer,
+                session.selected_trainer or session.trainer,
                 session.year,
                 session.month,
                 session.week,
@@ -2185,15 +2038,12 @@ class PlanningDatabase:
                 session.start_date,
                 session.end_date,
                 session.schedule,
-                session.hours_per_day,
                 session.total_hours,
                 session.location,
-                session.accommodation_location,
-                session.responsible_engagement,
                 session.candidate_count,
                 session.source_file,
                 session.source_sheet,
-                _json(session.source_rows),
+                session.source_rows[0] if session.source_rows else 0,
                 _json(session.missing_fields),
             ),
         )
@@ -2204,6 +2054,7 @@ class PlanningDatabase:
                 import_id,
                 session_id,
                 session.session_key,
+                session.code_session,
                 participant,
                 session.source_file,
             )
@@ -2215,6 +2066,7 @@ class PlanningDatabase:
         import_id: str,
         session_id: int,
         session_key: str,
+        code_session: str,
         participant: PlanningParticipant,
         source_file: str,
     ) -> None:
@@ -2224,44 +2076,31 @@ class PlanningDatabase:
                 import_id,
                 session_id,
                 session_key,
+                code_session,
                 matricule,
                 full_name,
-                email,
-                responsible_email,
-                hr_email,
-                director_email,
                 residence,
-                direction,
-                hr_responsible,
-                consultation_code,
-                participation_count_2025,
-                participation_count_2026,
+                source_file,
+                source_sheet,
                 source_row,
                 missing_fields_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 import_id,
                 session_id,
                 session_key,
+                code_session,
                 participant.matricule,
                 participant.full_name,
-                participant.email,
-                participant.responsible_email,
-                participant.hr_email,
-                participant.director_email,
                 participant.residence,
-                participant.direction,
-                participant.hr_responsible,
-                participant.consultation_code,
-                participant.participation_count_2025,
-                participant.participation_count_2026,
+                source_file,
+                "",
                 participant.source_row,
                 _json(participant.missing_fields),
             ),
         )
-        self._upsert_responsible_contacts(connection, participant, source_file)
 
     def _participant_id(
         self,
@@ -2278,17 +2117,6 @@ class PlanningDatabase:
                 LIMIT 1
                 """,
                 (session_id, participant.matricule),
-            ).fetchone()
-            return int(row["id"]) if row is not None else None
-        if participant.email:
-            row = connection.execute(
-                """
-                SELECT id
-                FROM training_participants
-                WHERE session_id = ? AND lower(email) = lower(?)
-                LIMIT 1
-                """,
-                (session_id, participant.email),
             ).fetchone()
             return int(row["id"]) if row is not None else None
         if participant.full_name:
@@ -2322,47 +2150,28 @@ class PlanningDatabase:
         if existing is None:
             return
         missing_fields = _loads(existing["missing_fields_json"])
-        if participant.responsible_email:
-            missing_fields = [
-                field for field in missing_fields if field != "responsible_email"
-            ]
+        if participant.full_name:
+            missing_fields = [field for field in missing_fields if field != "full_name"]
+        if participant.residence:
+            missing_fields = [field for field in missing_fields if field != "residence"]
         connection.execute(
             """
             UPDATE training_participants
             SET
                 full_name = COALESCE(NULLIF(full_name, ''), ?),
-                email = COALESCE(NULLIF(email, ''), ?),
-                responsible_email = COALESCE(NULLIF(responsible_email, ''), ?),
-                hr_email = COALESCE(NULLIF(hr_email, ''), ?),
-                director_email = COALESCE(NULLIF(director_email, ''), ?),
                 residence = COALESCE(NULLIF(residence, ''), ?),
-                direction = COALESCE(NULLIF(direction, ''), ?),
-                hr_responsible = COALESCE(NULLIF(hr_responsible, ''), ?),
-                consultation_code = COALESCE(NULLIF(consultation_code, ''), ?),
-                participation_count_2025 = COALESCE(NULLIF(participation_count_2025, ''), ?),
-                participation_count_2026 = COALESCE(NULLIF(participation_count_2026, ''), ?),
                 source_row = CASE WHEN source_row = 0 THEN ? ELSE source_row END,
                 missing_fields_json = ?
             WHERE id = ?
             """,
             (
                 participant.full_name,
-                participant.email,
-                participant.responsible_email,
-                participant.hr_email,
-                participant.director_email,
                 participant.residence,
-                participant.direction,
-                participant.hr_responsible,
-                participant.consultation_code,
-                participant.participation_count_2025,
-                participant.participation_count_2026,
                 participant.source_row,
                 _json(missing_fields),
                 participant_id,
             ),
         )
-        self._upsert_responsible_contacts(connection, participant, source_file)
 
     def _upsert_responsible_contacts(
         self,
@@ -2499,7 +2308,7 @@ class PlanningDatabase:
                 COUNT(*) AS total_participants,
                 SUM(
                     CASE
-                        WHEN responsible_email = '' THEN 1
+                        WHEN full_name = '' OR residence = '' THEN 1
                         ELSE 0
                     END
                 ) AS missing_email_count
@@ -2615,16 +2424,16 @@ class PlanningDatabase:
             {
                 "matricule": participant["matricule"],
                 "full_name": participant["full_name"],
-                "email": participant["email"],
-                "responsible_email": participant["responsible_email"],
-                "hr_email": participant["hr_email"],
-                "director_email": participant["director_email"],
+                "email": "",
+                "responsible_email": "",
+                "hr_email": "",
+                "director_email": "",
                 "residence": participant["residence"],
-                "direction": participant["direction"],
-                "hr_responsible": participant["hr_responsible"],
-                "consultation_code": participant["consultation_code"],
-                "participation_count_2025": participant["participation_count_2025"],
-                "participation_count_2026": participant["participation_count_2026"],
+                "direction": participant["residence"],
+                "hr_responsible": "",
+                "consultation_code": participant["code_session"],
+                "participation_count_2025": "",
+                "participation_count_2026": "",
                 "source_row": participant["source_row"],
                 "missing_fields": _loads(participant["missing_fields_json"]),
             }
@@ -2644,18 +2453,18 @@ class PlanningDatabase:
             "session_key": row["session_key"],
             "code_session": row["code_session"],
             "lms_session_number": row["lms_session_number"],
-            "malek_number": row["malek_number"],
+            "malek_number": "",
             "status": row["status"],
-            "axis": row["axis"],
-            "domain": row["domain"],
-            "project": row["project"],
-            "training_type": row["training_type"],
+            "axis": "",
+            "domain": "",
+            "project": "",
+            "training_type": "",
             "training_mode": row["training_mode"],
-            "certification_nature": row["certification_nature"],
-            "module_code": row["module_code"],
-            "module": row["module"],
-            "cabinet": row["cabinet"],
-            "trainer": row["trainer"],
+            "certification_nature": "",
+            "module_code": "",
+            "module": row["code_session"],
+            "cabinet": "",
+            "trainer": row["selected_trainer"],
             "selected_trainer": row["selected_trainer"],
             "year": row["year"],
             "month": row["month"],
@@ -2664,15 +2473,15 @@ class PlanningDatabase:
             "start_date": row["start_date"],
             "end_date": row["end_date"],
             "schedule": row["schedule"],
-            "hours_per_day": row["hours_per_day"],
+            "hours_per_day": "",
             "total_hours": row["total_hours"],
             "location": row["location"],
-            "accommodation_location": row["accommodation_location"],
-            "responsible_engagement": row["responsible_engagement"],
+            "accommodation_location": "",
+            "responsible_engagement": "",
             "candidate_count": row["candidate_count"],
             "source_file": row["source_file"],
             "source_sheet": row["source_sheet"],
-            "source_rows": _loads(row["source_rows_json"]),
+            "source_rows": [row["source_row"]] if row["source_row"] else [],
             "missing_fields": _loads(row["missing_fields_json"]),
         }
 
@@ -2734,7 +2543,7 @@ def _normalize_month_filter(month: str | int) -> str:
 
 def _missing_email_count_sql() -> str:
     return (
-        "SUM(CASE WHEN p.id IS NOT NULL AND p.responsible_email = '' "
+        "SUM(CASE WHEN p.id IS NOT NULL AND (p.full_name = '' OR p.residence = '') "
         "THEN 1 ELSE 0 END)"
     )
 
@@ -2743,17 +2552,18 @@ def _session_order_by(sort_by: str, sort_direction: str) -> str:
     columns = {
         "start_date": "s.start_date",
         "end_date": "s.end_date",
-        "module": "s.module",
+        "module": "s.code_session",
+        "code_session": "s.code_session",
         "status": "s.status",
-        "domain": "s.domain",
-        "cabinet": "s.cabinet",
+        "domain": "s.code_session",
+        "cabinet": "s.selected_trainer",
         "location": "s.location",
         "participants": "participant_count",
         "missing_contacts": "missing_email_count",
     }
     column = columns.get(str(sort_by or "").strip().lower(), "s.start_date")
     direction = "DESC" if str(sort_direction or "").strip().lower() == "desc" else "ASC"
-    return f"ORDER BY {column} {direction}, s.start_date ASC, s.module ASC, s.id ASC"
+    return f"ORDER BY {column} {direction}, s.start_date ASC, s.code_session ASC, s.id ASC"
 
 
 def _json(value: Any) -> str:

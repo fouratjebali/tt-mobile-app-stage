@@ -376,6 +376,27 @@ async def _load_planning_uploads(files: list[UploadFile]) -> list[tuple[str, byt
     return loaded_files
 
 
+async def _load_named_planning_uploads(
+    *,
+    sessions_file: UploadFile,
+    candidates_file: UploadFile,
+) -> list[tuple[str, bytes]]:
+    loaded_files: list[tuple[str, bytes]] = []
+    for label, upload in (
+        ("sessions file", sessions_file),
+        ("candidates file", candidates_file),
+    ):
+        filename = upload.filename or f"{label}.xlsx"
+        content = await upload.read()
+        if not content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"The {label} is empty.",
+            )
+        loaded_files.append((filename, content))
+    return loaded_files
+
+
 @app.post("/planning/import")
 async def import_planning_files(
     files: list[UploadFile] = File(...),
@@ -392,11 +413,51 @@ async def import_planning_files(
     return result.to_dict()
 
 
+@app.post("/planning/import/session-candidates")
+async def import_sessions_and_candidates_files(
+    sessions_file: UploadFile = File(...),
+    candidates_file: UploadFile = File(...),
+) -> dict[str, Any]:
+    loaded_files = await _load_named_planning_uploads(
+        sessions_file=sessions_file,
+        candidates_file=candidates_file,
+    )
+    try:
+        result = planning_import_service.import_files(loaded_files)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return result.to_dict()
+
+
 @app.post("/planning/import/preview")
 async def preview_planning_files(
     files: list[UploadFile] = File(...),
 ) -> dict[str, Any]:
     loaded_files = await _load_planning_uploads(files)
+    try:
+        result = planning_import_service.preview_import_files(loaded_files)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return result.to_dict()
+
+
+@app.post("/planning/import/session-candidates/preview")
+async def preview_sessions_and_candidates_files(
+    sessions_file: UploadFile = File(...),
+    candidates_file: UploadFile = File(...),
+) -> dict[str, Any]:
+    loaded_files = await _load_named_planning_uploads(
+        sessions_file=sessions_file,
+        candidates_file=candidates_file,
+    )
     try:
         result = planning_import_service.preview_import_files(loaded_files)
     except ValueError as exc:
