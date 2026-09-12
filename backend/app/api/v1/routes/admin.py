@@ -1,12 +1,16 @@
+import json
+from time import perf_counter
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_admin_manager, get_current_admin_user
 from app.core.config import settings
 from app.db.session import get_db
+from app.models.app_settings import AppSettings
 from app.models.auth import User
 from app.repositories.admin_dashboard_repository import AdminDashboardRepository
 from app.repositories.audit_repository import AuditRepository, audit_metadata
@@ -23,6 +27,12 @@ from app.schemas.admin import (
 
 
 router = APIRouter()
+
+DASHBOARD_SETTINGS_DEFAULTS: dict[str, Any] = {
+    "review_threshold": 40,
+    "audit_retention_days": 180,
+    "support_email": "dashboard.admin@tunisietelecom.tn",
+}
 
 
 @router.get(
@@ -60,6 +70,122 @@ def admin_overview(
             admin_base_path=f"{settings.API_V1_PREFIX}{settings.ADMIN_API_PREFIX}",
         ),
     )
+
+
+@router.get(
+    "/health",
+    summary="Get admin dashboard health",
+    description="Returns a dashboard-friendly health summary for Angular.",
+)
+def admin_health(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    started_at = perf_counter()
+    services: list[dict[str, str]] = [
+        {
+            "name": "Backend API",
+            "status": "healthy",
+            "message": "Operational",
+        }
+    ]
+
+    try:
+        db.execute(text("SELECT 1"))
+        database_status = "healthy"
+        database_message = "Connected"
+    except Exception as exc:
+        database_status = "down"
+        database_message = str(exc)
+    services.append(
+        {
+            "name": "Database",
+            "status": database_status,
+            "message": database_message,
+        }
+    )
+
+    mail_connector_status = "healthy" if settings.AGENT1_URL else "degraded"
+    services.append(
+        {
+            "name": "Mail connector",
+            "status": mail_connector_status,
+            "message": "Operational" if settings.AGENT1_URL else "Not configured",
+        }
+    )
+
+    try:
+        db.execute(text("SELECT COUNT(*) FROM audit_logs"))
+        audit_status = "healthy"
+        audit_message = "Writing events"
+    except Exception as exc:
+        audit_status = "degraded"
+        audit_message = str(exc)
+    services.append(
+        {
+            "name": "Audit stream",
+            "status": audit_status,
+            "message": audit_message,
+        }
+    )
+
+    status_value = (
+        "healthy"
+        if all(service["status"] == "healthy" for service in services)
+        else "degraded"
+    )
+    return {
+        "status": status_value,
+        "checked_at": datetime.now(tz=UTC).isoformat(),
+        "latency_ms": round((perf_counter() - started_at) * 1000, 2),
+        "services": services,
+    }
+
+
+@router.get(
+    "/settings",
+    summary="Get admin dashboard settings",
+    description="Returns dashboard policy settings used by the admin frontend.",
+)
+def get_admin_settings(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "settings": _load_dashboard_settings(db),
+    }
+
+
+@router.patch(
+    "/settings",
+    summary="Update admin dashboard settings",
+    description="Updates dashboard policy settings used by the admin frontend.",
+)
+def update_admin_settings(
+    payload: dict[str, Any],
+    current_user: Annotated[User, Depends(get_current_admin_manager)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    current = _load_dashboard_settings(db)
+    allowed_updates = {
+        key: payload[key]
+        for key in DASHBOARD_SETTINGS_DEFAULTS
+        if key in payload
+    }
+    updated = {**current, **allowed_updates}
+    _save_dashboard_settings(db, updated)
+    AuditRepository(db).create(
+        actor=current_user,
+        action="admin.settings.update",
+        resource_type="settings",
+        resource_id="dashboard",
+        metadata={"updated": allowed_updates},
+    )
+    return {
+        "status": "ok",
+        "settings": updated,
+    }
 
 
 @router.get(
@@ -259,3 +385,49 @@ def _to_audit_log_response(log) -> AuditLogResponse:
         metadata=audit_metadata(log),
         created_at=log.created_at,
     )
+
+
+def _load_dashboard_settings(db: Session) -> dict[str, Any]:
+    row = (
+        db.query(AppSettings)
+        .filter(AppSettings.key == "admin_dashboard")
+        .one_or_none()
+    )
+    if row is None or not row.value:
+        return {
+            **DASHBOARD_SETTINGS_DEFAULTS,
+            "support_email": (
+                settings.ADMIN_DASHBOARD_EMAIL
+                or DASHBOARD_SETTINGS_DEFAULTS["support_email"]
+            ),
+        }
+    try:
+        stored = json.loads(row.value)
+    except json.JSONDecodeError:
+        stored = {}
+    return {
+        **DASHBOARD_SETTINGS_DEFAULTS,
+        "support_email": (
+            settings.ADMIN_DASHBOARD_EMAIL
+            or DASHBOARD_SETTINGS_DEFAULTS["support_email"]
+        ),
+        **{
+            key: value
+            for key, value in stored.items()
+            if key in DASHBOARD_SETTINGS_DEFAULTS
+        },
+    }
+
+
+def _save_dashboard_settings(db: Session, payload: dict[str, Any]) -> None:
+    row = (
+        db.query(AppSettings)
+        .filter(AppSettings.key == "admin_dashboard")
+        .one_or_none()
+    )
+    if row is None:
+        row = AppSettings(key="admin_dashboard", value="{}")
+        db.add(row)
+    row.value = json.dumps(payload)
+    row.is_active = True
+    db.commit()

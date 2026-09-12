@@ -395,8 +395,9 @@ def test_admin_draft_review_and_bulk_action_routes_forward_payloads():
     asyncio.run(
         admin_planning.bulk_review_training_drafts(
             AdminPlanningBulkDraftActionRequest(
-                draft_ids=[1, 2, 2],
+                draft_ids=["draft_1", "2", 2],
                 action="approve",
+                review_notes="Validated",
             ),
             editor,
             gateway,
@@ -406,7 +407,7 @@ def test_admin_draft_review_and_bulk_action_routes_forward_payloads():
         admin_planning.bulk_send_training_drafts(
             AdminPlanningBulkSendDraftsRequest(
                 draft_ids=[1, 2],
-                confirmed=True,
+                confirmation="SEND_APPROVED_DRAFT",
                 confirmed_draft_count=2,
                 confirmed_total_recipient_count=2,
             ),
@@ -437,7 +438,7 @@ def test_admin_draft_review_and_bulk_action_routes_forward_payloads():
             {
                 "draft_ids": [1, 2, 2],
                 "action": "approve",
-                "reason": "",
+                "reason": "Validated",
                 "email_type": "auto",
                 "include_population": True,
                 "_auth": None,

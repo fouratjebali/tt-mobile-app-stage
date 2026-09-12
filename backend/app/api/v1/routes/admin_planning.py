@@ -475,9 +475,14 @@ async def update_automation_settings(
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
+    payload = request.model_dump(exclude_none=True)
+    if "enabled" in payload and "auto_run_after_import" not in payload:
+        payload["auto_run_after_import"] = payload.pop("enabled")
+    payload.pop("schedule", None)
+    payload.pop("timezone", None)
     result = await gateway.patch_json(
         "automation/settings",
-        request.model_dump(exclude_none=True),
+        payload,
     )
     _record_planning_audit(
         current_user,
@@ -687,9 +692,13 @@ async def bulk_review_training_drafts(
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
+    payload = request.model_dump()
+    if request.review_notes and not payload.get("reason"):
+        payload["reason"] = request.review_notes
+    payload.pop("review_notes", None)
     result = await gateway.post_json(
         "drafts/bulk-action",
-        request.model_dump(),
+        payload,
     )
     _record_planning_audit(
         current_user,
@@ -714,9 +723,13 @@ async def bulk_send_training_drafts(
     ],
     authorization: Annotated[str | None, Header()] = None,
 ) -> Any:
+    payload = request.model_dump(exclude_none=True)
+    if payload.get("confirmation") == "SEND_APPROVED_DRAFT":
+        payload["confirmed"] = True
+    payload.pop("confirmation", None)
     result = await gateway.post_json(
         "drafts/bulk-send",
-        request.model_dump(exclude_none=True),
+        payload,
         authorization=authorization,
     )
     _record_planning_audit(
@@ -864,9 +877,10 @@ async def reject_training_draft(
         Depends(get_planning_management_gateway),
     ],
 ) -> Any:
+    reason = request.reason or request.review_notes
     result = await gateway.post_json(
         f"drafts/{draft_id}/reject",
-        request.model_dump(),
+        {"reason": reason},
     )
     _record_planning_audit(
         current_user,
@@ -892,9 +906,13 @@ async def send_training_draft(
     ],
     authorization: Annotated[str | None, Header()] = None,
 ) -> Any:
+    payload = request.model_dump(exclude_none=True)
+    if payload.get("confirmation") == "SEND_APPROVED_DRAFT":
+        payload["confirmed"] = True
+    payload.pop("confirmation", None)
     result = await gateway.post_json(
         f"drafts/{draft_id}/send",
-        request.model_dump(exclude_none=True),
+        payload,
         authorization=authorization,
     )
     _record_planning_audit(

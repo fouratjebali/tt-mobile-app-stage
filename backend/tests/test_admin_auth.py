@@ -15,13 +15,17 @@ from app.api.dependencies import (  # noqa: E402
     get_current_admin_user,
 )
 from app.api.v1.routes.admin import (  # noqa: E402
+    admin_health,
+    get_admin_settings,
     get_audit_log,
     list_audit_logs,
+    update_admin_settings,
     update_user_active_state,
     update_user_role,
 )
 from app.core.config import Settings  # noqa: E402
 from app.db.base import Base  # noqa: E402
+from app.models.app_settings import AppSettings  # noqa: E402
 from app.models.audit import AuditLog  # noqa: E402
 from app.models.auth import AdminCredential, AuthSession, User, UserRole  # noqa: E402
 from app.repositories.auth_repository import AuthRepository  # noqa: E402
@@ -41,6 +45,7 @@ def _session():
             AuthSession.__table__,
             AdminCredential.__table__,
             AuditLog.__table__,
+            AppSettings.__table__,
         ],
     )
     session_factory = sessionmaker(bind=engine)
@@ -86,7 +91,49 @@ def test_admin_audit_log_routes_are_exposed():
 
     assert "/admin/audit-logs" in route_paths
     assert "/admin/audit-logs/{log_id}" in route_paths
+    assert "/admin/health" in route_paths
+    assert "/admin/settings" in route_paths
     assert "/auth/admin/login" in auth_route_paths
+
+
+def test_admin_health_and_settings_contract():
+    db = _session()
+    admin = SimpleNamespace(
+        id="admin-1",
+        email="admin@tunisietelecom.tn",
+        role=UserRole.ADMIN.value,
+    )
+    try:
+        health = admin_health(admin, db)
+        assert health["status"] == "healthy"
+        assert {service["name"] for service in health["services"]} == {
+            "Backend API",
+            "Database",
+            "Mail connector",
+            "Audit stream",
+        }
+
+        defaults = get_admin_settings(admin, db)
+        assert defaults["settings"]["review_threshold"] == 40
+
+        updated = update_admin_settings(
+            {
+                "review_threshold": 55,
+                "audit_retention_days": 90,
+                "support_email": "support@tunisietelecom.tn",
+                "ignored": "value",
+            },
+            admin,
+            db,
+        )
+        assert updated["settings"] == {
+            "review_threshold": 55,
+            "audit_retention_days": 90,
+            "support_email": "support@tunisietelecom.tn",
+        }
+        assert get_admin_settings(admin, db)["settings"]["review_threshold"] == 55
+    finally:
+        db.close()
 
 
 def test_configured_admin_email_is_promoted():

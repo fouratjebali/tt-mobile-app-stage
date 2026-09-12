@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class AdminPlanningResponse(BaseModel):
@@ -33,6 +33,9 @@ class AdminPlanningAutomationSettingsRequest(BaseModel):
     default_email_type: str | None = None
     include_population: bool | None = None
     max_drafts_per_run: int | None = Field(default=None, ge=1, le=500)
+    enabled: bool | None = None
+    schedule: str | None = None
+    timezone: str | None = None
 
 
 class AdminPlanningContactRequest(BaseModel):
@@ -67,20 +70,28 @@ class AdminPlanningRegenerateDraftRequest(BaseModel):
 
 class AdminPlanningRejectDraftRequest(BaseModel):
     reason: str = ""
+    review_notes: str = ""
 
 
 class AdminPlanningSendDraftRequest(BaseModel):
     confirmed: bool = False
     confirmed_recipient_count: int | None = Field(default=None, ge=0)
     confirmed_subject: str = ""
+    confirmation: str = ""
 
 
 class AdminPlanningBulkDraftActionRequest(BaseModel):
     draft_ids: list[int] = Field(min_length=1, max_length=100)
     action: str = Field(pattern="^(approve|reject|regenerate)$")
     reason: str = ""
+    review_notes: str = ""
     email_type: str = "auto"
     include_population: bool = True
+
+    @field_validator("draft_ids", mode="before")
+    @classmethod
+    def normalize_draft_ids(cls, value: Any) -> Any:
+        return _normalize_draft_ids(value)
 
 
 class AdminPlanningBulkSendDraftsRequest(BaseModel):
@@ -88,3 +99,25 @@ class AdminPlanningBulkSendDraftsRequest(BaseModel):
     confirmed: bool = False
     confirmed_draft_count: int | None = Field(default=None, ge=0)
     confirmed_total_recipient_count: int | None = Field(default=None, ge=0)
+    confirmation: str = ""
+
+    @field_validator("draft_ids", mode="before")
+    @classmethod
+    def normalize_draft_ids(cls, value: Any) -> Any:
+        return _normalize_draft_ids(value)
+
+
+def _normalize_draft_ids(value: Any) -> Any:
+    if not isinstance(value, list):
+        return value
+    normalized: list[Any] = []
+    for item in value:
+        if isinstance(item, str):
+            candidate = item.strip()
+            if candidate.lower().startswith("draft_"):
+                candidate = candidate.split("_", 1)[1]
+            if candidate.isdigit():
+                normalized.append(int(candidate))
+                continue
+        normalized.append(item)
+    return normalized
