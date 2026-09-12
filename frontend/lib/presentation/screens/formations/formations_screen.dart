@@ -707,8 +707,8 @@ class _FormationHubSummary extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _MiniMetric(
-                  label: l10n.t('formations.toReview'),
-                  value: '${viewModel.actionableDraftCount}',
+                  label: l10n.t('formations.participants'),
+                  value: '${viewModel.participants}',
                   tone: tone,
                 ),
               ),
