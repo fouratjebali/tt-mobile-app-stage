@@ -345,7 +345,13 @@ class FormationsViewModel extends ChangeNotifier {
       draft.id,
       reason: reason,
     );
-    _replaceDraft(updated);
+    _removeDraft(updated.id);
+    return updated;
+  }
+
+  Future<TrainingDraft> markDraftManuallySent(TrainingDraft draft) async {
+    final updated = await _planningApiService.markDraftManuallySent(draft.id);
+    _removeDraft(updated.id);
     return updated;
   }
 
@@ -460,6 +466,11 @@ class FormationsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _removeDraft(int draftId) {
+    drafts = drafts.where((draft) => draft.id != draftId).toList();
+    notifyListeners();
+  }
+
   bool _draftMatchesFilters(TrainingDraft draft) {
     final statusQuery = _draftStatusQuery(draftStatusFilter);
     if (statusQuery != null && !statusQuery.split(',').contains(draft.status)) {
@@ -475,6 +486,7 @@ class FormationsViewModel extends ChangeNotifier {
 
 String? _draftStatusQuery(String filter) {
   return switch (filter) {
+    'all' => 'WAITING_REVIEW,EDITED,NEEDS_CONTACTS,APPROVED',
     'review' => 'WAITING_REVIEW,EDITED',
     'approved' => 'APPROVED',
     'sent' => 'SENT',

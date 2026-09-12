@@ -300,8 +300,6 @@ const Map<String, String> _english = {
   'formations.sendHistory': 'Outlook sent messages',
   'formations.noSendHistory':
       'Messages sent manually from Outlook will appear here.',
-  'formations.manualOutlookSendHint':
-      'This draft is approved. Send it manually from Outlook; this history updates from Sent Items.',
   'formations.sentTo': 'To',
   'formations.sentAt': 'Sent at',
   'formations.contactsToComplete': 'Responsible contacts to complete',
@@ -323,11 +321,6 @@ const Map<String, String> _english = {
   'formations.noSubject': '(No subject)',
   'formations.noRecipients': 'No recipient yet',
   'formations.reviewDraft': 'Review draft',
-  'formations.regenerateDraft': 'Regenerate draft',
-  'formations.regenerateAction': 'Regenerate',
-  'formations.regenerateWarning':
-      'This will replace the current subject, message, and recipients with a fresh generated version.',
-  'formations.regenerateDone': 'Draft regenerated. Review it before use.',
   'formations.recipients': 'Recipients',
   'formations.cc': 'Cc',
   'formations.optional': 'Optional',
@@ -335,7 +328,7 @@ const Map<String, String> _english = {
   'formations.message': 'Message',
   'formations.reject': 'Reject',
   'formations.save': 'Save',
-  'formations.approve': 'Approve',
+  'formations.markSent': 'Mark as sent',
   'formations.statusApproved': 'approved',
   'formations.statusEdited': 'edited',
   'formations.statusNeedsContacts': 'contacts',
@@ -717,8 +710,6 @@ const Map<String, String> _french = {
   'formations.sendHistory': 'Messages envoyes Outlook',
   'formations.noSendHistory':
       'Les messages envoyes manuellement depuis Outlook apparaitront ici.',
-  'formations.manualOutlookSendHint':
-      'Ce brouillon est valide. Envoyez-le manuellement depuis Outlook; cet historique vient des elements envoyes.',
   'formations.sentTo': 'A',
   'formations.sentAt': 'Envoye le',
   'formations.contactsToComplete': 'Responsables a completer',
@@ -740,12 +731,6 @@ const Map<String, String> _french = {
   'formations.noSubject': '(Sans objet)',
   'formations.noRecipients': 'Aucun destinataire',
   'formations.reviewDraft': 'Verifier le brouillon',
-  'formations.regenerateDraft': 'Regenerer le brouillon',
-  'formations.regenerateAction': 'Regenerer',
-  'formations.regenerateWarning':
-      'Cette action remplacera l objet, le message et les destinataires par une nouvelle version generee.',
-  'formations.regenerateDone':
-      'Brouillon regenere. Verifiez le avant utilisation.',
   'formations.recipients': 'Destinataires',
   'formations.cc': 'Cc',
   'formations.optional': 'Optionnel',
@@ -753,7 +738,7 @@ const Map<String, String> _french = {
   'formations.message': 'Message',
   'formations.reject': 'Refuser',
   'formations.save': 'Enregistrer',
-  'formations.approve': 'Valider',
+  'formations.markSent': 'Marquer comme envoye',
   'formations.statusApproved': 'valide',
   'formations.statusEdited': 'modifie',
   'formations.statusNeedsContacts': 'contacts',

@@ -173,6 +173,63 @@ def test_training_draft_review_allows_manual_outlook_approval_without_recipients
     assert rejected["metadata"]["rejection_reason"] == "Coordonnees manquantes"
 
 
+def test_training_draft_can_be_marked_manually_sent(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Cabinet",
+                "Formateur",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricule",
+                "Nom & Prenom",
+            ],
+            [
+                "CRM-01",
+                "Gestion de la relation client",
+                "TT",
+                "Formateur",
+                "2026-09-14",
+                "2026-09-15",
+                "Tunis",
+                "20002",
+                "TRABELSI Karim",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    import_id = import_response.json()["import_id"]
+    generate_response = client.post(
+        "/planning/drafts/generate",
+        json={"import_id": import_id, "email_type": "confirmation_presence"},
+    )
+    draft = generate_response.json()["drafts"][0]
+
+    sent_response = client.post(f"/planning/drafts/{draft['id']}/manual-sent")
+
+    assert sent_response.status_code == 200
+    sent = sent_response.json()["draft"]
+    assert sent["status"] == "SENT"
+    assert sent["metadata"]["last_review_action"] == "sent"
+    assert sent["metadata"]["provider_message_id"] == "manual_outlook_send"
+
+
 def test_training_draft_can_be_regenerated_in_place(tmp_path):
     from api import planning_import_service
 

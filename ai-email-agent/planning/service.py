@@ -995,6 +995,22 @@ class PlanningImportService:
     ) -> dict[str, Any] | None:
         return self.database.reject_training_draft(draft_id, reason=reason)
 
+    def mark_training_draft_manually_sent(
+        self,
+        draft_id: int,
+    ) -> dict[str, Any] | None:
+        draft = self.database.get_training_draft(draft_id)
+        if draft is None:
+            return None
+        if draft["status"] == "REJECTED":
+            raise ValueError("Rejected drafts cannot be marked as sent.")
+        if not draft["subject"].strip() or not draft["body"].strip():
+            raise ValueError("A training draft needs a subject and body before it can be marked as sent.")
+        return self.database.mark_training_draft_sent(
+            draft_id,
+            provider_message_id="manual_outlook_send",
+        )
+
     def bulk_review_training_drafts(
         self,
         *,

@@ -1102,6 +1102,26 @@ def reject_training_draft(
     }
 
 
+@app.post("/planning/drafts/{draft_id}/manual-sent")
+def mark_training_draft_manually_sent(draft_id: int) -> dict[str, Any]:
+    try:
+        draft = planning_import_service.mark_training_draft_manually_sent(draft_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    if draft is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training draft {draft_id} not found.",
+        )
+    return {
+        "status": "sent",
+        "draft": draft,
+    }
+
+
 @app.post("/planning/drafts/{draft_id}/send")
 def send_training_draft(
     draft_id: int,
