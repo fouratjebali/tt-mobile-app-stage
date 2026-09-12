@@ -186,6 +186,52 @@ class TrainingCalendarSession {
   }
 }
 
+class TrainingSessionDetail {
+  const TrainingSessionDetail({
+    required this.session,
+    required this.participants,
+  });
+
+  final TrainingCalendarSession session;
+  final List<TrainingSessionParticipant> participants;
+
+  factory TrainingSessionDetail.fromJson(Map<String, dynamic> json) {
+    return TrainingSessionDetail(
+      session: TrainingCalendarSession.fromJson(json),
+      participants:
+          _list(json['participants'])
+              .map((item) => TrainingSessionParticipant.fromJson(_map(item)))
+              .toList(),
+    );
+  }
+}
+
+class TrainingSessionParticipant {
+  const TrainingSessionParticipant({
+    required this.matricule,
+    required this.fullName,
+    required this.residence,
+    required this.direction,
+    required this.sourceRow,
+  });
+
+  final String matricule;
+  final String fullName;
+  final String residence;
+  final String direction;
+  final int sourceRow;
+
+  factory TrainingSessionParticipant.fromJson(Map<String, dynamic> json) {
+    return TrainingSessionParticipant(
+      matricule: _string(json['matricule']),
+      fullName: _string(json['full_name']),
+      residence: _string(json['residence']),
+      direction: _string(json['direction']),
+      sourceRow: _int(json['source_row']),
+    );
+  }
+}
+
 class TrainingDraft {
   const TrainingDraft({
     required this.id,

@@ -240,6 +240,24 @@ class PlanningApiService {
     );
   }
 
+  Future<TrainingSessionDetail> getSessionDetail({
+    required String sessionKey,
+    String? importId,
+  }) async {
+    return _planningRequest(
+      action: _PlanningAction.loadPlanning,
+      request: () async {
+        final data = await _apiService.get(
+          '/planning/sessions/${Uri.encodeComponent(sessionKey)}',
+          queryParameters: {
+            if (importId != null && importId.isNotEmpty) 'import_id': importId,
+          },
+        );
+        return TrainingSessionDetail.fromJson(_map(_map(data)['session']));
+      },
+    );
+  }
+
   Future<void> saveContact({
     required String matricule,
     required String fullName,

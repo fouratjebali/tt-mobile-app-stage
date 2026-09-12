@@ -266,6 +266,18 @@ class FormationsViewModel extends ChangeNotifier {
     await _reloadDrafts();
   }
 
+  Future<TrainingSessionDetail> loadSessionDetail(
+    TrainingCalendarSession session,
+  ) {
+    return _planningApiService.getSessionDetail(
+      sessionKey: session.sessionKey,
+      importId:
+          session.importId.isNotEmpty
+              ? session.importId
+              : activeImport?.importId,
+    );
+  }
+
   Future<void> saveAutomationSettings(
     TrainingAutomationSettings settings,
   ) async {

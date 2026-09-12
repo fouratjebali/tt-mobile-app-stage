@@ -36,6 +36,8 @@ const Map<String, String> _english = {
   'nav.today': 'Today',
   'nav.review': 'Review',
   'nav.profile': 'Profile',
+  'common.loading': 'Loading...',
+  'common.notAvailable': 'Not available',
   'auth.signInTitle': 'Sign in to your intelligent inbox',
   'auth.signInSubtitle':
       'Connect Outlook to classify messages, prepare safe drafts, and keep every action under your control.',
@@ -247,6 +249,17 @@ const Map<String, String> _english = {
   'formations.locationMissing': 'Location missing',
   'formations.participantsShort': 'participants',
   'formations.candidatesPlannedShort': 'candidates planned',
+  'formations.sessionDetails': 'Session details',
+  'formations.sessionDate': 'Date',
+  'formations.sessionLocation': 'Location',
+  'formations.sessionTrainer': 'Trainer',
+  'formations.sessionSchedule': 'Schedule',
+  'formations.sessionCode': 'Session code',
+  'formations.noSessionParticipants':
+      'No detailed participants are linked to this session yet.',
+  'formations.unknownParticipant': 'Unnamed participant',
+  'formations.residenceMissing': 'Residence missing',
+  'formations.matriculeShort': 'Mat.',
   'formations.reviewBeforeSend': 'Review before send',
   'formations.reviewBeforeSendHint':
       'Generated training emails stay blocked until you review, edit, and approve them.',
@@ -431,6 +444,8 @@ const Map<String, String> _french = {
   'nav.today': 'Aujourd’hui',
   'nav.review': 'Revue',
   'nav.profile': 'Profil',
+  'common.loading': 'Chargement...',
+  'common.notAvailable': 'Non disponible',
   'auth.signInTitle': 'Connectez-vous à votre boîte intelligente',
   'auth.signInSubtitle':
       'Connectez Outlook pour classer les messages, préparer des brouillons sûrs et garder chaque action sous votre contrôle.',
@@ -653,6 +668,17 @@ const Map<String, String> _french = {
   'formations.locationMissing': 'Lieu manquant',
   'formations.participantsShort': 'participants',
   'formations.candidatesPlannedShort': 'candidats prevus',
+  'formations.sessionDetails': 'Details de la session',
+  'formations.sessionDate': 'Date',
+  'formations.sessionLocation': 'Lieu',
+  'formations.sessionTrainer': 'Formateur',
+  'formations.sessionSchedule': 'Horaire',
+  'formations.sessionCode': 'Code session',
+  'formations.noSessionParticipants':
+      'Aucun participant detaille n est lie a cette session pour le moment.',
+  'formations.unknownParticipant': 'Participant sans nom',
+  'formations.residenceMissing': 'Residence manquante',
+  'formations.matriculeShort': 'Mat.',
   'formations.reviewBeforeSend': 'Verifier avant envoi',
   'formations.reviewBeforeSendHint':
       'Les emails de formation restent bloques jusqu a verification, modification et validation.',

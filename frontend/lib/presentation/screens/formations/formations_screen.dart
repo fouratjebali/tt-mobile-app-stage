@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:tt_mail_assistant/core/di/di.dart';
+import 'package:tt_mail_assistant/core/errors/error_message.dart';
 import 'package:tt_mail_assistant/core/localization/app_localizations.dart';
 import 'package:tt_mail_assistant/core/state/load_state.dart';
 import 'package:tt_mail_assistant/core/theme/app_palette.dart';
@@ -210,9 +211,24 @@ class _FormationsScreenState extends State<FormationsScreen> {
               _TrainingCalendarSection(
                 sessions: _viewModel.trainingSessions,
                 tone: tone,
+                onOpenSession: _openCalendarSession,
               ),
             ],
       ),
+    );
+  }
+
+  Future<void> _openCalendarSession(TrainingCalendarSession session) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => _CalendarSessionDetailSheet(
+            viewModel: _viewModel,
+            session: session,
+          ),
     );
   }
 
@@ -1354,10 +1370,15 @@ class _MiniMetric extends StatelessWidget {
 }
 
 class _TrainingCalendarSection extends StatefulWidget {
-  const _TrainingCalendarSection({required this.sessions, required this.tone});
+  const _TrainingCalendarSection({
+    required this.sessions,
+    required this.tone,
+    required this.onOpenSession,
+  });
 
   final List<TrainingCalendarSession> sessions;
   final _FormationTone tone;
+  final ValueChanged<TrainingCalendarSession> onOpenSession;
 
   @override
   State<_TrainingCalendarSection> createState() =>
@@ -1481,7 +1502,11 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
             ),
             const SizedBox(height: 12),
             for (final session in pageSessions) ...[
-              _TrainingSessionCard(session: session, tone: widget.tone),
+              _TrainingSessionCard(
+                session: session,
+                tone: widget.tone,
+                onTap: () => widget.onOpenSession(session),
+              ),
               const SizedBox(height: 10),
             ],
             if (pageCount > 1) ...[
@@ -2137,10 +2162,15 @@ class _CalendarPageButton extends StatelessWidget {
 }
 
 class _TrainingSessionCard extends StatelessWidget {
-  const _TrainingSessionCard({required this.session, required this.tone});
+  const _TrainingSessionCard({
+    required this.session,
+    required this.tone,
+    required this.onTap,
+  });
 
   final TrainingCalendarSession session;
   final _FormationTone tone;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2150,115 +2180,571 @@ class _TrainingSessionCard extends StatelessWidget {
       session.startDate,
       session.endDate,
     );
+    return Material(
+      color: tone.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: tone.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppPalette.blue.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.school_rounded,
+                      color: AppPalette.blue,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          session.module.isEmpty
+                              ? l10n.t('formations.unknownModule')
+                              : session.module,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: tone.text,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          dateLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: tone.muted,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (session.hasMissingContacts)
+                    _StatusPill(
+                      label: l10n.t('formations.calendarMissing'),
+                      color: AppPalette.clay,
+                    )
+                  else if (session.hasPlannedCandidatesOnly)
+                    _StatusPill(
+                      label: l10n.t('formations.calendarPlanned'),
+                      color: AppPalette.amber,
+                    )
+                  else
+                    _StatusPill(
+                      label: l10n.t('formations.calendarReady'),
+                      color: AppPalette.deepTeal,
+                    ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: tone.muted,
+                    size: 22,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _SessionInfoPill(
+                    icon: Icons.place_outlined,
+                    label:
+                        session.location.isEmpty
+                            ? l10n.t('formations.locationMissing')
+                            : session.location,
+                    tone: tone,
+                  ),
+                  _SessionInfoPill(
+                    icon: Icons.groups_2_outlined,
+                    label:
+                        '${session.displayCandidateCount} ${l10n.t(session.hasDetailedParticipants ? 'formations.participantsShort' : 'formations.candidatesPlannedShort')}',
+                    tone: tone,
+                  ),
+                  if (session.trainer.isNotEmpty)
+                    _SessionInfoPill(
+                      icon: Icons.person_outline_rounded,
+                      label: session.trainer,
+                      tone: tone,
+                    ),
+                  if (session.schedule.isNotEmpty)
+                    _SessionInfoPill(
+                      icon: Icons.schedule_rounded,
+                      label: session.schedule,
+                      tone: tone,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarSessionDetailSheet extends StatefulWidget {
+  const _CalendarSessionDetailSheet({
+    required this.viewModel,
+    required this.session,
+  });
+
+  final FormationsViewModel viewModel;
+  final TrainingCalendarSession session;
+
+  @override
+  State<_CalendarSessionDetailSheet> createState() =>
+      _CalendarSessionDetailSheetState();
+}
+
+class _CalendarSessionDetailSheetState
+    extends State<_CalendarSessionDetailSheet> {
+  late final Future<TrainingSessionDetail> _detailFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _detailFuture = widget.viewModel.loadSessionDetail(widget.session);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = _FormationTone.of(context);
+    final l10n = context.l10n;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      constraints: BoxConstraints(maxHeight: maxHeight),
       decoration: BoxDecoration(
         color: tone.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: tone.border),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: tone.border)),
       ),
+      child: FutureBuilder<TrainingSessionDetail>(
+        future: _detailFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SheetHandle(tone: tone),
+                  const SizedBox(height: 28),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(
+                    l10n.t('common.loading'),
+                    style: TextStyle(
+                      color: tone.muted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+          if (snapshot.hasError || !snapshot.hasData) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SheetHandle(tone: tone),
+                  const SizedBox(height: 18),
+                  _InlineMessage(
+                    icon: Icons.error_outline_rounded,
+                    message: ErrorMessage.fromException(
+                      snapshot.error ?? Exception('Session detail unavailable'),
+                    ),
+                    tone: tone,
+                    accent: AppPalette.clay,
+                  ),
+                ],
+              ),
+            );
+          }
+          return _CalendarSessionDetailContent(
+            detail: snapshot.data!,
+            tone: tone,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CalendarSessionDetailContent extends StatelessWidget {
+  const _CalendarSessionDetailContent({
+    required this.detail,
+    required this.tone,
+  });
+
+  final TrainingSessionDetail detail;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final session = detail.session;
+    final participants = detail.participants;
+    final title =
+        session.module.isEmpty
+            ? l10n.t('formations.unknownModule')
+            : session.module;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          _SheetHandle(tone: tone),
+          const SizedBox(height: 18),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: AppPalette.blue.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
+                  color: AppPalette.deepTeal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.school_rounded,
-                  color: AppPalette.blue,
-                  size: 22,
+                  color: AppPalette.deepTeal,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 13),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      session.module.isEmpty
-                          ? l10n.t('formations.unknownModule')
-                          : session.module,
-                      maxLines: 2,
+                      l10n.t('formations.sessionDetails'),
+                      style: TextStyle(
+                        color: tone.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      title,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: tone.text,
-                        fontSize: 15,
+                        fontSize: 18,
                         fontWeight: FontWeight.w900,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      dateLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: tone.muted,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
+                        height: 1.16,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              if (session.hasMissingContacts)
-                _StatusPill(
-                  label: l10n.t('formations.calendarMissing'),
-                  color: AppPalette.clay,
-                )
-              else if (session.hasPlannedCandidatesOnly)
-                _StatusPill(
-                  label: l10n.t('formations.calendarPlanned'),
-                  color: AppPalette.amber,
-                )
-              else
-                _StatusPill(
-                  label: l10n.t('formations.calendarReady'),
-                  color: AppPalette.deepTeal,
-                ),
             ],
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _SessionInfoPill(
+          const SizedBox(height: 18),
+          _SessionDetailGrid(session: session, tone: tone),
+          const SizedBox(height: 18),
+          _SectionHeader(
+            title: l10n.t('formations.participants'),
+            count: participants.length,
+            tone: tone,
+          ),
+          const SizedBox(height: 10),
+          if (participants.isEmpty)
+            _InlineMessage(
+              icon: Icons.groups_2_outlined,
+              message: l10n.t('formations.noSessionParticipants'),
+              tone: tone,
+            )
+          else
+            for (final participant in participants) ...[
+              _SessionParticipantTile(participant: participant, tone: tone),
+              const SizedBox(height: 8),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle({required this.tone});
+
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 38,
+        height: 4,
+        decoration: BoxDecoration(
+          color: tone.border,
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+}
+
+class _SessionDetailGrid extends StatelessWidget {
+  const _SessionDetailGrid({required this.session, required this.tone});
+
+  final TrainingCalendarSession session;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _SessionDetailItem(
+                icon: Icons.event_outlined,
+                label: l10n.t('formations.sessionDate'),
+                value: _formatSessionDateRange(
+                  context,
+                  session.startDate,
+                  session.endDate,
+                ),
+                tone: tone,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _SessionDetailItem(
                 icon: Icons.place_outlined,
-                label:
+                label: l10n.t('formations.sessionLocation'),
+                value:
                     session.location.isEmpty
                         ? l10n.t('formations.locationMissing')
                         : session.location,
                 tone: tone,
               ),
-              _SessionInfoPill(
-                icon: Icons.groups_2_outlined,
-                label:
-                    '${session.displayCandidateCount} ${l10n.t(session.hasDetailedParticipants ? 'formations.participantsShort' : 'formations.candidatesPlannedShort')}',
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _SessionDetailItem(
+                icon: Icons.person_outline_rounded,
+                label: l10n.t('formations.sessionTrainer'),
+                value:
+                    session.trainer.isEmpty
+                        ? l10n.t('common.notAvailable')
+                        : session.trainer,
                 tone: tone,
               ),
-              if (session.trainer.isNotEmpty)
-                _SessionInfoPill(
-                  icon: Icons.person_outline_rounded,
-                  label: session.trainer,
-                  tone: tone,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _SessionDetailItem(
+                icon: Icons.schedule_rounded,
+                label: l10n.t('formations.sessionSchedule'),
+                value:
+                    session.schedule.isEmpty
+                        ? l10n.t('common.notAvailable')
+                        : session.schedule,
+                tone: tone,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _SessionDetailItem(
+          icon: Icons.tag_rounded,
+          label: l10n.t('formations.sessionCode'),
+          value:
+              session.codeSession.isEmpty
+                  ? l10n.t('common.notAvailable')
+                  : session.codeSession,
+          tone: tone,
+        ),
+      ],
+    );
+  }
+}
+
+class _SessionDetailItem extends StatelessWidget {
+  const _SessionDetailItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.tone,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 74),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: tone.softSurface,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppPalette.deepTeal, size: 18),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-              if (session.schedule.isNotEmpty)
-                _SessionInfoPill(
-                  icon: Icons.schedule_rounded,
-                  label: session.schedule,
-                  tone: tone,
+                const SizedBox(height: 5),
+                Text(
+                  value,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
                 ),
-            ],
+              ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionParticipantTile extends StatelessWidget {
+  const _SessionParticipantTile({
+    required this.participant,
+    required this.tone,
+  });
+
+  final TrainingSessionParticipant participant;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final name =
+        participant.fullName.isEmpty
+            ? l10n.t('formations.unknownParticipant')
+            : participant.fullName;
+    final residence =
+        participant.residence.isEmpty
+            ? l10n.t('formations.residenceMissing')
+            : participant.residence;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: tone.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppPalette.deepTeal.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.person_outline_rounded,
+              color: AppPalette.deepTeal,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  residence,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tone.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (participant.matricule.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            _StatusPill(
+              label:
+                  '${l10n.t('formations.matriculeShort')} ${participant.matricule}',
+              color: AppPalette.blue,
+            ),
+          ],
         ],
       ),
     );
