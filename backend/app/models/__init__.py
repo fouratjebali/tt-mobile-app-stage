@@ -12,6 +12,7 @@ from app.models.email import (
     UserSetting,
 )
 from app.models.notification import UserNotification
+from app.models.responsable import Responsable
 
 __all__ = [
     "AppSettings",
@@ -29,4 +30,5 @@ __all__ = [
     "UserRole",
     "UserSetting",
     "UserNotification",
+    "Responsable",
 ]
