@@ -17,14 +17,14 @@ def workbook_bytes(rows: list[list[object]]) -> bytes:
     return output.getvalue()
 
 
-def test_automation_generates_next_7_days_residence_responsible_drafts(tmp_path):
+def test_automation_generates_target_day_residence_responsible_drafts(tmp_path):
     from api import planning_import_service
     from datetime import date, timedelta
 
     planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
     client = TestClient(app)
-    start_date = (date.today() + timedelta(days=3)).isoformat()
-    end_date = (date.today() + timedelta(days=4)).isoformat()
+    start_date = (date.today() + timedelta(days=7)).isoformat()
+    end_date = (date.today() + timedelta(days=8)).isoformat()
     later_date = (date.today() + timedelta(days=12)).isoformat()
     planning = workbook_bytes(
         [
@@ -110,6 +110,8 @@ def test_automation_generates_next_7_days_residence_responsible_drafts(tmp_path)
     payload = run_response.json()
     assert payload["generated"] == 2
     assert payload["skipped_existing"] == 0
+    assert payload["window"]["mode"] == "exact_target_day"
+    assert payload["window"]["target_date"] == start_date
     assert payload["settings"]["default_email_type"] == "confirmation_presence"
     drafts_by_residence = {
         draft["metadata"]["responsible_residence"]: draft
@@ -171,11 +173,96 @@ def test_automation_generates_next_7_days_residence_responsible_drafts(tmp_path)
     assert second_run["skipped_existing"] == 2
 
 
-def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
+def test_automation_falls_back_to_week_two_when_target_day_is_empty(tmp_path):
     from api import planning_import_service
+    from datetime import date, timedelta
 
     planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
     client = TestClient(app)
+    fallback_date = (date.today() + timedelta(days=10)).isoformat()
+    out_of_range_date = (date.today() + timedelta(days=16)).isoformat()
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+            ],
+            [
+                "S-FALLBACK",
+                "Exploitation IP",
+                fallback_date,
+                fallback_date,
+                "Tunis",
+            ],
+            [
+                "S-OUT",
+                "Formation trop loin",
+                out_of_range_date,
+                out_of_range_date,
+                "Tunis",
+            ],
+        ]
+    )
+    candidates = workbook_bytes(
+        [
+            ["Code session", "Matricules", "Nom & Prenom", "Grande residence"],
+            ["S-FALLBACK", "20001", "SAIDI Ines", "DIRECTION REGIONALE GABES"],
+            ["S-OUT", "20002", "MANSOUR Sami", "DIRECTION REGIONALE TUNIS"],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import/session-candidates",
+        files={
+            "sessions_file": (
+                "sessions.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+            "candidates_file": (
+                "candidates.xlsx",
+                candidates,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        },
+    )
+    assert import_response.status_code == 200
+
+    payload = client.post(
+        "/planning/automation/run",
+        json={
+            "import_id": import_response.json()["import_id"],
+            "upcoming_days": 7,
+            "responsables": [
+                {
+                    "nom_complet": "Responsable RH Gabes",
+                    "fonction": "Responsable RH",
+                    "grande_residence": "DIRECTION REGIONALE GABES",
+                },
+            ],
+        },
+    ).json()
+
+    assert payload["generated"] == 1
+    assert payload["window"]["mode"] == "fallback_range"
+    assert payload["window"]["date_from"] == (date.today() + timedelta(days=7)).isoformat()
+    assert payload["window"]["date_to"] == (date.today() + timedelta(days=14)).isoformat()
+    draft = payload["drafts"][0]
+    assert draft["metadata"]["responsible_residence"] == "DIRECTION REGIONALE GABES"
+    assert "SAIDI Ines" in draft["body"]
+    assert "MANSOUR Sami" not in draft["body"]
+
+
+def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
+    from api import planning_import_service
+    from datetime import date, timedelta
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    start_date = (date.today() + timedelta(days=7)).isoformat()
+    end_date = (date.today() + timedelta(days=8)).isoformat()
     planning = workbook_bytes(
         [
             [
@@ -192,8 +279,8 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
             [
                 "S9",
                 "Architecture reseau mobile",
-                "2026-09-15",
-                "2026-09-16",
+                start_date,
+                end_date,
                 "El Ghazela",
                 "30003",
                 "MANSOUR Yassine",
@@ -373,9 +460,12 @@ def test_manual_contact_save_can_complete_missing_participant(tmp_path):
 
 def test_planning_automation_settings_control_default_run(tmp_path):
     from api import planning_import_service
+    from datetime import date, timedelta
 
     planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
     client = TestClient(app)
+    start_date = (date.today() + timedelta(days=7)).isoformat()
+    next_day = (date.today() + timedelta(days=8)).isoformat()
 
     settings_response = client.patch(
         "/planning/automation/settings",
@@ -412,8 +502,8 @@ def test_planning_automation_settings_control_default_run(tmp_path):
             [
                 "S11",
                 "Communication client",
-                "2026-09-15",
-                "2026-09-15",
+                start_date,
+                start_date,
                 "Tunis",
                 "50005",
                 "ALI Sami",
@@ -422,8 +512,8 @@ def test_planning_automation_settings_control_default_run(tmp_path):
             [
                 "S12",
                 "Gestion incidents",
-                "2026-09-16",
-                "2026-09-16",
+                next_day,
+                next_day,
                 "Tunis",
                 "50006",
                 "KARRAY Lina",
@@ -458,9 +548,12 @@ def test_planning_automation_settings_control_default_run(tmp_path):
 
 def test_automation_generates_one_draft_per_session_residence_with_responsables(tmp_path):
     from api import planning_import_service
+    from datetime import date, timedelta
 
     planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
     client = TestClient(app)
+    start_date = (date.today() + timedelta(days=7)).isoformat()
+    end_date = (date.today() + timedelta(days=8)).isoformat()
     planning = workbook_bytes(
         [
             [
@@ -476,8 +569,8 @@ def test_automation_generates_one_draft_per_session_residence_with_responsables(
             [
                 "S20",
                 "Exploitation IPMSAN",
-                "2026-09-15",
-                "2026-09-16",
+                start_date,
+                end_date,
                 "El Ghazela",
                 "10001",
                 "AMRI Salma",
@@ -486,8 +579,8 @@ def test_automation_generates_one_draft_per_session_residence_with_responsables(
             [
                 "S20",
                 "Exploitation IPMSAN",
-                "2026-09-15",
-                "2026-09-16",
+                start_date,
+                end_date,
                 "El Ghazela",
                 "10002",
                 "TRABELSI Karim",
@@ -496,8 +589,8 @@ def test_automation_generates_one_draft_per_session_residence_with_responsables(
             [
                 "S20",
                 "Exploitation IPMSAN",
-                "2026-09-15",
-                "2026-09-16",
+                start_date,
+                end_date,
                 "El Ghazela",
                 "10003",
                 "SAIDI Ines",
@@ -506,8 +599,8 @@ def test_automation_generates_one_draft_per_session_residence_with_responsables(
             [
                 "S20",
                 "Exploitation IPMSAN",
-                "2026-09-15",
-                "2026-09-16",
+                start_date,
+                end_date,
                 "El Ghazela",
                 "10004",
                 "BEN SALEM Amira",

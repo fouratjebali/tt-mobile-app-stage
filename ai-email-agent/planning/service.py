@@ -477,32 +477,18 @@ class PlanningImportService:
         if session_key:
             session = self.database.get_session(session_key, import_id=safe_import_id)
             sessions = [session] if session is not None else []
+            window = {
+                "mode": "single_session",
+                "date_from": None,
+                "date_to": None,
+                "target_date": None,
+            }
         else:
-            date_from, date_to = self._upcoming_window(upcoming_days)
-            session_page = self.database.list_sessions(
+            sessions, window = self._select_sessions_for_draft_window(
                 import_id=safe_import_id,
-                date_from=date_from,
-                date_to=date_to,
+                upcoming_days=upcoming_days,
                 limit=limit,
-                offset=0,
             )
-            sessions = [
-                full_session
-                for summary in session_page["sessions"]
-                if (
-                    full_session := self.database.get_session(
-                        summary["session_key"],
-                        import_id=safe_import_id,
-                    )
-                )
-                is not None
-            ]
-        if session_key is None:
-            sessions = [
-                session
-                for session in sessions
-                if self._is_session_in_upcoming_window(session, upcoming_days)
-            ]
         sessions = [session for session in sessions if self._can_generate_training_draft(session)]
 
         drafts = []
@@ -549,6 +535,7 @@ class PlanningImportService:
             "skipped_existing": skipped,
             "deleted_existing": deleted_existing,
             "upcoming_days": upcoming_days if session_key is None else None,
+            "window": window,
             "errors": errors,
             "drafts": drafts,
         }
@@ -657,6 +644,7 @@ class PlanningImportService:
                 "skipped_existing": generated["skipped_existing"],
                 "deleted_existing": generated.get("deleted_existing", 0),
                 "upcoming_days": generated.get("upcoming_days"),
+                "window": generated.get("window"),
                 "errors": generated["errors"],
                 "settings": {
                     **automation_settings,
@@ -742,30 +730,98 @@ class PlanningImportService:
         except ValueError:
             return True
 
-    def _upcoming_window(self, upcoming_days: int | None) -> tuple[str | None, str | None]:
+    def _select_sessions_for_draft_window(
+        self,
+        *,
+        import_id: str | None,
+        upcoming_days: int | None,
+        limit: int,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         if upcoming_days is None:
-            return None, None
-        today = date.today()
-        return today.isoformat(), (today + timedelta(days=upcoming_days)).isoformat()
+            return self._load_sessions(import_id=import_id, limit=limit), {
+                "mode": "all",
+                "date_from": None,
+                "date_to": None,
+                "target_date": None,
+            }
 
-    def _is_session_in_upcoming_window(
+        today = date.today()
+        target = today + timedelta(days=upcoming_days)
+        exact_sessions = self._load_sessions(
+            import_id=import_id,
+            date_from=target.isoformat(),
+            date_to=target.isoformat(),
+            limit=limit,
+        )
+        exact_sessions = [
+            session
+            for session in exact_sessions
+            if self._session_starts_between(session, target, target)
+        ]
+        if exact_sessions:
+            return exact_sessions, {
+                "mode": "exact_target_day",
+                "date_from": target.isoformat(),
+                "date_to": target.isoformat(),
+                "target_date": target.isoformat(),
+            }
+
+        fallback_end = target + timedelta(days=upcoming_days)
+        fallback_sessions = self._load_sessions(
+            import_id=import_id,
+            date_from=target.isoformat(),
+            date_to=fallback_end.isoformat(),
+            limit=limit,
+        )
+        fallback_sessions = [
+            session
+            for session in fallback_sessions
+            if self._session_starts_between(session, target, fallback_end)
+        ]
+        return fallback_sessions, {
+            "mode": "fallback_range",
+            "date_from": target.isoformat(),
+            "date_to": fallback_end.isoformat(),
+            "target_date": target.isoformat(),
+        }
+
+    def _load_sessions(
+        self,
+        *,
+        import_id: str | None,
+        limit: int,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> list[dict[str, Any]]:
+        session_page = self.database.list_sessions(
+            import_id=import_id,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=0,
+        )
+        return [
+            full_session
+            for summary in session_page["sessions"]
+            if (
+                full_session := self.database.get_session(
+                    summary["session_key"],
+                    import_id=import_id,
+                )
+            )
+            is not None
+        ]
+
+    def _session_starts_between(
         self,
         session: dict[str, Any],
-        upcoming_days: int | None,
+        start: date,
+        end: date,
     ) -> bool:
-        if upcoming_days is None:
-            return True
-        start = self._parse_session_date(str(session.get("start_date") or ""))
-        end = self._parse_session_date(str(session.get("end_date") or "")) or start
-        if start is None and end is None:
+        session_start = self._parse_session_date(str(session.get("start_date") or ""))
+        if session_start is None:
             return False
-        today = date.today()
-        latest = today + timedelta(days=upcoming_days)
-        session_start = start or end
-        session_end = end or start
-        if session_start is None or session_end is None:
-            return False
-        return session_end >= today and session_start <= latest
+        return start <= session_start <= end
 
     def _parse_session_date(self, value: str) -> date | None:
         try:
