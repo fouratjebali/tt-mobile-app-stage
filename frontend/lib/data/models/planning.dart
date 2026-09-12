@@ -228,6 +228,12 @@ class TrainingDraft {
   String get responsibleName => _string(metadata['responsible_name']);
   String get responsibleResidence => _string(metadata['responsible_residence']);
   String get responsibleDirection => _string(metadata['responsible_direction']);
+  List<String> get responsibleNames =>
+      _stringList(metadata['responsible_names']);
+  List<String> get responsibleFunctions =>
+      _stringList(metadata['responsible_functions']);
+  List<String> get candidateMatricules =>
+      _stringList(metadata['candidate_matricules']);
   int get participantCount => _int(metadata['participant_count']);
   String get primaryRecipient => recipients.isEmpty ? '' : recipients.first;
 

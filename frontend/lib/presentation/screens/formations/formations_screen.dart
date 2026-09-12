@@ -3824,6 +3824,15 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
               ],
             ),
             const SizedBox(height: 14),
+            _TrainingDraftSummary(draft: _draft, tone: tone),
+            const SizedBox(height: 14),
+            _TrainingDraftPreview(
+              draft: _draft,
+              bodyController: _bodyController,
+              tone: tone,
+              enabled: canEdit,
+            ),
+            const SizedBox(height: 14),
             _RegenerateDraftPanel(
               emailType: _regenerateEmailType,
               includePopulation: _regenerateWithPopulation,
@@ -3857,16 +3866,6 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
               controller: _subjectController,
               hint: l10n.t('formations.subject'),
               tone: tone,
-              enabled: canEdit,
-            ),
-            const SizedBox(height: 12),
-            _LabeledField(
-              label: l10n.t('formations.message'),
-              controller: _bodyController,
-              hint: l10n.t('formations.message'),
-              tone: tone,
-              minLines: 8,
-              maxLines: 14,
               enabled: canEdit,
             ),
             if (_draft.isApproved) ...[
@@ -3925,6 +3924,208 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TrainingDraftSummary extends StatelessWidget {
+  const _TrainingDraftSummary({required this.draft, required this.tone});
+
+  final TrainingDraft draft;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final region = _draftRegionLabel(draft);
+    final responsibles = _responsiblesText(draft);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.softSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatusPill(
+                label: _draftEmailTypeFilterLabel(context, draft.emailType),
+                color: AppPalette.deepTeal,
+              ),
+              if (region.isNotEmpty)
+                _StatusPill(label: region, color: AppPalette.blue),
+              _StatusPill(
+                label:
+                    '${draft.participantCount} ${l10n.t('formations.participantsShort')}',
+                color: AppPalette.sage,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _DraftMetaRow(
+            icon: Icons.supervisor_account_rounded,
+            label: l10n.t('formations.responsibles'),
+            value:
+                responsibles.isEmpty
+                    ? l10n.t('formations.noResponsibleRecipient')
+                    : responsibles,
+            tone: tone,
+          ),
+          const SizedBox(height: 10),
+          _DraftMetaRow(
+            icon: Icons.mail_outline_rounded,
+            label: l10n.t('formations.recipients'),
+            value:
+                draft.recipients.isEmpty
+                    ? l10n.t('formations.noRecipients')
+                    : draft.recipients.join(', '),
+            tone: tone,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrainingDraftPreview extends StatelessWidget {
+  const _TrainingDraftPreview({
+    required this.draft,
+    required this.bodyController,
+    required this.tone,
+    required this.enabled,
+  });
+
+  final TrainingDraft draft;
+  final TextEditingController bodyController;
+  final _FormationTone tone;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tone.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.article_outlined, color: AppPalette.deepTeal),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.t('formations.message'),
+                  style: TextStyle(
+                    color: tone.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            draft.subject.isEmpty
+                ? l10n.t('formations.noSubject')
+                : draft.subject,
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: bodyController,
+            enabled: enabled,
+            minLines: 10,
+            maxLines: 18,
+            style: TextStyle(
+              color: tone.text,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: tone.softSurface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: tone.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: tone.border),
+              ),
+              hintText: l10n.t('formations.message'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DraftMetaRow extends StatelessWidget {
+  const _DraftMetaRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.tone,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final _FormationTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppPalette.deepTeal, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: tone.muted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                value,
+                style: TextStyle(
+                  color: tone.text,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -4054,8 +4255,6 @@ class _LabeledField extends StatelessWidget {
     required this.controller,
     required this.hint,
     required this.tone,
-    this.minLines = 1,
-    this.maxLines = 1,
     this.enabled = true,
   });
 
@@ -4063,8 +4262,6 @@ class _LabeledField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final _FormationTone tone;
-  final int minLines;
-  final int maxLines;
   final bool enabled;
 
   @override
@@ -4084,8 +4281,6 @@ class _LabeledField extends StatelessWidget {
         TextField(
           controller: controller,
           enabled: enabled,
-          minLines: minLines,
-          maxLines: maxLines,
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
@@ -4330,6 +4525,17 @@ String _draftRegionLabel(TrainingDraft draft) {
   final residence = draft.responsibleResidence;
   if (residence.isNotEmpty) return residence;
   return draft.responsibleDirection;
+}
+
+String _responsiblesText(TrainingDraft draft) {
+  final names = draft.responsibleNames;
+  final functions = draft.responsibleFunctions;
+  if (names.isEmpty) return draft.responsibleName;
+  return List.generate(names.length, (index) {
+    final function = index < functions.length ? functions[index] : '';
+    if (function.isEmpty) return names[index];
+    return '${names[index]} - $function';
+  }).join('\n');
 }
 
 List<TrainingCalendarSession> _sessionsForMonth(
