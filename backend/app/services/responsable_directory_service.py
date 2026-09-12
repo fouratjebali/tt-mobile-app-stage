@@ -60,6 +60,16 @@ class ResponsableDirectoryService:
             "responsables": [_responsable_to_dict(row) for row in rows],
         }
 
+    def list_all_for_planning(self) -> list[dict[str, Any]]:
+        rows = self.db.scalars(
+            select(Responsable).order_by(
+                Responsable.grande_residence.asc(),
+                Responsable.fonction.asc(),
+                Responsable.nom_complet.asc(),
+            )
+        ).all()
+        return [_responsable_to_dict(row) for row in rows]
+
 
 def _responsable_to_dict(responsable: Responsable) -> dict[str, Any]:
     return {

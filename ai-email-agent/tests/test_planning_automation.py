@@ -38,8 +38,8 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
             [
                 "S9",
                 "Architecture reseau mobile",
-                "2026-09-22",
-                "2026-09-23",
+                "2026-09-15",
+                "2026-09-16",
                 "El Ghazela",
                 "30003",
                 "MANSOUR Yassine",
@@ -94,9 +94,10 @@ def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
     assert first_payload["generated"] == 1
     assert first_payload["skipped_existing"] == 0
     draft = first_payload["drafts"][0]
-    assert draft["recipients"] == ["rh.reseaux@tunisietelecom.tn"]
+    assert draft["recipients"] == []
     assert draft["metadata"]["recipient_role"] == "responsable_rh_direction"
     assert draft["metadata"]["participant_count"] == 1
+    assert draft["metadata"]["responsible_name"] == "Resp RH Reseaux"
     assert first_payload["job_id"] > 0
 
     jobs_response = client.get(
@@ -256,8 +257,8 @@ def test_planning_automation_settings_control_default_run(tmp_path):
             [
                 "S11",
                 "Communication client",
-                "2026-09-28",
-                "2026-09-28",
+                "2026-09-15",
+                "2026-09-15",
                 "Tunis",
                 "50005",
                 "ALI Sami",
@@ -266,8 +267,8 @@ def test_planning_automation_settings_control_default_run(tmp_path):
             [
                 "S12",
                 "Gestion incidents",
-                "2026-09-29",
-                "2026-09-29",
+                "2026-09-16",
+                "2026-09-16",
                 "Tunis",
                 "50006",
                 "KARRAY Lina",
@@ -298,3 +299,121 @@ def test_planning_automation_settings_control_default_run(tmp_path):
     assert payload["settings"]["include_population"] is False
     assert payload["settings"]["max_drafts_per_run"] == 1
     assert payload["drafts"][0]["email_type"] == "sensibilisation"
+
+
+def test_automation_generates_one_draft_per_session_residence_with_responsables(tmp_path):
+    from api import planning_import_service
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+                "Matricules",
+                "Nom & Prenom",
+                "Grande residence",
+            ],
+            [
+                "S20",
+                "Exploitation IPMSAN",
+                "2026-09-15",
+                "2026-09-16",
+                "El Ghazela",
+                "10001",
+                "AMRI Salma",
+                "Direction Regionale Sfax",
+            ],
+            [
+                "S20",
+                "Exploitation IPMSAN",
+                "2026-09-15",
+                "2026-09-16",
+                "El Ghazela",
+                "10002",
+                "TRABELSI Karim",
+                "Direction Regionale Sfax",
+            ],
+            [
+                "S20",
+                "Exploitation IPMSAN",
+                "2026-09-15",
+                "2026-09-16",
+                "El Ghazela",
+                "10003",
+                "SAIDI Ines",
+                "Direction Regionale Sousse",
+            ],
+            [
+                "S20",
+                "Exploitation IPMSAN",
+                "2026-09-15",
+                "2026-09-16",
+                "El Ghazela",
+                "10004",
+                "BEN SALEM Amira",
+                "Direction Regionale Tunis",
+            ],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import",
+        files={
+            "files": (
+                "planning.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    import_id = import_response.json()["import_id"]
+
+    response = client.post(
+        "/planning/automation/run",
+        json={
+            "import_id": import_id,
+            "responsables": [
+                {
+                    "nom_complet": "Responsable RH Sfax",
+                    "fonction": "Resp RH",
+                    "grande_residence": "Direction Regionale Sfax",
+                },
+                {
+                    "nom_complet": "Directeur Regional Sfax",
+                    "fonction": "DIR C/R",
+                    "grande_residence": "Direction Regionale Sfax",
+                },
+                {
+                    "nom_complet": "Responsable RH Sousse",
+                    "fonction": "Resp RH",
+                    "grande_residence": "Direction Regionale Sousse",
+                },
+                {
+                    "nom_complet": "Responsable RH Tunis",
+                    "fonction": "Resp RH",
+                    "grande_residence": "Direction Regionale Tunis",
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    drafts = response.json()["drafts"]
+    assert response.json()["generated"] == 3
+    by_residence = {
+        draft["metadata"]["responsible_residence"]: draft for draft in drafts
+    }
+    assert by_residence["Direction Regionale Sfax"]["metadata"]["participant_count"] == 2
+    assert by_residence["Direction Regionale Sfax"]["metadata"]["responsible_names"] == [
+        "Responsable RH Sfax",
+        "Directeur Regional Sfax",
+    ]
+    assert "AMRI Salma" in by_residence["Direction Regionale Sfax"]["body"]
+    assert "TRABELSI Karim" in by_residence["Direction Regionale Sfax"]["body"]
+    assert "SAIDI Ines" not in by_residence["Direction Regionale Sfax"]["body"]
+    assert by_residence["Direction Regionale Sfax"]["recipients"] == []
+    assert by_residence["Direction Regionale Sfax"]["status"] == "WAITING_REVIEW"

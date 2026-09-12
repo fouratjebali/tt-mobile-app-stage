@@ -176,6 +176,9 @@ class TrainingEmailTemplates:
             "",
             details_text,
         ]
+        responsables_text = responsibles_block_text(session)
+        if responsables_text:
+            body_parts.extend(["", responsables_text])
         if participants_text:
             body_parts.extend(["", participants_text])
         body_parts.extend(["", html_to_text(closing), "", "Cordialement,"])
@@ -186,6 +189,9 @@ class TrainingEmailTemplates:
             f"<p>{escape(intro)}</p>",
             details_block_html(session),
         ]
+        responsables_html = responsibles_block_html(session)
+        if responsables_html:
+            html_parts.append(responsables_html)
         if include_population:
             participants_html = participants_table_html(session, title=table_title)
             if participants_html:
@@ -236,6 +242,51 @@ def details_block_html(session: dict[str, Any]) -> str:
             "</p>"
         )
     return "\n".join(lines)
+
+
+def responsibles_block_text(session: dict[str, Any]) -> str:
+    rows = responsible_rows(session)
+    if not rows:
+        return ""
+    lines = ["Responsables concernes :"]
+    lines.extend(f"- {name} ({fonction})" if fonction else f"- {name}" for name, fonction in rows)
+    return "\n".join(lines)
+
+
+def responsibles_block_html(session: dict[str, Any]) -> str:
+    rows = responsible_rows(session)
+    if not rows:
+        return ""
+    items = "".join(
+        "<li>"
+        f"{escape(name)}"
+        f"{' - ' + escape(fonction) if fonction else ''}"
+        "</li>"
+        for name, fonction in rows
+    )
+    return (
+        "<p style=\"margin: 14px 0 6px;\"><strong>Responsables concernes :</strong></p>"
+        f"<ul style=\"margin-top: 0;\">{items}</ul>"
+    )
+
+
+def responsible_rows(session: dict[str, Any]) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in session.get("responsibles", []) or []:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("nom_complet") or item.get("name") or "").strip()
+        fonction = str(item.get("fonction") or item.get("role") or "").strip()
+        key = (name.lower(), fonction.lower())
+        if not name or key in seen:
+            continue
+        seen.add(key)
+        rows.append((name, fonction))
+    fallback = value(session, "responsible_name")
+    if not rows and fallback:
+        rows.append((fallback, ""))
+    return rows
 
 
 def participants_table_text(session: dict[str, Any], *, title: str) -> str:

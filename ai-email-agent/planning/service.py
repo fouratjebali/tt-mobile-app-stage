@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -462,6 +463,8 @@ class PlanningImportService:
         limit: int = 100,
         skip_existing: bool = False,
         replace_existing: bool = False,
+        upcoming_days: int | None = 7,
+        responsables: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         safe_import_id = sanitize_import_id(import_id) if import_id else None
         deleted_existing = 0
@@ -475,8 +478,11 @@ class PlanningImportService:
             session = self.database.get_session(session_key, import_id=safe_import_id)
             sessions = [session] if session is not None else []
         else:
+            date_from, date_to = self._upcoming_window(upcoming_days)
             session_page = self.database.list_sessions(
                 import_id=safe_import_id,
+                date_from=date_from,
+                date_to=date_to,
                 limit=limit,
                 offset=0,
             )
@@ -490,6 +496,12 @@ class PlanningImportService:
                     )
                 )
                 is not None
+            ]
+        if session_key is None:
+            sessions = [
+                session
+                for session in sessions
+                if self._is_session_in_upcoming_window(session, upcoming_days)
             ]
         sessions = [session for session in sessions if self._can_generate_training_draft(session)]
 
@@ -509,7 +521,10 @@ class PlanningImportService:
                     if draft.get("status") != "REJECTED"
                 }
             try:
-                for group_session in self.training_agent.responsible_groups(session):
+                for group_session in self.training_agent.responsible_groups(
+                    session,
+                    responsables=responsables or [],
+                ):
                     responsible_key = self.training_agent.responsible_key(group_session)
                     if skip_existing and responsible_key in existing_keys:
                         skipped += 1
@@ -533,6 +548,7 @@ class PlanningImportService:
             "generated": len(drafts),
             "skipped_existing": skipped,
             "deleted_existing": deleted_existing,
+            "upcoming_days": upcoming_days if session_key is None else None,
             "errors": errors,
             "drafts": drafts,
         }
@@ -546,6 +562,8 @@ class PlanningImportService:
         limit: int | None = None,
         replace_existing: bool = False,
         requested_by: str = "",
+        upcoming_days: int | None = 7,
+        responsables: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         automation_settings = self.database.get_automation_settings()
         resolved_email_type = email_type or automation_settings["default_email_type"]
@@ -569,6 +587,7 @@ class PlanningImportService:
                 "include_population": resolved_include_population,
                 "limit": resolved_limit,
                 "replace_existing": replace_existing,
+                "upcoming_days": upcoming_days,
             },
         )
         job_id = int(job["id"])
@@ -615,6 +634,8 @@ class PlanningImportService:
                 limit=resolved_limit,
                 skip_existing=not replace_existing,
                 replace_existing=replace_existing,
+                upcoming_days=upcoming_days,
+                responsables=responsables or [],
             )
             status = "ok"
             if generated["errors"]:
@@ -628,6 +649,7 @@ class PlanningImportService:
                 "generated": generated["generated"],
                 "skipped_existing": generated["skipped_existing"],
                 "deleted_existing": generated.get("deleted_existing", 0),
+                "upcoming_days": generated.get("upcoming_days"),
                 "errors": generated["errors"],
                 "settings": {
                     **automation_settings,
@@ -708,12 +730,41 @@ class PlanningImportService:
         start_date = str(session.get("start_date") or "").strip()
         if not start_date:
             return True
-        from datetime import date, datetime
-
         try:
             return datetime.fromisoformat(start_date).date() >= date.today()
         except ValueError:
             return True
+
+    def _upcoming_window(self, upcoming_days: int | None) -> tuple[str | None, str | None]:
+        if upcoming_days is None:
+            return None, None
+        today = date.today()
+        return today.isoformat(), (today + timedelta(days=upcoming_days)).isoformat()
+
+    def _is_session_in_upcoming_window(
+        self,
+        session: dict[str, Any],
+        upcoming_days: int | None,
+    ) -> bool:
+        if upcoming_days is None:
+            return True
+        start = self._parse_session_date(str(session.get("start_date") or ""))
+        end = self._parse_session_date(str(session.get("end_date") or "")) or start
+        if start is None and end is None:
+            return False
+        today = date.today()
+        latest = today + timedelta(days=upcoming_days)
+        session_start = start or end
+        session_end = end or start
+        if session_start is None or session_end is None:
+            return False
+        return session_end >= today and session_start <= latest
+
+    def _parse_session_date(self, value: str) -> date | None:
+        try:
+            return datetime.fromisoformat(value).date()
+        except ValueError:
+            return None
 
     def list_training_drafts(
         self,

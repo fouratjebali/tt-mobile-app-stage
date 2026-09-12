@@ -88,6 +88,8 @@ class GenerateTrainingDraftsRequest(BaseModel):
     include_population: bool = True
     limit: int = Field(default=100, ge=1, le=500)
     replace_existing: bool = False
+    upcoming_days: int | None = Field(default=None, ge=1, le=60)
+    responsables: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class RunPlanningAutomationRequest(BaseModel):
@@ -97,6 +99,8 @@ class RunPlanningAutomationRequest(BaseModel):
     limit: int | None = Field(default=None, ge=1, le=1000)
     replace_existing: bool = False
     requested_by: str = ""
+    upcoming_days: int | None = Field(default=7, ge=1, le=60)
+    responsables: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AutomationSettingsRequest(BaseModel):
@@ -695,6 +699,8 @@ def generate_training_drafts(request: GenerateTrainingDraftsRequest) -> dict[str
             include_population=request.include_population,
             limit=request.limit,
             replace_existing=request.replace_existing,
+            upcoming_days=request.upcoming_days,
+            responsables=request.responsables,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -713,6 +719,8 @@ def run_planning_automation(request: RunPlanningAutomationRequest) -> dict[str, 
             limit=request.limit,
             replace_existing=request.replace_existing,
             requested_by=request.requested_by,
+            upcoming_days=request.upcoming_days,
+            responsables=request.responsables,
         )
     except ValueError as exc:
         raise HTTPException(

@@ -108,7 +108,7 @@ def test_training_draft_review_update_and_approve(tmp_path):
     assert locked_edit_response.status_code == 409
 
 
-def test_training_draft_review_requires_recipients_before_approval(tmp_path):
+def test_training_draft_review_allows_manual_outlook_approval_without_recipients(tmp_path):
     from api import planning_import_service
 
     planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
@@ -156,8 +156,11 @@ def test_training_draft_review_requires_recipients_before_approval(tmp_path):
 
     approve_response = client.post(f"/planning/drafts/{draft['id']}/approve")
 
-    assert approve_response.status_code == 409
-    assert "recipient" in approve_response.json()["detail"]
+    assert approve_response.status_code == 200
+    approved = approve_response.json()["draft"]
+    assert approved["status"] == "APPROVED"
+    assert approved["recipients"] == []
+    assert approved["metadata"]["manual_outlook_send"] is True
 
     reject_response = client.post(
         f"/planning/drafts/{draft['id']}/reject",

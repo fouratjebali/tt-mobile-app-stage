@@ -1,4 +1,5 @@
-from typing import Annotated
+import json
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 import httpx
@@ -81,10 +82,11 @@ async def list_outlook_sent_history(
 async def proxy_planning_request(
     planning_path: str,
     request: Request,
+    db: Annotated[Session, Depends(get_db)],
 ) -> Response:
     target_url = f"{settings.AGENT1_URL.rstrip('/')}/planning/{planning_path}"
     headers = _forward_headers(request)
-    body = await request.body()
+    body = await _planning_body_with_responsables(planning_path, request, db)
 
     try:
         async with httpx.AsyncClient(timeout=settings.HTTP_TIMEOUT_SECONDS) as client:
@@ -115,3 +117,24 @@ def _forward_headers(request: Request) -> dict[str, str]:
         for key, value in request.headers.items()
         if key.lower() not in excluded
     }
+
+
+async def _planning_body_with_responsables(
+    planning_path: str,
+    request: Request,
+    db: Session,
+) -> bytes:
+    body = await request.body()
+    if request.method.upper() != "POST":
+        return body
+    if planning_path.strip("/") not in {"drafts/generate", "automation/run"}:
+        return body
+    content_type = request.headers.get("content-type", "")
+    if "application/json" not in content_type.lower():
+        return body
+    try:
+        payload: dict[str, Any] = json.loads(body.decode("utf-8")) if body else {}
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return body
+    payload["responsables"] = ResponsableDirectoryService(db).list_all_for_planning()
+    return json.dumps(payload).encode("utf-8")

@@ -499,9 +499,11 @@ async def run_planning_automation(
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
+    db: Session = Depends(get_db),
 ) -> Any:
     payload = request.model_dump(exclude_none=True)
     payload["requested_by"] = request.requested_by or current_user.email
+    payload["responsables"] = _planning_responsables_payload(db)
     result = await gateway.post_json(
         "automation/run",
         payload,
@@ -593,10 +595,13 @@ async def generate_training_drafts(
         PlanningManagementGateway,
         Depends(get_planning_management_gateway),
     ],
+    db: Session = Depends(get_db),
 ) -> Any:
+    payload = request.model_dump(exclude_none=True)
+    payload["responsables"] = _planning_responsables_payload(db)
     result = await gateway.post_json(
         "drafts/generate",
-        request.model_dump(),
+        payload,
     )
     _record_planning_audit(
         current_user,
@@ -920,6 +925,13 @@ def _record_planning_audit(
             )
     except Exception:
         pass
+
+
+def _planning_responsables_payload(db: Session) -> list[dict[str, Any]]:
+    try:
+        return ResponsableDirectoryService(db).list_all_for_planning()
+    except Exception:
+        return []
 
 
 def _audit_status(result: Any) -> str:

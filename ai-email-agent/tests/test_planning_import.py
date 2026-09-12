@@ -1111,8 +1111,14 @@ def test_responsible_directory_import_maps_by_residence_and_lists_ready_first(tm
         "/planning/drafts/generate",
         json={"import_id": import_id, "email_type": "confirmation_presence"},
     ).json()
-    recipients = [draft["recipients"] for draft in generated["drafts"]]
-    assert ["saloua.benkhoud@tunisietelecom.tn"] in recipients
+    assert generated["generated"] == 2
+    service_draft = next(
+        draft
+        for draft in generated["drafts"]
+        if draft["metadata"]["responsible_residence"] == "Direction Centrale des Services"
+    )
+    assert service_draft["recipients"] == []
+    assert service_draft["metadata"]["responsible_name"] == "Resp RH Direction Centrale des Services"
 
 
 def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path):
@@ -1183,7 +1189,7 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
     assert generated["generated"] == 1
     draft = generated["drafts"][0]
     assert draft["status"] == "WAITING_REVIEW"
-    assert draft["recipients"] == ["salim.mebili@tunisietelecom.tn"]
+    assert draft["recipients"] == []
     assert draft["subject"] == "Confirmation de presence formation Exploitation des IPMSAN Nokia"
     assert "Bonjour," in draft["body"]
     assert "Theme de la formation : Exploitation des IPMSAN Nokia" in draft["body"]
@@ -1200,6 +1206,8 @@ def test_french_training_agent_generates_and_stores_confirmation_draft(tmp_path)
     assert draft["metadata"]["language"] == "fr"
     assert draft["metadata"]["recipient_role"] == "responsable_rh_direction"
     assert draft["metadata"]["candidate_email_flow_disabled"] is True
+    assert draft["metadata"]["manual_outlook_send"] is True
+    assert draft["metadata"]["responsible_name"] == "Salim Mebili"
     assert draft["metadata"]["has_html_body"] is True
 
     list_response = client.get(
@@ -1322,7 +1330,7 @@ def test_training_draft_generation_can_replace_existing_responsible_drafts(tmp_p
     replacement = payload["drafts"][0]
     assert replacement["id"] != first_draft["id"]
     assert replacement["email_type"] == "confirmation_presence"
-    assert replacement["recipients"] == ["salim.mebili@tunisietelecom.tn"]
+    assert replacement["recipients"] == []
     assert replacement["metadata"]["recipient_role"] == "responsable_rh_direction"
     assert replacement["metadata"]["participant_count"] == 1
 
@@ -1386,7 +1394,8 @@ def test_french_training_agent_marks_draft_as_needing_contacts(tmp_path):
     draft = generate_response.json()["drafts"][0]
     assert draft["status"] == "NEEDS_CONTACTS"
     assert draft["recipients"] == []
-    assert draft["metadata"]["missing_recipient_count"] == 1
+    assert draft["metadata"]["missing_recipient_count"] == 0
+    assert draft["metadata"]["missing_responsible_count"] == 1
     assert "Population cible" in draft["body"]
     assert "BEN SALEM Amira" in draft["body"]
     assert "Sensibilisation a participer a la formation" in draft["subject"]

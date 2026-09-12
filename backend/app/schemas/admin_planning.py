@@ -15,6 +15,7 @@ class AdminPlanningGenerateDraftsRequest(BaseModel):
     include_population: bool = True
     limit: int = Field(default=100, ge=1, le=500)
     replace_existing: bool = False
+    upcoming_days: int | None = Field(default=None, ge=1, le=60)
 
 
 class AdminPlanningRunAutomationRequest(BaseModel):
@@ -24,6 +25,7 @@ class AdminPlanningRunAutomationRequest(BaseModel):
     limit: int | None = Field(default=None, ge=1, le=1000)
     replace_existing: bool = False
     requested_by: str | None = None
+    upcoming_days: int | None = Field(default=7, ge=1, le=60)
 
 
 class AdminPlanningAutomationSettingsRequest(BaseModel):

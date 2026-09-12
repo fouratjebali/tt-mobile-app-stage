@@ -1580,6 +1580,7 @@ class PlanningDatabase:
                         responsible_email = ?,
                         residence = COALESCE(NULLIF(residence, ''), ?),
                         direction = COALESCE(NULLIF(direction, ''), ?),
+                        hr_responsible = COALESCE(NULLIF(hr_responsible, ''), ?),
                         missing_fields_json = ?
                     WHERE id = ?
                     """,
@@ -1587,6 +1588,7 @@ class PlanningDatabase:
                         contact["email"],
                         contact["residence"],
                         contact["direction"],
+                        contact["full_name"],
                         _json(missing_fields),
                         participant["id"],
                     ),
@@ -1804,7 +1806,17 @@ class PlanningDatabase:
         next_html_body = draft["html_body"] if html_body is None else html_body.strip()
         next_recipients = draft["recipients"] if recipients is None else _clean_emails(recipients)
         next_cc = draft["cc"] if cc is None else _clean_emails(cc)
-        next_status = "EDITED" if next_recipients else "NEEDS_CONTACTS"
+        manual_outlook_flow = bool(draft["metadata"].get("manual_outlook_send")) or bool(
+            draft["metadata"].get("candidate_email_flow_disabled")
+        )
+        has_responsible_identity = bool(draft["metadata"].get("responsible_name")) or bool(
+            draft["metadata"].get("responsible_residence")
+        )
+        next_status = (
+            "EDITED"
+            if next_recipients or (manual_outlook_flow and has_responsible_identity)
+            else "NEEDS_CONTACTS"
+        )
         metadata = {
             **draft["metadata"],
             "ready_to_send": False,
@@ -1853,7 +1865,17 @@ class PlanningDatabase:
         if current["status"] == "SENT":
             raise ValueError("Sent drafts cannot be regenerated.")
 
-        next_status = "WAITING_REVIEW" if draft.recipients else "NEEDS_CONTACTS"
+        manual_outlook_flow = bool(draft.metadata.get("manual_outlook_send")) or bool(
+            draft.metadata.get("candidate_email_flow_disabled")
+        )
+        has_responsible_identity = bool(draft.metadata.get("responsible_name")) or bool(
+            draft.metadata.get("responsible_residence")
+        )
+        next_status = (
+            "WAITING_REVIEW"
+            if draft.recipients or (manual_outlook_flow and has_responsible_identity)
+            else "NEEDS_CONTACTS"
+        )
         metadata = {
             **draft.metadata,
             "ready_to_send": False,
@@ -1901,7 +1923,10 @@ class PlanningDatabase:
             return None
         if draft["status"] not in EDITABLE_DRAFT_STATUSES and draft["status"] != "APPROVED":
             raise ValueError("Only reviewed drafts can be approved.")
-        if not draft["recipients"]:
+        manual_outlook_flow = bool(draft["metadata"].get("manual_outlook_send")) or bool(
+            draft["metadata"].get("candidate_email_flow_disabled")
+        )
+        if not draft["recipients"] and not manual_outlook_flow:
             raise ValueError("A training draft needs at least one recipient before approval.")
         if not draft["subject"].strip() or not draft["body"].strip():
             raise ValueError("A training draft needs a subject and body before approval.")

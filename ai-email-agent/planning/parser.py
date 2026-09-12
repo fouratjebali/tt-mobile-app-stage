@@ -220,6 +220,10 @@ class PlanningExcelParser:
                 for field_name, aliases in HEADER_ALIASES.items():
                     if field_name in current_map:
                         continue
+                    if field_name in {"hr_responsible", "direction"} and any(
+                        marker in normalized for marker in ("email", "mail", "adresse")
+                    ):
+                        continue
                     if any(alias in normalized for alias in aliases):
                         current_map[field_name] = cell.column
                         break
