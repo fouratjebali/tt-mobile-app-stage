@@ -17,6 +17,160 @@ def workbook_bytes(rows: list[list[object]]) -> bytes:
     return output.getvalue()
 
 
+def test_automation_generates_next_7_days_residence_responsible_drafts(tmp_path):
+    from api import planning_import_service
+    from datetime import date, timedelta
+
+    planning_import_service.database = PlanningDatabase(tmp_path / "planning.db")
+    client = TestClient(app)
+    start_date = (date.today() + timedelta(days=3)).isoformat()
+    end_date = (date.today() + timedelta(days=4)).isoformat()
+    later_date = (date.today() + timedelta(days=12)).isoformat()
+    planning = workbook_bytes(
+        [
+            [
+                "Code session",
+                "Module",
+                "Formateur designe",
+                "Date Debut",
+                "Date Fin",
+                "Lieu de formation",
+            ],
+            [
+                "S-UP-1",
+                "Exploitation IPMSAN Nokia",
+                "Maher ben Hassine",
+                start_date,
+                end_date,
+                "Salle1 DCSI pole El Ghazela",
+            ],
+            [
+                "S-LATER-1",
+                "Formation hors fenetre",
+                "Formateur futur",
+                later_date,
+                later_date,
+                "Tunis",
+            ],
+        ]
+    )
+    candidates = workbook_bytes(
+        [
+            ["Code session", "Matricules", "Nom & Prenom", "Grande residence"],
+            ["S-UP-1", "10001", "BEN ALI Sami", "DIRECTION REGIONALE SFAX"],
+            ["S-UP-1", "10002", "TRABELSI Ines", "DIRECTION REGIONALE SFAX"],
+            ["S-UP-1", "10003", "AMRI Yassine", "DIRECTION REGIONALE SOUSSE"],
+            ["S-LATER-1", "10004", "MANSOUR Lina", "DIRECTION REGIONALE TUNIS"],
+        ]
+    )
+    import_response = client.post(
+        "/planning/import/session-candidates",
+        files={
+            "sessions_file": (
+                "sessions.xlsx",
+                planning,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+            "candidates_file": (
+                "candidates.xlsx",
+                candidates,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        },
+    )
+    assert import_response.status_code == 200
+    import_id = import_response.json()["import_id"]
+
+    run_response = client.post(
+        "/planning/automation/run",
+        json={
+            "import_id": import_id,
+            "upcoming_days": 7,
+            "responsables": [
+                {
+                    "nom_complet": "Responsable RH Sfax",
+                    "fonction": "Responsable RH",
+                    "grande_residence": "DIRECTION REGIONALE SFAX",
+                },
+                {
+                    "nom_complet": "Directeur Regional Sfax",
+                    "fonction": "DIR C/R",
+                    "grande_residence": "DIRECTION REGIONALE SFAX",
+                },
+                {
+                    "nom_complet": "Responsable RH Sousse",
+                    "fonction": "Responsable RH",
+                    "grande_residence": "DIRECTION REGIONALE SOUSSE",
+                },
+            ],
+        },
+    )
+
+    assert run_response.status_code == 200
+    payload = run_response.json()
+    assert payload["generated"] == 2
+    assert payload["skipped_existing"] == 0
+    assert payload["settings"]["default_email_type"] == "confirmation_presence"
+    drafts_by_residence = {
+        draft["metadata"]["responsible_residence"]: draft
+        for draft in payload["drafts"]
+    }
+    assert set(drafts_by_residence) == {
+        "DIRECTION REGIONALE SFAX",
+        "DIRECTION REGIONALE SOUSSE",
+    }
+
+    sfax_draft = drafts_by_residence["DIRECTION REGIONALE SFAX"]
+    assert sfax_draft["email_type"] == "confirmation_presence"
+    assert sfax_draft["status"] == "WAITING_REVIEW"
+    assert sfax_draft["metadata"]["responsible_names"] == [
+        "Responsable RH Sfax",
+        "Directeur Regional Sfax",
+    ]
+    assert sfax_draft["metadata"]["participant_count"] == 2
+    assert "BEN ALI Sami" in sfax_draft["body"]
+    assert "TRABELSI Ines" in sfax_draft["body"]
+    assert "AMRI Yassine" not in sfax_draft["body"]
+    assert "Responsables concernes" in sfax_draft["body"]
+    assert "Responsable RH Sfax" in sfax_draft["body"]
+    assert "Directeur Regional Sfax" in sfax_draft["body"]
+
+    sousse_draft = drafts_by_residence["DIRECTION REGIONALE SOUSSE"]
+    assert sousse_draft["metadata"]["participant_count"] == 1
+    assert sousse_draft["metadata"]["responsible_names"] == ["Responsable RH Sousse"]
+    assert "AMRI Yassine" in sousse_draft["body"]
+    assert "BEN ALI Sami" not in sousse_draft["body"]
+
+    drafts_review = client.get(
+        "/planning/drafts/review",
+        params={"import_id": import_id},
+    ).json()
+    assert drafts_review["summary"]["waiting_review"] == 2
+    assert drafts_review["summary"]["needs_action"] == 2
+
+    second_run = client.post(
+        "/planning/automation/run",
+        json={
+            "import_id": import_id,
+            "upcoming_days": 7,
+            "responsables": [
+                {
+                    "nom_complet": "Responsable RH Sfax",
+                    "fonction": "Responsable RH",
+                    "grande_residence": "DIRECTION REGIONALE SFAX",
+                },
+                {
+                    "nom_complet": "Responsable RH Sousse",
+                    "fonction": "Responsable RH",
+                    "grande_residence": "DIRECTION REGIONALE SOUSSE",
+                },
+            ],
+        },
+    ).json()
+    assert second_run["generated"] == 0
+    assert second_run["skipped_existing"] == 2
+
+
 def test_planning_automation_maps_contacts_and_skips_existing_drafts(tmp_path):
     from api import planning_import_service
 

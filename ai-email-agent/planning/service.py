@@ -566,7 +566,14 @@ class PlanningImportService:
         responsables: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         automation_settings = self.database.get_automation_settings()
-        resolved_email_type = email_type or automation_settings["default_email_type"]
+        configured_email_type = (
+            str(automation_settings["default_email_type"] or "").strip().lower()
+        )
+        resolved_email_type = email_type or (
+            "confirmation_presence"
+            if configured_email_type == "auto"
+            else configured_email_type
+        )
         resolved_include_population = (
             automation_settings["include_population"]
             if include_population is None
