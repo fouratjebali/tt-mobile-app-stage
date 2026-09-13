@@ -2,6 +2,7 @@ import json
 from time import perf_counter
 from datetime import UTC, datetime
 from typing import Annotated, Any
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
@@ -23,6 +24,10 @@ from app.schemas.admin import (
     AdminUsersResponse,
     UpdateAdminUserActiveRequest,
     UpdateAdminUserRoleRequest,
+)
+from app.services.planning_management_gateway import (
+    PlanningManagementGateway,
+    get_planning_management_gateway,
 )
 
 
@@ -167,25 +172,173 @@ def update_admin_settings(
     current_user: Annotated[User, Depends(get_current_admin_manager)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, Any]:
-    current = _load_dashboard_settings(db)
-    allowed_updates = {
-        key: payload[key]
-        for key in DASHBOARD_SETTINGS_DEFAULTS
-        if key in payload
-    }
-    updated = {**current, **allowed_updates}
-    _save_dashboard_settings(db, updated)
-    AuditRepository(db).create(
-        actor=current_user,
-        action="admin.settings.update",
-        resource_type="settings",
-        resource_id="dashboard",
-        metadata={"updated": allowed_updates},
-    )
+    return _update_dashboard_policy_settings(db, current_user, payload)
+
+
+@router.get(
+    "/settings/system",
+    summary="Get supervised system settings",
+    description=(
+        "Returns read-only operational settings that the admin dashboard can display "
+        "without exposing secrets."
+    ),
+)
+def get_admin_system_settings(
+    _: Annotated[User, Depends(get_current_admin_user)],
+) -> dict[str, Any]:
     return {
         "status": "ok",
-        "settings": updated,
+        "settings": _system_supervision_settings(),
     }
+
+
+@router.get(
+    "/settings/supervision",
+    summary="Get admin settings page payload",
+    description=(
+        "Returns dashboard policy, automation and read-only system settings for the "
+        "admin settings page."
+    ),
+)
+async def get_admin_settings_supervision(
+    _: Annotated[User, Depends(get_current_admin_user)],
+    db: Annotated[Session, Depends(get_db)],
+    gateway: Annotated[
+        PlanningManagementGateway,
+        Depends(get_planning_management_gateway),
+    ],
+) -> dict[str, Any]:
+    dashboard_policy = _load_dashboard_settings(db)
+    planning_automation = await _load_planning_automation_settings(gateway)
+    system_payload = _system_supervision_settings()
+
+    return {
+        "status": "ok",
+        "generated_at": datetime.now(tz=UTC).isoformat(),
+        "settings": {
+            "dashboard_policy": dashboard_policy,
+            "planning_automation": planning_automation,
+            "system": system_payload,
+        },
+        "sections": [
+            {
+                "key": "dashboard_policy",
+                "title": "Dashboard policy",
+                "editable": True,
+                "endpoint": (
+                    f"{settings.API_V1_PREFIX}"
+                    f"{settings.ADMIN_API_PREFIX}/settings/policies"
+                ),
+                "settings": dashboard_policy,
+                "controls": [
+                    {
+                        "key": "review_threshold",
+                        "type": "number",
+                        "label": "Review queue warning threshold",
+                        "min": 1,
+                        "max": 500,
+                    },
+                    {
+                        "key": "audit_retention_days",
+                        "type": "number",
+                        "label": "Audit retention in days",
+                        "min": 30,
+                        "max": 3650,
+                    },
+                    {
+                        "key": "support_email",
+                        "type": "email",
+                        "label": "Support contact",
+                    },
+                ],
+            },
+            {
+                "key": "planning_automation",
+                "title": "Planning automation",
+                "editable": planning_automation["available"],
+                "endpoint": (
+                    f"{settings.API_V1_PREFIX}"
+                    f"{settings.ADMIN_API_PREFIX}/planning/automation/settings"
+                ),
+                "settings": planning_automation["settings"],
+                "status": (
+                    "available"
+                    if planning_automation["available"]
+                    else "unavailable"
+                ),
+                "error": planning_automation["error"],
+                "controls": [
+                    {
+                        "key": "auto_run_after_import",
+                        "type": "boolean",
+                        "label": "Generate drafts after import",
+                    },
+                    {
+                        "key": "default_email_type",
+                        "type": "select",
+                        "label": "Default draft type",
+                        "options": ["auto", "confirmation", "sensibilisation"],
+                    },
+                    {
+                        "key": "include_population",
+                        "type": "boolean",
+                        "label": "Include participants in drafts",
+                    },
+                    {
+                        "key": "max_drafts_per_run",
+                        "type": "number",
+                        "label": "Draft limit per run",
+                        "min": 1,
+                        "max": 500,
+                    },
+                ],
+            },
+            {
+                "key": "system",
+                "title": "System supervision",
+                "editable": False,
+                "settings": system_payload,
+                "controls": [
+                    {
+                        "key": "backend",
+                        "type": "readonly",
+                        "label": "Backend API",
+                    },
+                    {
+                        "key": "database",
+                        "type": "readonly",
+                        "label": "Database",
+                    },
+                    {
+                        "key": "mail_connector",
+                        "type": "readonly",
+                        "label": "Mail connector",
+                    },
+                    {
+                        "key": "admin_credentials",
+                        "type": "readonly",
+                        "label": "Preset admin credentials",
+                    },
+                ],
+            },
+        ],
+    }
+
+
+@router.patch(
+    "/settings/policies",
+    summary="Update supervised dashboard policies",
+    description=(
+        "Updates editable dashboard policy settings. This is equivalent to PATCH "
+        "/settings but is clearer for the admin settings page."
+    ),
+)
+def update_admin_policy_settings(
+    payload: dict[str, Any],
+    current_user: Annotated[User, Depends(get_current_admin_manager)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    return _update_dashboard_policy_settings(db, current_user, payload)
 
 
 @router.get(
@@ -385,6 +538,112 @@ def _to_audit_log_response(log) -> AuditLogResponse:
         metadata=audit_metadata(log),
         created_at=log.created_at,
     )
+
+
+def _update_dashboard_policy_settings(
+    db: Session,
+    current_user: User,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    current = _load_dashboard_settings(db)
+    allowed_updates = {
+        key: payload[key]
+        for key in DASHBOARD_SETTINGS_DEFAULTS
+        if key in payload
+    }
+    updated = {**current, **allowed_updates}
+    _save_dashboard_settings(db, updated)
+    AuditRepository(db).create(
+        actor=current_user,
+        action="admin.settings.update",
+        resource_type="settings",
+        resource_id="dashboard",
+        metadata={"updated": allowed_updates},
+    )
+    return {
+        "status": "ok",
+        "settings": updated,
+    }
+
+
+async def _load_planning_automation_settings(
+    gateway: PlanningManagementGateway,
+) -> dict[str, Any]:
+    try:
+        payload = await gateway.get("automation/settings")
+    except HTTPException as exc:
+        return {
+            "available": False,
+            "settings": {},
+            "error": exc.detail,
+        }
+
+    settings_payload = (
+        payload.get("settings", payload)
+        if isinstance(payload, dict)
+        else {}
+    )
+    if not isinstance(settings_payload, dict):
+        settings_payload = {}
+    return {
+        "available": True,
+        "settings": settings_payload,
+        "error": None,
+    }
+
+
+def _system_supervision_settings() -> dict[str, Any]:
+    return {
+        "application": {
+            "name": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+        },
+        "backend": {
+            "api_prefix": settings.API_V1_PREFIX,
+            "admin_api_prefix": settings.ADMIN_API_PREFIX,
+            "admin_base_path": (
+                f"{settings.API_V1_PREFIX}{settings.ADMIN_API_PREFIX}"
+            ),
+            "cors_origins": settings.cors_allowed_origins,
+        },
+        "database": {
+            "configured": bool(settings.DATABASE_URL),
+            "driver": _url_scheme(settings.DATABASE_URL),
+        },
+        "mail_connector": {
+            "agent1_configured": bool(settings.AGENT1_URL),
+            "agent2_configured": bool(settings.AGENT2_URL),
+            "outlook_client_configured": bool(settings.MICROSOFT_CLIENT_ID),
+            "agent1_endpoint": _safe_url_label(settings.AGENT1_URL),
+        },
+        "email_pipeline": {
+            "enabled": settings.EMAIL_PIPELINE_ENABLED,
+            "interval_seconds": settings.EMAIL_PIPELINE_INTERVAL_SECONDS,
+            "max_emails": settings.EMAIL_PIPELINE_MAX_EMAILS,
+        },
+        "admin_credentials": {
+            "preset_username_configured": bool(settings.ADMIN_DASHBOARD_USERNAME),
+            "preset_password_configured": bool(settings.ADMIN_DASHBOARD_PASSWORD),
+            "admin_email_configured": bool(settings.ADMIN_DASHBOARD_EMAIL),
+            "display_name": settings.ADMIN_DASHBOARD_DISPLAY_NAME,
+        },
+    }
+
+
+def _safe_url_label(value: str) -> str:
+    if not value:
+        return ""
+    parsed = urlparse(value)
+    if not parsed.scheme or not parsed.netloc:
+        return "configured"
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _url_scheme(value: str) -> str:
+    if not value:
+        return ""
+    parsed = urlparse(value)
+    return parsed.scheme or "configured"
 
 
 def _load_dashboard_settings(db: Session) -> dict[str, Any]:

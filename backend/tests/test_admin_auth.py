@@ -1,4 +1,5 @@
 import os
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -17,8 +18,11 @@ from app.api.dependencies import (  # noqa: E402
 from app.api.v1.routes.admin import (  # noqa: E402
     admin_health,
     get_admin_settings,
+    get_admin_settings_supervision,
+    get_admin_system_settings,
     get_audit_log,
     list_audit_logs,
+    update_admin_policy_settings,
     update_admin_settings,
     update_user_active_state,
     update_user_role,
@@ -93,6 +97,9 @@ def test_admin_audit_log_routes_are_exposed():
     assert "/admin/audit-logs/{log_id}" in route_paths
     assert "/admin/health" in route_paths
     assert "/admin/settings" in route_paths
+    assert "/admin/settings/system" in route_paths
+    assert "/admin/settings/supervision" in route_paths
+    assert "/admin/settings/policies" in route_paths
     assert "/auth/admin/login" in auth_route_paths
 
 
@@ -132,6 +139,62 @@ def test_admin_health_and_settings_contract():
             "support_email": "support@tunisietelecom.tn",
         }
         assert get_admin_settings(admin, db)["settings"]["review_threshold"] == 55
+
+        policy_update = update_admin_policy_settings(
+            {"review_threshold": 65},
+            admin,
+            db,
+        )
+        assert policy_update["settings"]["review_threshold"] == 65
+    finally:
+        db.close()
+
+
+def test_admin_settings_supervision_contract():
+    db = _session()
+    admin = SimpleNamespace(
+        id="admin-1",
+        email="admin@tunisietelecom.tn",
+        role=UserRole.ADMIN.value,
+    )
+
+    class FakeGateway:
+        async def get(self, path, params=None):
+            assert path == "automation/settings"
+            return {
+                "status": "ok",
+                "settings": {
+                    "auto_run_after_import": True,
+                    "default_email_type": "auto",
+                    "include_population": True,
+                    "max_drafts_per_run": 100,
+                },
+            }
+
+    try:
+        system = get_admin_system_settings(admin)
+        assert system["settings"]["backend"]["admin_base_path"] == "/api/v1/admin"
+        assert "preset_password_configured" in system["settings"]["admin_credentials"]
+
+        payload = asyncio.run(
+            get_admin_settings_supervision(admin, db, FakeGateway())
+        )
+
+        assert payload["status"] == "ok"
+        assert {
+            section["key"] for section in payload["sections"]
+        } == {
+            "dashboard_policy",
+            "planning_automation",
+            "system",
+        }
+        assert payload["settings"]["planning_automation"]["available"] is True
+        assert (
+            payload["settings"]["planning_automation"]["settings"][
+                "default_email_type"
+            ]
+            == "auto"
+        )
     finally:
         db.close()
 
