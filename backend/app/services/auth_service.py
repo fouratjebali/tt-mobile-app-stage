@@ -10,7 +10,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.auth import User
+from app.models.auth import User, UserRole
 from app.repositories.auth_repository import AuthRepository
 from app.schemas.auth import AdminLoginRequest, GoogleAuthRequest, MicrosoftAuthRequest
 
@@ -93,7 +93,10 @@ class AuthService:
             username=request.username,
             password=request.password,
         )
-        if user is None or user.role != "admin":
+        if user is None or user.role not in {
+            UserRole.ADMIN.value,
+            UserRole.SUPER_ADMIN.value,
+        }:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid admin username or password.",

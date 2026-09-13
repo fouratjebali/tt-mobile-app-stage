@@ -16,6 +16,26 @@ class AdminUserResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class DashboardAdminResponse(BaseModel):
+    id: str
+    email: str
+    username: str
+    display_name: str | None = None
+    role: str = UserRole.ADMIN.value
+    is_active: bool = True
+    last_login_at: datetime | None = None
+    actions_count: int = 0
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class DashboardAdminsResponse(BaseModel):
+    items: list[DashboardAdminResponse]
+    total: int
+    limit: int
+    offset: int
+
+
 class AdminUsersResponse(BaseModel):
     users: list[AdminUserResponse]
     total: int
@@ -85,3 +105,28 @@ class UpdateAdminUserRoleRequest(BaseModel):
 
 class UpdateAdminUserActiveRequest(BaseModel):
     is_active: bool = Field(description="Whether this user can access the app.")
+
+
+class CreateDashboardAdminRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=8, max_length=255)
+    email: str = Field(min_length=3, max_length=320)
+    display_name: str = Field(default="", max_length=255)
+    role: str = Field(default=UserRole.ADMIN.value)
+    is_active: bool = True
+
+
+class UpdateDashboardAdminRequest(BaseModel):
+    username: str | None = Field(default=None, min_length=1, max_length=120)
+    email: str | None = Field(default=None, min_length=3, max_length=320)
+    display_name: str | None = Field(default=None, max_length=255)
+    role: str | None = None
+    is_active: bool | None = None
+
+
+class UpdateDashboardAdminActiveRequest(BaseModel):
+    is_active: bool
+
+
+class UpdateDashboardAdminPasswordRequest(BaseModel):
+    password: str = Field(min_length=8, max_length=255)

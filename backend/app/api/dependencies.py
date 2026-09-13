@@ -9,12 +9,15 @@ from app.services.auth_service import AuthService
 
 
 ADMIN_PORTAL_ROLES = {
+    UserRole.SUPER_ADMIN.value,
     UserRole.ADMIN.value,
     UserRole.REVIEWER.value,
     UserRole.VIEWER.value,
 }
-ADMIN_MANAGER_ROLES = {UserRole.ADMIN.value}
+ADMIN_MANAGER_ROLES = {UserRole.SUPER_ADMIN.value, UserRole.ADMIN.value}
+ADMIN_SUPER_ADMIN_ROLES = {UserRole.SUPER_ADMIN.value}
 ADMIN_PLANNING_EDITOR_ROLES = {
+    UserRole.SUPER_ADMIN.value,
     UserRole.ADMIN.value,
     UserRole.REVIEWER.value,
 }
@@ -57,6 +60,17 @@ def get_current_admin_manager(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrator role is required.",
+        )
+    return user
+
+
+def get_current_super_admin(
+    user: Annotated[User, Depends(get_current_admin_user)],
+) -> User:
+    if _normalized_role(user) not in ADMIN_SUPER_ADMIN_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super administrator role is required.",
         )
     return user
 

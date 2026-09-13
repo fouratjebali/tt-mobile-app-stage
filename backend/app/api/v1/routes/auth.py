@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_bearer_token, get_current_user
 from app.db.session import get_db
 from app.models.auth import User
+from app.repositories.audit_repository import AuditRepository
 from app.schemas.auth import (
     AdminLoginRequest,
     AuthResponse,
@@ -61,9 +62,31 @@ def sign_in_with_microsoft(
 )
 def sign_in_with_admin_credentials(
     request: AdminLoginRequest,
+    http_request: Request,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
-    user, session_token = AuthService(db).sign_in_with_admin_credentials(request)
+    try:
+        user, session_token = AuthService(db).sign_in_with_admin_credentials(request)
+    except HTTPException:
+        AuditRepository(db).create(
+            actor=None,
+            action="admin.auth.login.failure",
+            resource_type="auth",
+            status="failed",
+            summary="Failed admin dashboard login",
+            metadata={"username": request.username},
+            **_request_audit_context(http_request),
+        )
+        raise
+    AuditRepository(db).create(
+        actor=user,
+        action="admin.auth.login.success",
+        resource_type="auth",
+        resource_id=user.id,
+        summary="Admin dashboard login",
+        metadata={"username": request.username},
+        **_request_audit_context(http_request),
+    )
     return AuthResponse(session_token=session_token, user=_to_user_response(user))
 
 
@@ -152,10 +175,19 @@ def refresh_session(
 def logout(
     response: Response,
     token: Annotated[str, Depends(get_bearer_token)],
-    _: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(get_current_user)],
+    request: Request,
     db: Session = Depends(get_db),
 ) -> Response:
     AuthService(db).logout(token)
+    AuditRepository(db).create(
+        actor=user,
+        action="admin.auth.logout",
+        resource_type="auth",
+        resource_id=user.id,
+        summary="Admin dashboard logout",
+        **_request_audit_context(request),
+    )
     return response
 
 
@@ -168,3 +200,12 @@ def _to_user_response(user) -> UserResponse:
         role=user.role,
         is_active=user.is_active,
     )
+
+
+def _request_audit_context(request: Request) -> dict[str, str]:
+    return {
+        "ip_address": request.client.host if request.client else "",
+        "user_agent": request.headers.get("user-agent", ""),
+        "request_method": request.method,
+        "request_path": str(request.url.path),
+    }

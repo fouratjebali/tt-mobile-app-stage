@@ -21,7 +21,12 @@ class AuditRepository:
         resource_type: str,
         resource_id: str = "",
         status: str = "success",
+        summary: str = "",
         metadata: dict[str, Any] | None = None,
+        ip_address: str = "",
+        user_agent: str = "",
+        request_method: str = "",
+        request_path: str = "",
     ) -> AuditLog:
         log = AuditLog(
             actor_user_id=actor.id if actor is not None else "",
@@ -31,7 +36,12 @@ class AuditRepository:
             resource_type=resource_type.strip(),
             resource_id=resource_id.strip(),
             status=status.strip().lower() or "success",
-            metadata_json=json.dumps(metadata or {}, ensure_ascii=False),
+            summary=summary.strip(),
+            metadata_json=json.dumps(metadata or {}, ensure_ascii=False, default=str),
+            ip_address=ip_address.strip(),
+            user_agent=user_agent.strip(),
+            request_method=request_method.strip().upper(),
+            request_path=request_path.strip(),
         )
         self._db.add(log)
         self._db.commit()

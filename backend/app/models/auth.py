@@ -13,6 +13,7 @@ class UserRole(str, Enum):
     VIEWER = "viewer"
     REVIEWER = "reviewer"
     ADMIN = "admin"
+    SUPER_ADMIN = "super_admin"
 
 
 class User(Base):

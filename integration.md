@@ -438,6 +438,283 @@ Frontend usage:
 - If `planning_automation.available` is false, disable automation inputs and show `error`.
 - Use each section `endpoint` for save actions.
 
+## Usage And Admin Management APIs
+
+### GET `/api/v1/admin/usage/overview?date_from=&date_to=&admin_id=`
+
+Use it for the Admin Usage page analytics cards.
+
+Expected output:
+
+```json
+{
+  "total_actions": 124,
+  "login_count": 12,
+  "create_count": 20,
+  "update_count": 35,
+  "delete_count": 4,
+  "health_check_count": 18,
+  "failed_actions": 3,
+  "active_admins": 2,
+  "most_active_admin": {
+    "id": "uuid",
+    "email": "admin@tunisietelecom.tn",
+    "display_name": "Dashboard Admin",
+    "actions": 80
+  }
+}
+```
+
+Frontend usage:
+
+- Render cards for actions, logins, creates, updates, deletes, failed actions, active admins.
+- Use `admin_id` to filter the cards for one dashboard admin.
+- Use ISO date strings for `date_from` and `date_to`.
+
+### GET `/api/v1/admin/usage/actions?admin_id=&action=&resource_type=&status=&date_from=&date_to=&limit=20&offset=0`
+
+Use it for the usage trace table.
+
+Expected output:
+
+```json
+{
+  "items": [
+    {
+      "id": "log-id",
+      "actor_user_id": "admin-id",
+      "actor_email": "admin@tunisietelecom.tn",
+      "actor_role": "super_admin",
+      "action": "admin.planning.responsable.delete",
+      "resource_type": "responsable",
+      "resource_id": "123",
+      "status": "success",
+      "summary": "Deleted responsable",
+      "metadata": {
+        "before": {},
+        "after": null,
+        "changed_fields": []
+      },
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0",
+      "request_method": "DELETE",
+      "request_path": "/api/v1/admin/planning/responsables/123",
+      "created_at": "2026-09-13T10:00:00"
+    }
+  ],
+  "total": 124,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+Frontend usage:
+
+- Render a paginated trace table.
+- Filters should include admin, action, resource type, status and date range.
+- Show `summary` in the table and open full metadata in a detail drawer.
+
+### GET `/api/v1/admin/usage/actions/{log_id}`
+
+Use it for the trace detail drawer.
+
+Expected output:
+
+```json
+{
+  "status": "ok",
+  "item": {
+    "id": "log-id",
+    "metadata": {
+      "before": {},
+      "after": {},
+      "changed_fields": ["nom_complet"]
+    }
+  }
+}
+```
+
+Frontend usage:
+
+- Show full metadata/diff.
+- Do not show passwords, tokens, authorization headers or secret env values.
+
+### GET `/api/v1/admin/usage/admins?search=&role=&limit=20&offset=0`
+
+Use it for an admin selector and usage ranking.
+
+Expected output:
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "email": "admin@tunisietelecom.tn",
+      "username": "admin",
+      "display_name": "Dashboard Admin",
+      "role": "super_admin",
+      "is_active": true,
+      "last_login_at": "2026-09-13T10:00:00",
+      "actions_count": 80
+    }
+  ],
+  "total": 2,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+Frontend usage:
+
+- List dashboard admins only.
+- Use `role=super_admin` or `role=admin` to filter.
+- Show `actions_count` as usage intensity.
+
+### GET `/api/v1/admin/usage/admins/{admin_id}/overview?date_from=&date_to=`
+
+Use it for a per-admin usage detail page.
+
+Expected output:
+
+```json
+{
+  "total_actions": 80,
+  "login_count": 8,
+  "create_count": 12,
+  "update_count": 20,
+  "delete_count": 2,
+  "health_check_count": 6,
+  "failed_actions": 1,
+  "active_admins": 2,
+  "most_active_admin": {},
+  "admin": {
+    "id": "uuid",
+    "username": "admin",
+    "email": "admin@tunisietelecom.tn",
+    "role": "super_admin"
+  }
+}
+```
+
+Frontend usage:
+
+- Reuse the same cards from usage overview.
+- Add admin identity header.
+
+### GET `/api/v1/admin/admins?search=&role=&limit=20&offset=0`
+
+Super admin only. Use it for the Admin Management page.
+
+Expected output is the same shape as `/usage/admins`.
+
+Frontend usage:
+
+- Table of dashboard admin credentials.
+- Never expect or display password hashes.
+
+### POST `/api/v1/admin/admins`
+
+Super admin only. Creates a dashboard admin.
+
+Request:
+
+```json
+{
+  "username": "admin2",
+  "password": "strong-password",
+  "email": "admin2@tunisietelecom.tn",
+  "display_name": "Second Admin",
+  "role": "admin",
+  "is_active": true
+}
+```
+
+Expected output:
+
+```json
+{
+  "id": "uuid",
+  "email": "admin2@tunisietelecom.tn",
+  "username": "admin2",
+  "display_name": "Second Admin",
+  "role": "admin",
+  "is_active": true,
+  "last_login_at": null,
+  "actions_count": 0
+}
+```
+
+Frontend usage:
+
+- Valid roles: `super_admin`, `admin`.
+- Require a strong password in the form.
+- Do not store the password after submit.
+
+### GET `/api/v1/admin/admins/{admin_id}`
+
+Super admin only. Returns one dashboard admin.
+
+Frontend usage:
+
+- Detail drawer/page.
+
+### PATCH `/api/v1/admin/admins/{admin_id}`
+
+Super admin only. Updates username, email, display name, role, or active state.
+
+Request:
+
+```json
+{
+  "username": "admin2",
+  "email": "admin2@tunisietelecom.tn",
+  "display_name": "Second Admin",
+  "role": "admin",
+  "is_active": true
+}
+```
+
+Frontend usage:
+
+- Send only fields that changed or send the full editable form.
+- Backend prevents deactivating/demoting the last active `super_admin`.
+
+### PATCH `/api/v1/admin/admins/{admin_id}/active`
+
+Super admin only.
+
+Request:
+
+```json
+{
+  "is_active": false
+}
+```
+
+Frontend usage:
+
+- Use for enable/disable toggles.
+- Require confirmation before disabling.
+- Backend prevents disabling the last active `super_admin`.
+
+### PATCH `/api/v1/admin/admins/{admin_id}/password`
+
+Super admin only.
+
+Request:
+
+```json
+{
+  "password": "new-strong-password"
+}
+```
+
+Frontend usage:
+
+- Use a dedicated reset password modal.
+- Never display or store password hashes.
+
 ## Users APIs
 
 ### GET `/api/v1/admin/users?search=&limit=100&offset=0`
@@ -1678,13 +1955,22 @@ Frontend behavior:
     - Drafts prepared.
     - Usage by admin user.
 
-11. User management
+11. Admin usage
+    - Uses `/admin/usage/overview`, `/admin/usage/actions`, `/admin/usage/admins`.
+    - Shows usage cards, trace table and per-admin usage detail.
+
+12. Admin management
+    - Super admin only.
+    - Uses `/admin/admins`.
+    - Create, edit, disable and reset dashboard admin passwords.
+
+13. User management
     - Admin-only list, role update, active toggle.
 
-12. Audit log
+14. Audit log
     - Admin-only table and detail.
 
-13. Settings
+15. Settings
     - Bootstrap with `/admin/settings/supervision`.
     - Edit dashboard policies.
     - Edit planning automation settings.

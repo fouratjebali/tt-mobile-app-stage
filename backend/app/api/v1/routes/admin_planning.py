@@ -430,8 +430,9 @@ async def create_responsable_directory_entry(
         db,
         current_user,
         "admin.planning.responsable.create",
+        "Created responsable",
         resource_id=responsable["id"],
-        metadata={"responsable": responsable},
+        metadata={"before": None, "after": responsable, "changed_fields": []},
     )
     return {"status": "ok", "responsable": responsable}
 
@@ -463,6 +464,9 @@ async def update_responsable_directory_entry(
     current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Any:
+    before = ResponsableDirectoryService(db).get_responsable(contact_key)
+    if before is None:
+        raise HTTPException(status_code=404, detail="Responsable not found.")
     try:
         responsable = ResponsableDirectoryService(db).update_responsable(
             contact_key,
@@ -478,8 +482,13 @@ async def update_responsable_directory_entry(
         db,
         current_user,
         "admin.planning.responsable.update",
+        "Updated responsable",
         resource_id=contact_key,
-        metadata={"responsable": responsable},
+        metadata={
+            "before": before,
+            "after": responsable,
+            "changed_fields": _changed_fields(before, responsable),
+        },
     )
     return {"status": "ok", "responsable": responsable}
 
@@ -494,6 +503,7 @@ async def delete_responsable_directory_contact(
     current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Any:
+    before = ResponsableDirectoryService(db).get_responsable(contact_key)
     deleted = ResponsableDirectoryService(db).delete_responsable(contact_key)
     if not deleted:
         raise HTTPException(status_code=404, detail="Responsable not found.")
@@ -501,8 +511,9 @@ async def delete_responsable_directory_contact(
         db,
         current_user,
         "admin.planning.responsable.delete",
+        "Deleted responsable",
         resource_id=contact_key,
-        metadata={},
+        metadata={"before": before, "after": None, "changed_fields": []},
     )
     return {"status": "ok", "deleted": True, "id": contact_key}
 
@@ -1079,6 +1090,7 @@ def _record_responsable_audit(
     db: Session,
     actor: User,
     action: str,
+    summary: str,
     *,
     resource_id: str = "",
     metadata: dict[str, Any] | None = None,
@@ -1089,11 +1101,20 @@ def _record_responsable_audit(
             action=action,
             resource_type="responsable",
             resource_id=resource_id,
+            summary=summary,
             metadata=metadata or {},
         )
     except Exception:
         db.rollback()
         pass
+
+
+def _changed_fields(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    return [
+        key
+        for key, value in after.items()
+        if key in before and before.get(key) != value
+    ]
 
 
 def _planning_usage_summary(

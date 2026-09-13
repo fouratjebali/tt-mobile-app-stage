@@ -7,6 +7,8 @@ def ensure_email_workflow_schema(engine: Engine) -> None:
     table_names = inspector.get_table_names()
     if "users" in table_names:
         _ensure_user_role_schema(engine)
+    if "audit_logs" in table_names:
+        _ensure_audit_log_schema(engine)
     if "emails" not in table_names:
         return
 
@@ -122,4 +124,32 @@ def _ensure_user_role_schema(engine: Engine) -> None:
         )
         connection.execute(
             text("CREATE INDEX IF NOT EXISTS ix_users_is_active ON users (is_active)")
+        )
+
+
+def _ensure_audit_log_schema(engine: Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS summary TEXT DEFAULT ''")
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS "
+                "ip_address VARCHAR(100) DEFAULT ''"
+            )
+        )
+        connection.execute(
+            text("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_agent TEXT DEFAULT ''")
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS "
+                "request_method VARCHAR(20) DEFAULT ''"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS "
+                "request_path VARCHAR(500) DEFAULT ''"
+            )
         )

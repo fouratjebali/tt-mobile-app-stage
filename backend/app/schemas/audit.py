@@ -13,7 +13,12 @@ class AuditLogResponse(BaseModel):
     resource_type: str
     resource_id: str
     status: str
+    summary: str = ""
     metadata: dict[str, Any]
+    ip_address: str = ""
+    user_agent: str = ""
+    request_method: str = ""
+    request_path: str = ""
     created_at: datetime | None = None
 
 

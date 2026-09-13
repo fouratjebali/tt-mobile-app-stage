@@ -14,14 +14,23 @@ from app.api.dependencies import (  # noqa: E402
     get_current_admin_manager,
     get_current_admin_planning_editor,
     get_current_admin_user,
+    get_current_super_admin,
 )
 from app.api.v1.routes.admin import (  # noqa: E402
     admin_health,
+    create_dashboard_admin,
+    get_admin_usage_action,
+    get_admin_usage_overview,
     get_admin_settings,
     get_admin_settings_supervision,
     get_admin_system_settings,
     get_audit_log,
+    list_admin_usage_actions,
+    list_dashboard_admins,
     list_audit_logs,
+    update_dashboard_admin,
+    update_dashboard_admin_active,
+    update_dashboard_admin_password,
     update_admin_policy_settings,
     update_admin_settings,
     update_user_active_state,
@@ -34,6 +43,10 @@ from app.models.audit import AuditLog  # noqa: E402
 from app.models.auth import AdminCredential, AuthSession, User, UserRole  # noqa: E402
 from app.repositories.auth_repository import AuthRepository  # noqa: E402
 from app.schemas.admin import (  # noqa: E402
+    CreateDashboardAdminRequest,
+    UpdateDashboardAdminActiveRequest,
+    UpdateDashboardAdminPasswordRequest,
+    UpdateDashboardAdminRequest,
     UpdateAdminUserActiveRequest,
     UpdateAdminUserRoleRequest,
 )
@@ -100,6 +113,15 @@ def test_admin_audit_log_routes_are_exposed():
     assert "/admin/settings/system" in route_paths
     assert "/admin/settings/supervision" in route_paths
     assert "/admin/settings/policies" in route_paths
+    assert "/admin/usage/overview" in route_paths
+    assert "/admin/usage/actions" in route_paths
+    assert "/admin/usage/actions/{log_id}" in route_paths
+    assert "/admin/usage/admins" in route_paths
+    assert "/admin/usage/admins/{admin_id}/overview" in route_paths
+    assert "/admin/admins" in route_paths
+    assert "/admin/admins/{admin_id}" in route_paths
+    assert "/admin/admins/{admin_id}/active" in route_paths
+    assert "/admin/admins/{admin_id}/password" in route_paths
     assert "/auth/admin/login" in auth_route_paths
 
 
@@ -111,7 +133,13 @@ def test_admin_health_and_settings_contract():
         role=UserRole.ADMIN.value,
     )
     try:
-        health = admin_health(admin, db)
+        request = SimpleNamespace(
+            client=SimpleNamespace(host="127.0.0.1"),
+            headers={},
+            method="GET",
+            url=SimpleNamespace(path="/api/v1/admin/health"),
+        )
+        health = admin_health(admin, db, request)
         assert health["status"] == "healthy"
         assert {service["name"] for service in health["services"]} == {
             "Backend API",
@@ -237,7 +265,7 @@ def test_preset_admin_credentials_login_creates_admin_session():
         )
 
         assert user.email == "dashboard@tunisietelecom.tn"
-        assert user.role == UserRole.ADMIN.value
+        assert user.role == UserRole.SUPER_ADMIN.value
         assert session_token
         assert get_current_admin_manager(
             AuthService(db).get_current_user(session_token)
@@ -283,13 +311,17 @@ def test_disabled_user_session_is_rejected():
 
 
 def test_admin_dependencies_enforce_roles():
+    super_admin = SimpleNamespace(role=UserRole.SUPER_ADMIN.value)
     admin = SimpleNamespace(role=UserRole.ADMIN.value)
     reviewer = SimpleNamespace(role=UserRole.REVIEWER.value)
     regular_user = SimpleNamespace(role=UserRole.USER.value)
 
+    assert get_current_admin_user(super_admin) is super_admin
     assert get_current_admin_user(admin) is admin
     assert get_current_admin_user(reviewer) is reviewer
+    assert get_current_admin_manager(super_admin) is super_admin
     assert get_current_admin_manager(admin) is admin
+    assert get_current_super_admin(super_admin) is super_admin
     assert get_current_admin_planning_editor(admin) is admin
     assert get_current_admin_planning_editor(reviewer) is reviewer
 
@@ -300,6 +332,10 @@ def test_admin_dependencies_enforce_roles():
     with pytest.raises(HTTPException) as reviewer_exc:
         get_current_admin_manager(reviewer)
     assert reviewer_exc.value.status_code == 403
+
+    with pytest.raises(HTTPException) as admin_exc:
+        get_current_super_admin(admin)
+    assert admin_exc.value.status_code == 403
 
     with pytest.raises(HTTPException) as editor_exc:
         get_current_admin_planning_editor(regular_user)
@@ -394,5 +430,109 @@ def test_admin_user_mutations_create_audit_logs():
         detail = get_audit_log(audit_page.logs[0].id, admin, db)
         assert detail.id == audit_page.logs[0].id
         assert detail.status == "success"
+    finally:
+        db.close()
+
+
+def test_dashboard_admin_management_and_usage_apis():
+    db = _session()
+    request = SimpleNamespace(
+        client=SimpleNamespace(host="127.0.0.1"),
+        headers={"user-agent": "pytest"},
+        method="PATCH",
+        url=SimpleNamespace(path="/api/v1/admin/admins"),
+    )
+    try:
+        credential = AuthRepository(db).upsert_admin_credential(
+            username="root",
+            password="secret-password",
+            email="root@tunisietelecom.tn",
+            display_name="Root Admin",
+        )
+        super_admin = credential.user
+
+        created = create_dashboard_admin(
+            CreateDashboardAdminRequest(
+                username="admin2",
+                password="strong-password",
+                email="admin2@tunisietelecom.tn",
+                display_name="Second Admin",
+                role=UserRole.ADMIN.value,
+                is_active=True,
+            ),
+            super_admin,
+            db,
+            request,
+        )
+        updated = update_dashboard_admin(
+            created.id,
+            UpdateDashboardAdminRequest(display_name="Second Admin Updated"),
+            super_admin,
+            db,
+            request,
+        )
+        disabled = update_dashboard_admin_active(
+            created.id,
+            UpdateDashboardAdminActiveRequest(is_active=False),
+            super_admin,
+            db,
+            request,
+        )
+        password_updated = update_dashboard_admin_password(
+            created.id,
+            UpdateDashboardAdminPasswordRequest(password="new-strong-password"),
+            super_admin,
+            db,
+            request,
+        )
+
+        admins = list_dashboard_admins(
+            super_admin,
+            db,
+            search="admin2",
+            role=None,
+            limit=20,
+            offset=0,
+        )
+        overview = get_admin_usage_overview(
+            super_admin,
+            db,
+            date_from=None,
+            date_to=None,
+            admin_id=None,
+        )
+        actions = list_admin_usage_actions(
+            super_admin,
+            db,
+            admin_id=None,
+            action=None,
+            resource_type=None,
+            status=None,
+            date_from=None,
+            date_to=None,
+            limit=10,
+            offset=0,
+        )
+        detail = get_admin_usage_action(actions["items"][0]["id"], super_admin, db)
+
+        assert created.username == "admin2"
+        assert created.role == UserRole.ADMIN.value
+        assert updated.display_name == "Second Admin Updated"
+        assert disabled.is_active is False
+        assert password_updated.id == created.id
+        assert admins.total == 1
+        assert overview["total_actions"] >= 4
+        assert actions["total"] >= 4
+        assert detail["item"]["metadata"]
+
+        with pytest.raises(HTTPException) as exc:
+            update_dashboard_admin_active(
+                super_admin.id,
+                UpdateDashboardAdminActiveRequest(is_active=False),
+                super_admin,
+                db,
+                request,
+            )
+        assert exc.value.status_code == 400
     finally:
         db.close()

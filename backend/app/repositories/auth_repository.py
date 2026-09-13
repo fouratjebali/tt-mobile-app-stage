@@ -77,7 +77,7 @@ class AuthRepository:
 
         user.email = cleaned_email
         user.display_name = display_name.strip() or "Dashboard Admin"
-        user.role = UserRole.ADMIN.value
+        user.role = UserRole.SUPER_ADMIN.value
         user.is_active = True
         self._db.flush()
 
@@ -107,6 +107,181 @@ class AuthRepository:
             return None
         return self._db.scalar(
             select(AdminCredential).where(AdminCredential.username == cleaned_username)
+        )
+
+    def get_admin_credential_by_user_id(
+        self,
+        user_id: str,
+    ) -> AdminCredential | None:
+        return self._db.scalar(
+            select(AdminCredential).where(AdminCredential.user_id == user_id)
+        )
+
+    def list_admin_credentials(
+        self,
+        *,
+        search: str | None = None,
+        role: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[AdminCredential], int]:
+        clauses = []
+        if search:
+            pattern = f"%{search.strip()}%"
+            clauses.append(
+                or_(
+                    AdminCredential.username.ilike(pattern),
+                    User.email.ilike(pattern),
+                    User.display_name.ilike(pattern),
+                )
+            )
+        if role:
+            clauses.append(func.lower(User.role) == role.strip().lower())
+
+        statement = select(AdminCredential).join(User)
+        count_statement = select(func.count(AdminCredential.id)).join(User)
+        if clauses:
+            statement = statement.where(*clauses)
+            count_statement = count_statement.where(*clauses)
+
+        total = int(self._db.scalar(count_statement) or 0)
+        credentials = list(
+            self._db.scalars(
+                statement.order_by(desc(AdminCredential.created_at))
+                .limit(limit)
+                .offset(offset)
+            )
+        )
+        return credentials, total
+
+    def create_dashboard_admin(
+        self,
+        *,
+        username: str,
+        password: str,
+        email: str,
+        display_name: str,
+        role: str,
+        is_active: bool,
+    ) -> AdminCredential:
+        cleaned_username = _normalize_username(username)
+        cleaned_email = email.strip().lower()
+        cleaned_role = _normalize_dashboard_admin_role(role)
+        if not cleaned_username:
+            raise ValueError("Admin username is required.")
+        if not password:
+            raise ValueError("Admin password is required.")
+        if not cleaned_email:
+            raise ValueError("Admin email is required.")
+        if self.get_admin_credential(cleaned_username) is not None:
+            raise ValueError("Admin username already exists.")
+        if self.get_user_by_email(cleaned_email) is not None:
+            raise ValueError("Admin email already exists.")
+
+        user = User(
+            google_sub=f"admin:{cleaned_username}",
+            email=cleaned_email,
+            display_name=display_name.strip() or cleaned_username,
+            role=cleaned_role,
+            is_active=is_active,
+        )
+        self._db.add(user)
+        self._db.flush()
+
+        credential = AdminCredential(
+            user_id=user.id,
+            username=cleaned_username,
+            password_hash=_hash_password(password),
+            is_active=is_active,
+        )
+        self._db.add(credential)
+        self._db.commit()
+        self._db.refresh(credential)
+        return credential
+
+    def update_dashboard_admin(
+        self,
+        *,
+        user_id: str,
+        username: str | None = None,
+        email: str | None = None,
+        display_name: str | None = None,
+        role: str | None = None,
+        is_active: bool | None = None,
+    ) -> AdminCredential | None:
+        credential = self.get_admin_credential_by_user_id(user_id)
+        if credential is None or credential.user is None:
+            return None
+
+        if username is not None:
+            cleaned_username = _normalize_username(username)
+            if not cleaned_username:
+                raise ValueError("Admin username is required.")
+            existing = self.get_admin_credential(cleaned_username)
+            if existing is not None and existing.user_id != user_id:
+                raise ValueError("Admin username already exists.")
+            credential.username = cleaned_username
+            credential.user.google_sub = f"admin:{cleaned_username}"
+
+        if email is not None:
+            cleaned_email = email.strip().lower()
+            if not cleaned_email:
+                raise ValueError("Admin email is required.")
+            existing_user = self.get_user_by_email(cleaned_email)
+            if existing_user is not None and existing_user.id != user_id:
+                raise ValueError("Admin email already exists.")
+            credential.user.email = cleaned_email
+
+        if display_name is not None:
+            credential.user.display_name = display_name.strip() or credential.username
+
+        if role is not None:
+            credential.user.role = _normalize_dashboard_admin_role(role)
+
+        if is_active is not None:
+            credential.is_active = is_active
+            credential.user.is_active = is_active
+
+        self._db.commit()
+        self._db.refresh(credential)
+        return credential
+
+    def update_dashboard_admin_active_state(
+        self,
+        *,
+        user_id: str,
+        is_active: bool,
+    ) -> AdminCredential | None:
+        return self.update_dashboard_admin(user_id=user_id, is_active=is_active)
+
+    def update_dashboard_admin_password(
+        self,
+        *,
+        user_id: str,
+        password: str,
+    ) -> AdminCredential | None:
+        if not password:
+            raise ValueError("Admin password is required.")
+        credential = self.get_admin_credential_by_user_id(user_id)
+        if credential is None:
+            return None
+        credential.password_hash = _hash_password(password)
+        self._db.commit()
+        self._db.refresh(credential)
+        return credential
+
+    def count_active_super_admins(self) -> int:
+        return int(
+            self._db.scalar(
+                select(func.count(AdminCredential.id))
+                .join(User)
+                .where(
+                    User.role == UserRole.SUPER_ADMIN.value,
+                    User.is_active.is_(True),
+                    AdminCredential.is_active.is_(True),
+                )
+            )
+            or 0
         )
 
     def verify_admin_credentials(
@@ -287,3 +462,10 @@ def _verify_password(password: str, stored_hash: str) -> bool:
 
     actual = pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
     return compare_digest(actual, expected)
+
+
+def _normalize_dashboard_admin_role(role: str) -> str:
+    cleaned = str(role or "").strip().lower()
+    if cleaned not in {UserRole.ADMIN.value, UserRole.SUPER_ADMIN.value}:
+        raise ValueError("Dashboard admin role must be admin or super_admin.")
+    return cleaned
