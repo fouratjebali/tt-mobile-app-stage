@@ -19,7 +19,7 @@ from app.schemas.admin_planning import (  # noqa: E402
     AdminPlanningBulkDraftActionRequest,
     AdminPlanningBulkSendDraftsRequest,
     AdminPlanningGenerateDraftsRequest,
-    AdminPlanningResponsableRequest,
+    AdminPlanningResponsableDirectoryRequest,
     AdminPlanningRunAutomationRequest,
     AdminPlanningSendDraftRequest,
     AdminPlanningUpdateDraftRequest,
@@ -74,6 +74,7 @@ def test_admin_planning_router_uses_standard_admin_prefix():
     assert "/admin/planning/analytics/files" in route_paths
     assert "/admin/planning/analytics/drafts" in route_paths
     assert "/admin/planning/analytics/users" in route_paths
+    assert "/admin/planning/responsables/{contact_key}" in route_paths
     assert "/admin/planning/automation/jobs" in route_paths
     assert "/admin/planning/automation/jobs/{job_id}" in route_paths
     assert "/admin/planning/automation/jobs/{job_id}/logs" in route_paths
@@ -417,10 +418,14 @@ def test_admin_automation_jobs_routes_forward_filters_and_admin_identity():
     ]
 
 
-def test_admin_responsables_directory_routes_forward_filters_and_mutations():
+def test_admin_responsables_directory_routes_manage_backend_table():
     gateway = FakePlanningGateway()
     viewer = SimpleNamespace(role="viewer")
-    editor = SimpleNamespace(role="reviewer")
+    editor = SimpleNamespace(
+        id="reviewer-1",
+        email="reviewer@tunisietelecom.tn",
+        role="reviewer",
+    )
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(bind=engine, tables=[Responsable.__table__])
     db = sessionmaker(bind=engine)()
@@ -462,52 +467,68 @@ def test_admin_responsables_directory_routes_forward_filters_and_mutations():
             import_id="import-1",
         )
     )
-    asyncio.run(
-        admin_planning.save_responsable_directory_contact(
-            AdminPlanningResponsableRequest(
-                role="dir",
-                residence="DIRECTION REGIONALE KEBILI",
-                email="dir.kebili@tunisietelecom.tn",
+    created = asyncio.run(
+        admin_planning.create_responsable_directory_entry(
+            AdminPlanningResponsableDirectoryRequest(
+                nom_complet="Mouna Trabelsi",
+                fonction="DIR C/R",
+                grande_residence="DIRECTION REGIONALE SFAX",
             ),
             editor,
-            gateway,
+            db,
         )
     )
-    asyncio.run(
+    responsable_id = created["responsable"]["id"]
+    detail = asyncio.run(
         admin_planning.get_responsable_directory_contact(
-            "responsible:dir:kebili",
+            responsable_id,
             viewer,
-            gateway,
+            db,
+        )
+    )
+    updated = asyncio.run(
+        admin_planning.update_responsable_directory_entry(
+            responsable_id,
+            AdminPlanningResponsableDirectoryRequest(
+                nom_complet="Mouna Trabelsi",
+                fonction="Responsable RH",
+                grande_residence="DIRECTION REGIONALE SFAX",
+            ),
+            editor,
+            db,
         )
     )
     asyncio.run(
         admin_planning.delete_responsable_directory_contact(
-            "responsible:dir:kebili",
+            responsable_id,
             editor,
-            gateway,
+            db,
+        )
+    )
+    after_delete = asyncio.run(
+        admin_planning.list_responsables_directory(
+            viewer,
+            db,
+            search="Mouna",
+            role=None,
+            residence=None,
+            direction=None,
+            has_email=None,
+            duplicate_emails=None,
+            source_file=None,
+            limit=20,
+            offset=0,
         )
     )
 
     assert responsables["total"] == 1
     assert responsables["responsables"][0]["nom_complet"] == "Sami Ben Hassine"
+    assert created["status"] == "ok"
+    assert detail["responsable"]["nom_complet"] == "Mouna Trabelsi"
+    assert updated["responsable"]["fonction"] == "Responsable RH"
+    assert after_delete["total"] == 0
     assert gateway.calls == [
         ("FILES", "contacts/import", {"import_id": "import-1"}, ["annuaire.xlsx"]),
-        (
-            "POST",
-            "responsables",
-            None,
-            {
-                "role": "dir",
-                "residence": "DIRECTION REGIONALE KEBILI",
-                "email": "dir.kebili@tunisietelecom.tn",
-                "full_name": "",
-                "direction": "",
-                "hr_responsible": "",
-                "_auth": None,
-            },
-        ),
-        ("GET", "responsables/responsible:dir:kebili", None, None),
-        ("DELETE", "responsables/responsible:dir:kebili", None, None),
     ]
 
 

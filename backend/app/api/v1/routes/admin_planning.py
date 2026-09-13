@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Header, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,7 +22,7 @@ from app.schemas.admin_planning import (
     AdminPlanningGenerateDraftsRequest,
     AdminPlanningRegenerateDraftRequest,
     AdminPlanningRejectDraftRequest,
-    AdminPlanningResponsableRequest,
+    AdminPlanningResponsableDirectoryRequest,
     AdminPlanningRunAutomationRequest,
     AdminPlanningSendDraftRequest,
     AdminPlanningUpdateDraftRequest,
@@ -410,67 +410,101 @@ async def list_responsables_directory(
 
 @router.post(
     "/responsables",
-    summary="Save responsable directory contact",
-    description="Creates or updates one RH or DIR C/R responsable contact.",
+    summary="Create responsable",
+    description="Creates one responsable in the backend responsable directory.",
 )
-async def save_responsable_directory_contact(
-    request: AdminPlanningResponsableRequest,
+async def create_responsable_directory_entry(
+    request: AdminPlanningResponsableDirectoryRequest,
     current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
-    gateway: Annotated[
-        PlanningManagementGateway,
-        Depends(get_planning_management_gateway),
-    ],
+    db: Annotated[Session, Depends(get_db)],
 ) -> Any:
-    result = await gateway.post_json(
-        "responsables",
-        request.model_dump(),
-    )
-    _record_planning_audit(
+    try:
+        responsable = ResponsableDirectoryService(db).create_responsable(
+            nom_complet=request.nom_complet,
+            fonction=request.fonction,
+            grande_residence=request.grande_residence,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    _record_responsable_audit(
+        db,
         current_user,
-        "admin.planning.responsable.save",
-        resource_id=request.residence,
-        result=result,
+        "admin.planning.responsable.create",
+        resource_id=responsable["id"],
+        metadata={"responsable": responsable},
     )
-    return result
+    return {"status": "ok", "responsable": responsable}
 
 
 @router.get(
     "/responsables/{contact_key}",
-    summary="Get responsable directory contact",
-    description="Returns one RH or DIR C/R responsable contact by contact key.",
+    summary="Get responsable",
+    description="Returns one responsable from the backend responsable directory.",
 )
 async def get_responsable_directory_contact(
     contact_key: str,
     _: Annotated[User, Depends(get_current_admin_user)],
-    gateway: Annotated[
-        PlanningManagementGateway,
-        Depends(get_planning_management_gateway),
-    ],
+    db: Annotated[Session, Depends(get_db)],
 ) -> Any:
-    return await gateway.get(f"responsables/{contact_key}")
+    responsable = ResponsableDirectoryService(db).get_responsable(contact_key)
+    if responsable is None:
+        raise HTTPException(status_code=404, detail="Responsable not found.")
+    return {"status": "ok", "responsable": responsable}
+
+
+@router.patch(
+    "/responsables/{contact_key}",
+    summary="Update responsable",
+    description="Updates one responsable in the backend responsable directory.",
+)
+async def update_responsable_directory_entry(
+    contact_key: str,
+    request: AdminPlanningResponsableDirectoryRequest,
+    current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Any:
+    try:
+        responsable = ResponsableDirectoryService(db).update_responsable(
+            contact_key,
+            nom_complet=request.nom_complet,
+            fonction=request.fonction,
+            grande_residence=request.grande_residence,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if responsable is None:
+        raise HTTPException(status_code=404, detail="Responsable not found.")
+    _record_responsable_audit(
+        db,
+        current_user,
+        "admin.planning.responsable.update",
+        resource_id=contact_key,
+        metadata={"responsable": responsable},
+    )
+    return {"status": "ok", "responsable": responsable}
 
 
 @router.delete(
     "/responsables/{contact_key}",
-    summary="Delete responsable directory contact",
-    description="Deletes one RH or DIR C/R responsable contact.",
+    summary="Delete responsable",
+    description="Deletes one responsable from the backend responsable directory.",
 )
 async def delete_responsable_directory_contact(
     contact_key: str,
     current_user: Annotated[User, Depends(get_current_admin_planning_editor)],
-    gateway: Annotated[
-        PlanningManagementGateway,
-        Depends(get_planning_management_gateway),
-    ],
+    db: Annotated[Session, Depends(get_db)],
 ) -> Any:
-    result = await gateway.delete(f"responsables/{contact_key}")
-    _record_planning_audit(
+    deleted = ResponsableDirectoryService(db).delete_responsable(contact_key)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Responsable not found.")
+    _record_responsable_audit(
+        db,
         current_user,
         "admin.planning.responsable.delete",
         resource_id=contact_key,
-        result=result,
+        metadata={},
     )
-    return result
+    return {"status": "ok", "deleted": True, "id": contact_key}
 
 
 @router.get(
@@ -1038,6 +1072,27 @@ def _record_planning_audit(
                 metadata=_compact_planning_metadata(result),
             )
     except Exception:
+        pass
+
+
+def _record_responsable_audit(
+    db: Session,
+    actor: User,
+    action: str,
+    *,
+    resource_id: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    try:
+        AuditRepository(db).create(
+            actor=actor,
+            action=action,
+            resource_type="responsable",
+            resource_id=resource_id,
+            metadata=metadata or {},
+        )
+    except Exception:
+        db.rollback()
         pass
 
 

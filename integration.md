@@ -919,18 +919,15 @@ Frontend usage:
 
 ### POST `/api/v1/admin/planning/responsables`
 
-Creates or updates one responsible contact in the planning service.
+Creates one responsable in the backend `responsable` table.
 
 Request:
 
 ```json
 {
-  "role": "rh",
-  "residence": "DIRECTION REGIONALE GABES",
-  "email": "resp.rh@tunisietelecom.tn",
-  "full_name": "Responsable RH Gabes",
-  "direction": "Gabes",
-  "hr_responsible": ""
+  "nom_complet": "Responsable RH Gabes",
+  "fonction": "RESP RH",
+  "grande_residence": "DIRECTION REGIONALE GABES"
 }
 ```
 
@@ -939,13 +936,24 @@ Expected output:
 ```json
 {
   "status": "ok",
-  "contact": {}
+  "responsable": {
+    "id": "responsable-id",
+    "nom_complet": "Responsable RH Gabes",
+    "fonction": "RESP RH",
+    "grande_residence": "DIRECTION REGIONALE GABES",
+    "source_file": "manual",
+    "source_sheet": "admin-dashboard",
+    "source_row": 0,
+    "created_at": "2026-09-13T10:00:00",
+    "updated_at": "2026-09-13T10:00:00"
+  }
 }
 ```
 
 Frontend usage:
 
-- Use only if the dashboard supports manual contact editing.
+- Use from the "Add responsable" form.
+- If the backend returns `409`, show that the same responsable already exists.
 
 ### GET `/api/v1/admin/planning/responsables/{contact_key}`
 
@@ -954,13 +962,53 @@ Expected output:
 ```json
 {
   "status": "ok",
-  "contact": {}
+  "responsable": {
+    "id": "responsable-id",
+    "nom_complet": "Responsable Name",
+    "fonction": "RESP RH",
+    "grande_residence": "DIRECTION REGIONALE SFAX"
+  }
 }
 ```
 
 Frontend usage:
 
-- Detail drawer for a responsable/contact.
+- Detail drawer for one responsable.
+- Use `id` from the list as `{contact_key}`.
+
+### PATCH `/api/v1/admin/planning/responsables/{contact_key}`
+
+Updates one responsable in the backend `responsable` table.
+
+Request:
+
+```json
+{
+  "nom_complet": "Responsable RH Gabes",
+  "fonction": "DIR C/R",
+  "grande_residence": "DIRECTION REGIONALE GABES"
+}
+```
+
+Expected output:
+
+```json
+{
+  "status": "ok",
+  "responsable": {
+    "id": "responsable-id",
+    "nom_complet": "Responsable RH Gabes",
+    "fonction": "DIR C/R",
+    "grande_residence": "DIRECTION REGIONALE GABES"
+  }
+}
+```
+
+Frontend usage:
+
+- Use from the edit responsable form.
+- Send the full editable object, not only changed fields.
+- If the backend returns `409`, show a duplicate-responsable message.
 
 ### DELETE `/api/v1/admin/planning/responsables/{contact_key}`
 
@@ -968,13 +1016,16 @@ Expected output:
 
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "deleted": true,
+  "id": "responsable-id"
 }
 ```
 
 Frontend usage:
 
 - Require confirmation before delete.
+- Remove the row from the list after success.
 
 ### GET `/api/v1/admin/planning/missing-contacts?import_id=&limit=200`
 

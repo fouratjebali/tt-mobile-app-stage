@@ -55,6 +55,12 @@ class AdminPlanningResponsableRequest(BaseModel):
     hr_responsible: str = ""
 
 
+class AdminPlanningResponsableDirectoryRequest(BaseModel):
+    nom_complet: str = Field(min_length=1, max_length=255)
+    fonction: str = Field(min_length=1, max_length=255)
+    grande_residence: str = Field(min_length=1, max_length=255)
+
+
 class AdminPlanningUpdateDraftRequest(BaseModel):
     subject: str | None = None
     body: str | None = None
