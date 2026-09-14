@@ -31,9 +31,11 @@ class HomeViewModel extends ChangeNotifier {
   double accuracyRate = 0;
   List<Email> recentEmails = [];
 
-  Future<void> loadSummary() async {
-    state = LoadState.loading;
-    notifyListeners();
+  Future<void> loadSummary({bool showLoading = true}) async {
+    if (showLoading) {
+      state = LoadState.loading;
+      notifyListeners();
+    }
 
     try {
       final user = await _authUseCase.getCurrentUser();
@@ -73,7 +75,7 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refresh() => loadSummary();
+  Future<void> refresh() => loadSummary(showLoading: false);
 
   Future<void> toggleAgent(bool value) async {
     agentActive = value;

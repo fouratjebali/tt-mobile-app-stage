@@ -28,7 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _viewModel = getIt<HomeViewModel>();
     _viewModel.addListener(_onChanged);
-    _viewModel.loadSummary();
+    if (_viewModel.state == LoadState.idle) {
+      _viewModel.loadSummary();
+    }
   }
 
   @override
