@@ -918,6 +918,7 @@ class _EditReplyDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _ReviewTone.of(context);
+    final l10n = context.l10n;
 
     return AlertDialog(
       backgroundColor: tone.surface,
@@ -927,7 +928,7 @@ class _EditReplyDialog extends StatelessWidget {
         side: BorderSide(color: tone.border),
       ),
       title: Text(
-        'Edit reply',
+        l10n.t('review.editReply'),
         style: TextStyle(color: tone.text, fontWeight: FontWeight.w700),
       ),
       content: SizedBox(
@@ -953,7 +954,7 @@ class _EditReplyDialog extends StatelessWidget {
               maxLines: 9,
               style: TextStyle(color: tone.text, height: 1.35),
               decoration: InputDecoration(
-                hintText: 'Write your reply...',
+                hintText: l10n.t('review.writeReplyHint'),
                 hintStyle: TextStyle(color: tone.muted),
                 filled: true,
                 fillColor: tone.softSurface,
@@ -977,11 +978,14 @@ class _EditReplyDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text('Cancel', style: TextStyle(color: tone.muted)),
+          child: Text(
+            context.l10n.t('settings.cancel'),
+            style: TextStyle(color: tone.muted),
+          ),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Send'),
+          child: Text(l10n.t('review.save')),
         ),
       ],
     );
