@@ -18,7 +18,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppPalette.mist,
-      fontFamily: 'Inter',
+      fontFamily: 'Poppins',
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           color: AppPalette.ink,
@@ -88,7 +88,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: const Color(0xFF101614),
-      fontFamily: 'Inter',
+      fontFamily: 'Poppins',
       appBarTheme: const AppBarTheme(
         elevation: 0,
         backgroundColor: Color(0xFF101614),
