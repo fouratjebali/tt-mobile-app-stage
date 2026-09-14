@@ -28,7 +28,7 @@ class FormationsViewModel extends ChangeNotifier {
   String draftEmailTypeFilter = 'all';
   String responsableSearch = '';
   int responsableOffset = 0;
-  static const int responsablePageSize = 20;
+  static const int responsablePageSize = 10;
   static const Duration _cacheDuration = Duration(minutes: 5);
   DateTime? _lastLoadedAt;
   Future<void>? _activeLoad;
