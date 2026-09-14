@@ -107,6 +107,13 @@ const Map<String, String> _english = {
   'home.repliesNeedReview': 'replies need review',
   'home.inboxUnderControl': 'Inbox is under control',
   'home.openReview': 'Open Review to check drafts before sending.',
+  'home.reviewCardTitle': 'Replies need your review',
+  'home.reviewCardSubtitle':
+      '{count} draft replies are waiting for a final check before they move forward.',
+  'home.reviewCardClearTitle': 'Your review queue is clear',
+  'home.reviewCardClearSubtitle':
+      'New draft replies will appear here when they need your attention.',
+  'home.reviewNow': 'Review now',
   'home.newUnreadAppear':
       'New unread emails will appear here after the agents process them.',
   'home.processedToday': 'Processed emails',
@@ -119,8 +126,11 @@ const Map<String, String> _english = {
   'home.reviewRepliesShortcut': 'Check suggested replies before sending.',
   'home.groupDrafts': 'Group drafts',
   'home.groupDraftsShortcut': 'Prepare the same message for many recipients.',
+  'home.groupDraftsShortcutShort': 'Prepare shared messages',
   'home.formations': 'Formations',
   'home.formationsShortcut': 'Import planning and prepare training emails.',
+  'home.formationsShortcutShort': 'Training planning',
+  'home.reviewRepliesShortcutShort': 'Final checks',
   'formations.title': 'Formations',
   'formations.subtitle': 'Planning, participants, and Outlook drafts.',
   'formations.activePlan': 'Current planning is ready',
@@ -546,6 +556,13 @@ const Map<String, String> _french = {
   'home.inboxUnderControl': 'Boîte mail sous contrôle',
   'home.openReview':
       'Ouvrez la revue pour vérifier les brouillons avant envoi.',
+  'home.reviewCardTitle': 'Des réponses attendent votre validation',
+  'home.reviewCardSubtitle':
+      '{count} brouillons sont prêts pour une dernière vérification avant la suite.',
+  'home.reviewCardClearTitle': 'Aucune réponse à vérifier',
+  'home.reviewCardClearSubtitle':
+      'Les nouveaux brouillons apparaîtront ici lorsqu’ils demanderont votre attention.',
+  'home.reviewNow': 'Vérifier',
   'home.newUnreadAppear':
       'Les nouveaux emails non lus apparaîtront ici après traitement.',
   'home.processedToday': 'Emails traités',
@@ -559,9 +576,12 @@ const Map<String, String> _french = {
   'home.groupDrafts': 'Brouillons groupés',
   'home.groupDraftsShortcut':
       'Préparer le même message pour plusieurs destinataires.',
+  'home.groupDraftsShortcutShort': 'Préparer un message commun',
   'home.formations': 'Formations',
   'home.formationsShortcut':
       'Importer le planning et préparer les emails de formation.',
+  'home.formationsShortcutShort': 'Planning formation',
+  'home.reviewRepliesShortcutShort': 'Dernières vérifications',
   'formations.title': 'Formations',
   'formations.subtitle': 'Planning, participants et brouillons Outlook.',
   'formations.activePlan': 'Planning courant prêt',
