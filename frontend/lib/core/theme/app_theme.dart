@@ -22,12 +22,12 @@ class AppTheme {
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           color: AppPalette.ink,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           height: 0.98,
         ),
         headlineMedium: TextStyle(
           color: AppPalette.ink,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           height: 1.04,
         ),
         bodyLarge: TextStyle(
@@ -36,7 +36,7 @@ class AppTheme {
           height: 1.45,
         ),
         bodyMedium: TextStyle(color: AppPalette.pine, height: 1.4),
-        labelLarge: TextStyle(fontWeight: FontWeight.w800),
+        labelLarge: TextStyle(fontWeight: FontWeight.w700),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
@@ -54,7 +54,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       switchTheme: SwitchThemeData(
@@ -98,12 +98,12 @@ class AppTheme {
       textTheme: TextTheme(
         displayLarge: const TextStyle(
           color: AppPalette.white,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           height: 0.98,
         ),
         headlineMedium: const TextStyle(
           color: AppPalette.white,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           height: 1.04,
         ),
         bodyLarge: TextStyle(
@@ -115,7 +115,7 @@ class AppTheme {
           color: AppPalette.white.withValues(alpha: 0.74),
           height: 1.4,
         ),
-        labelLarge: const TextStyle(fontWeight: FontWeight.w800),
+        labelLarge: const TextStyle(fontWeight: FontWeight.w700),
       ),
       cardTheme: CardThemeData(
         elevation: 0,
@@ -133,7 +133,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
       switchTheme: SwitchThemeData(

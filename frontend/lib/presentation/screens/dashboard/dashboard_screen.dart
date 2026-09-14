@@ -296,7 +296,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   '${_viewModel.averageSentimentScore.toStringAsFixed(0)}%',
                                   style: const TextStyle(
                                     fontSize: 22,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
@@ -400,7 +400,7 @@ class _MetricCard extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -410,7 +410,7 @@ class _MetricCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -438,7 +438,7 @@ class _ChartCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           child,
@@ -473,7 +473,7 @@ class _InfoCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: TextStyle(color: color, fontWeight: FontWeight.w800),
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(content),

@@ -147,7 +147,7 @@ class _OnboardingHeader extends StatelessWidget {
             style: TextStyle(
               color: AppPalette.ink,
               fontSize: 20,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -197,7 +197,7 @@ class _OnboardingPage extends StatelessWidget {
                     style: const TextStyle(
                       color: AppPalette.ink,
                       height: 1.02,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ).copyWith(fontSize: titleSize),
                   ),
                   SizedBox(height: isCompact ? 8 : 14),
@@ -332,7 +332,7 @@ class _HeroVisual extends StatelessWidget {
                             style: const TextStyle(
                               color: AppPalette.mist,
                               fontSize: 15,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -422,7 +422,7 @@ class _FloatingBadge extends StatelessWidget {
               style: const TextStyle(
                 color: AppPalette.ink,
                 fontSize: 12.5,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -488,7 +488,7 @@ class _PrimaryActionButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ).copyWith(
           overlayColor: WidgetStateProperty.all(
             AppPalette.lavender.withValues(alpha: 0.18),

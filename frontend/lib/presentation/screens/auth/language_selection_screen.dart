@@ -75,7 +75,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                       style: TextStyle(
                         color: AppPalette.ink,
                         fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -86,7 +86,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                   style: const TextStyle(
                     color: AppPalette.ink,
                     fontSize: 40,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     height: 1.04,
                   ),
                 ),
@@ -131,7 +131,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                       l10n.t('language.continue'),
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -185,7 +185,7 @@ class _LanguageChoice extends StatelessWidget {
                     style: const TextStyle(
                       color: AppPalette.ink,
                       fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 4),

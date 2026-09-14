@@ -233,7 +233,7 @@ class _AssistantHeader extends StatelessWidget {
                   style: TextStyle(
                     color: textColor,
                     fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     height: 1.05,
                   ),
                 ),
@@ -259,7 +259,7 @@ class _AssistantHeader extends StatelessWidget {
                         style: TextStyle(
                           color: subColor,
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -359,7 +359,7 @@ class _QuickPromptChip extends StatelessWidget {
                       ? Colors.white.withValues(alpha: 0.78)
                       : AppPalette.pine,
               fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -552,7 +552,7 @@ class _ThinkingBubble extends StatelessWidget {
                             ? Colors.white.withValues(alpha: 0.82)
                             : AppPalette.pine,
                     fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -720,7 +720,7 @@ class _EmptyConversation extends StatelessWidget {
               style: TextStyle(
                 color: titleColor,
                 fontSize: 20,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 height: 1.1,
               ),
             ),
@@ -780,7 +780,7 @@ class _SuggestionButton extends StatelessWidget {
         side: BorderSide(color: AppPalette.deepTeal.withValues(alpha: 0.32)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       ),
       child: Text(label),
     );
@@ -809,7 +809,7 @@ class _ConfirmationCard extends StatelessWidget {
             context.l10n.t('assistant.confirmAction'),
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               color: AppPalette.amber,
             ),
           ),

@@ -104,7 +104,7 @@ class _BrandMark extends StatelessWidget {
           style: TextStyle(
             color: AppPalette.mist,
             fontSize: 18,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -127,7 +127,7 @@ class _LoginHero extends StatelessWidget {
           style: TextStyle(
             color: AppPalette.mist,
             fontSize: 42,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             height: 1.02,
           ),
         ),
@@ -180,7 +180,7 @@ class _OutlookButton extends StatelessWidget {
           isLoading
               ? l10n.t('auth.connecting')
               : l10n.t('auth.continueOutlook'),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
     );

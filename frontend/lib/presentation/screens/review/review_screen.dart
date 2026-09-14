@@ -242,7 +242,7 @@ class _ReviewHeader extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 28,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.05,
             ),
           ),
@@ -386,7 +386,7 @@ class _FilterChipButton extends StatelessWidget {
             style: TextStyle(
               color: selected ? active : tone.text,
               fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -424,7 +424,7 @@ class _HeaderNotice extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontSize: 11,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -584,7 +584,7 @@ class _ReviewEmailCard extends StatelessWidget {
                               style: TextStyle(
                                 color: tone.text,
                                 fontSize: 16,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w700,
                                 height: 1.25,
                               ),
                             ),
@@ -596,7 +596,7 @@ class _ReviewEmailCard extends StatelessWidget {
                               style: TextStyle(
                                 color: tone.muted,
                                 fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -608,7 +608,7 @@ class _ReviewEmailCard extends StatelessWidget {
                         style: TextStyle(
                           color: tone.muted,
                           fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -731,7 +731,7 @@ class _ReviewReason extends StatelessWidget {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 height: 1.35,
               ),
             ),
@@ -790,7 +790,7 @@ class _ReviewTextBlock extends StatelessWidget {
                 style: TextStyle(
                   color: highlighted ? accent : tone.muted,
                   fontSize: 11,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w600,
                   letterSpacing: 0.4,
                 ),
               ),
@@ -870,7 +870,7 @@ class _ReviewStatePill extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontSize: 11,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
               height: 1,
             ),
           ),
@@ -901,7 +901,7 @@ class _InfoPill extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 11,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           height: 1,
         ),
       ),
@@ -928,7 +928,7 @@ class _EditReplyDialog extends StatelessWidget {
       ),
       title: Text(
         'Edit reply',
-        style: TextStyle(color: tone.text, fontWeight: FontWeight.w900),
+        style: TextStyle(color: tone.text, fontWeight: FontWeight.w700),
       ),
       content: SizedBox(
         width: 420,
@@ -943,7 +943,7 @@ class _EditReplyDialog extends StatelessWidget {
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 12),
@@ -1006,7 +1006,7 @@ class _SkipReplyDialog extends StatelessWidget {
       ),
       title: Text(
         'Skip reply?',
-        style: TextStyle(color: tone.text, fontWeight: FontWeight.w900),
+        style: TextStyle(color: tone.text, fontWeight: FontWeight.w700),
       ),
       content: Text(
         'Mark "${subject.trim().isEmpty ? 'this email' : subject}" as handled without sending a reply.',
@@ -1063,7 +1063,7 @@ class _EmptyState extends StatelessWidget {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 20,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
@@ -1143,7 +1143,7 @@ class _InlineBanner extends StatelessWidget {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -1183,7 +1183,7 @@ class _ActionErrorBanner extends StatelessWidget {
               style: const TextStyle(
                 color: AppPalette.clay,
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

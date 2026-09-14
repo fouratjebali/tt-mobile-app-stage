@@ -528,7 +528,7 @@ class _FormationDetailHeader extends StatelessWidget {
                 style: TextStyle(
                   color: tone.text,
                   fontSize: 23,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   height: 1.08,
                 ),
               ),
@@ -540,7 +540,7 @@ class _FormationDetailHeader extends StatelessWidget {
                 style: TextStyle(
                   color: tone.muted,
                   fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   height: 1.25,
                 ),
               ),
@@ -588,7 +588,7 @@ class _FormationHeader extends StatelessWidget {
                 style: TextStyle(
                   color: tone.text,
                   fontSize: 28,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   height: 1.05,
                 ),
               ),
@@ -600,7 +600,7 @@ class _FormationHeader extends StatelessWidget {
                 style: TextStyle(
                   color: tone.muted,
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   height: 1.25,
                 ),
               ),
@@ -664,7 +664,7 @@ class _FormationHubSummary extends StatelessWidget {
                       style: TextStyle(
                         color: tone.text,
                         fontSize: 16.5,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -677,7 +677,7 @@ class _FormationHubSummary extends StatelessWidget {
                       style: TextStyle(
                         color: tone.muted,
                         fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         height: 1.3,
                       ),
                     ),
@@ -751,7 +751,7 @@ class _FormationWorkflowSection extends StatelessWidget {
           style: TextStyle(
             color: tone.text,
             fontSize: 18,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 12),
@@ -877,7 +877,7 @@ class _WorkflowTile extends StatelessWidget {
                       style: TextStyle(
                         color: tone.text,
                         fontSize: 15.5,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -905,7 +905,7 @@ class _WorkflowTile extends StatelessWidget {
                       style: TextStyle(
                         color: color,
                         fontSize: 18,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         height: 1,
                       ),
                     ),
@@ -917,7 +917,7 @@ class _WorkflowTile extends StatelessWidget {
                       style: TextStyle(
                         color: tone.muted,
                         fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -974,7 +974,7 @@ class _UploadPanel extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 17,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -1044,7 +1044,7 @@ class _CandidateListPanel extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 15.5,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1089,7 +1089,7 @@ class _MonthOverview extends StatelessWidget {
           style: TextStyle(
             color: tone.text,
             fontSize: 18,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 12),
@@ -1168,7 +1168,7 @@ class _FormationStatCard extends StatelessWidget {
                 style: TextStyle(
                   color: accent,
                   fontSize: 26,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   height: 1,
                 ),
               ),
@@ -1180,7 +1180,7 @@ class _FormationStatCard extends StatelessWidget {
                 style: TextStyle(
                   color: tone.muted,
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -1227,7 +1227,7 @@ class _ActionPanel extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 16,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -1334,7 +1334,7 @@ class _MiniMetric extends StatelessWidget {
             style: const TextStyle(
               color: AppPalette.deepTeal,
               fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1,
             ),
           ),
@@ -1346,7 +1346,7 @@ class _MiniMetric extends StatelessWidget {
             style: TextStyle(
               color: tone.muted,
               fontSize: 10.5,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1431,7 +1431,7 @@ class _TrainingCalendarSectionState extends State<_TrainingCalendarSection> {
           style: TextStyle(
             color: widget.tone.muted,
             fontSize: 13,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             height: 1.35,
           ),
         ),
@@ -1648,7 +1648,7 @@ class _CalendarDateButton extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -1732,7 +1732,7 @@ class _CalendarMonthSummary extends StatelessWidget {
       style: TextStyle(
         color: tone.muted,
         fontSize: 12,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         height: 1.35,
       ),
     );
@@ -1807,7 +1807,7 @@ class _CalendarMonthPickerSheetState extends State<_CalendarMonthPickerSheet> {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 18,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 16),
@@ -1816,7 +1816,7 @@ class _CalendarMonthPickerSheetState extends State<_CalendarMonthPickerSheet> {
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 12,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
@@ -1840,7 +1840,7 @@ class _CalendarMonthPickerSheetState extends State<_CalendarMonthPickerSheet> {
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 12,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
@@ -1937,7 +1937,7 @@ class _CalendarYearChip extends StatelessWidget {
                 style: TextStyle(
                   color: accent,
                   fontSize: 13,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -2001,7 +2001,7 @@ class _CalendarMonthChip extends StatelessWidget {
                 style: TextStyle(
                   color: accent,
                   fontSize: 13,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -2035,7 +2035,7 @@ class _CalendarCountBadge extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 10,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           height: 1,
         ),
       ),
@@ -2100,7 +2100,7 @@ class _CalendarPaginationControls extends StatelessWidget {
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 12,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -2211,7 +2211,7 @@ class _TrainingSessionCard extends StatelessWidget {
                           style: TextStyle(
                             color: tone.text,
                             fontSize: 15,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w600,
                             height: 1.2,
                           ),
                         ),
@@ -2223,7 +2223,7 @@ class _TrainingSessionCard extends StatelessWidget {
                           style: TextStyle(
                             color: tone.muted,
                             fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -2349,7 +2349,7 @@ class _CalendarSessionDetailSheetState
                     style: TextStyle(
                       color: tone.muted,
                       fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -2439,7 +2439,7 @@ class _CalendarSessionDetailContent extends StatelessWidget {
                       style: TextStyle(
                         color: tone.muted,
                         fontSize: 12,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -2450,7 +2450,7 @@ class _CalendarSessionDetailContent extends StatelessWidget {
                       style: TextStyle(
                         color: tone.text,
                         fontSize: 18,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         height: 1.16,
                       ),
                     ),
@@ -2626,7 +2626,7 @@ class _SessionDetailItem extends StatelessWidget {
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 10.5,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -2637,7 +2637,7 @@ class _SessionDetailItem extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     height: 1.25,
                   ),
                 ),
@@ -2705,7 +2705,7 @@ class _SessionParticipantTile extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 13.5,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -2716,7 +2716,7 @@ class _SessionParticipantTile extends StatelessWidget {
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     height: 1.25,
                   ),
                 ),
@@ -2771,7 +2771,7 @@ class _SessionInfoPill extends StatelessWidget {
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 11.5,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -3027,7 +3027,7 @@ class _FilterChipButton extends StatelessWidget {
             style: TextStyle(
               color: selected ? AppPalette.white : tone.text,
               fontSize: 12.5,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -3083,7 +3083,7 @@ class _DraftCard extends StatelessWidget {
                       style: TextStyle(
                         color: tone.text,
                         fontSize: 15.5,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         height: 1.15,
                       ),
                     ),
@@ -3100,7 +3100,7 @@ class _DraftCard extends StatelessWidget {
                 style: TextStyle(
                   color: tone.muted,
                   fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),
@@ -3213,7 +3213,7 @@ class _SendHistoryCard extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                     height: 1.15,
                   ),
                 ),
@@ -3235,7 +3235,7 @@ class _SendHistoryCard extends StatelessWidget {
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -3254,7 +3254,7 @@ class _SendHistoryCard extends StatelessWidget {
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -3269,7 +3269,7 @@ class _SendHistoryCard extends StatelessWidget {
               style: TextStyle(
                 color: AppPalette.clay,
                 fontSize: 12.5,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 height: 1.3,
               ),
             ),
@@ -3458,7 +3458,7 @@ class _ResponsableDirectoryCard extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 14.5,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -3469,7 +3469,7 @@ class _ResponsableDirectoryCard extends StatelessWidget {
                   style: TextStyle(
                     color: accent,
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -3480,7 +3480,7 @@ class _ResponsableDirectoryCard extends StatelessWidget {
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     height: 1.25,
                   ),
                 ),
@@ -3554,7 +3554,7 @@ class _ImportFeedbackSheet extends StatelessWidget {
                     style: TextStyle(
                       color: tone.text,
                       fontSize: 22,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -3583,7 +3583,7 @@ class _ImportFeedbackSheet extends StatelessWidget {
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 height: 1.35,
               ),
             ),
@@ -3677,7 +3677,7 @@ class _ImportFeedbackSheet extends StatelessWidget {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 16,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 10),
@@ -3778,7 +3778,7 @@ class _FeedbackMetric extends StatelessWidget {
                 style: TextStyle(
                   color: accent,
                   fontSize: 23,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   height: 1,
                 ),
               ),
@@ -3790,7 +3790,7 @@ class _FeedbackMetric extends StatelessWidget {
                 style: TextStyle(
                   color: tone.muted,
                   fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -3842,7 +3842,7 @@ class _ImportFileResultCard extends StatelessWidget {
                       style: TextStyle(
                         color: tone.text,
                         fontSize: 14,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -3853,7 +3853,7 @@ class _ImportFileResultCard extends StatelessWidget {
                       style: TextStyle(
                         color: tone.muted,
                         fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -3979,7 +3979,7 @@ class _AutomationSettingsSheetState extends State<_AutomationSettingsSheet> {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 22,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 7),
@@ -3988,7 +3988,7 @@ class _AutomationSettingsSheetState extends State<_AutomationSettingsSheet> {
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 height: 1.35,
               ),
             ),
@@ -4092,7 +4092,7 @@ class _SwitchSettingRow extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 14.5,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -4301,7 +4301,7 @@ class _DraftReviewSheetState extends State<_DraftReviewSheet> {
                     style: TextStyle(
                       color: tone.text,
                       fontSize: 22,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -4462,7 +4462,7 @@ class _TrainingDraftPreview extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -4476,7 +4476,7 @@ class _TrainingDraftPreview extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 16,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.25,
             ),
           ),
@@ -4541,7 +4541,7 @@ class _DraftMetaRow extends StatelessWidget {
                 style: TextStyle(
                   color: tone.muted,
                   fontSize: 11.5,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 3),
@@ -4550,7 +4550,7 @@ class _DraftMetaRow extends StatelessWidget {
                 style: TextStyle(
                   color: tone.text,
                   fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   height: 1.3,
                 ),
               ),
@@ -4587,7 +4587,7 @@ class _LabeledField extends StatelessWidget {
           style: TextStyle(
             color: tone.text,
             fontSize: 13,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 7),
@@ -4634,7 +4634,7 @@ class _SectionHeader extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -4677,7 +4677,7 @@ class _InlineMessage extends StatelessWidget {
               style: TextStyle(
                 color: tone.muted,
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 height: 1.35,
               ),
             ),
@@ -4726,7 +4726,7 @@ class _StatusPill extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 11,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           height: 1,
         ),
       ),

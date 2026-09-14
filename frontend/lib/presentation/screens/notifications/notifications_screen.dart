@@ -183,7 +183,7 @@ class _NotificationsHeader extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 28,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     height: 1.05,
                   ),
                 ),
@@ -263,7 +263,7 @@ class _HeaderPill extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontSize: 11,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -331,7 +331,7 @@ class _NotificationCard extends StatelessWidget {
                               style: TextStyle(
                                 color: tone.text,
                                 fontSize: 15,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w600,
                                 height: 1.2,
                               ),
                             ),
@@ -342,7 +342,7 @@ class _NotificationCard extends StatelessWidget {
                             style: TextStyle(
                               color: tone.muted,
                               fontSize: 11,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -410,7 +410,7 @@ class _MiniBadge extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 10.5,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           height: 1,
         ),
       ),
@@ -449,7 +449,7 @@ class _InlineBanner extends StatelessWidget {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -491,7 +491,7 @@ class _EmptyNotifications extends StatelessWidget {
           style: TextStyle(
             color: tone.text,
             fontSize: 20,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 8),

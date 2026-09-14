@@ -250,7 +250,7 @@ class _NavItem extends StatelessWidget {
                         color: selected ? activeColor : inactiveColor,
                         fontSize: 10.5,
                         fontWeight:
-                            selected ? FontWeight.w800 : FontWeight.w700,
+                            selected ? FontWeight.w700 : FontWeight.w700,
                         height: 1,
                       ),
                       child: Text(
@@ -292,7 +292,7 @@ class _NavBadge extends StatelessWidget {
         style: const TextStyle(
           color: AppPalette.white,
           fontSize: 9,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           height: 1,
         ),
       ),

@@ -135,7 +135,7 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
             ),
             title: Text(
               title,
-              style: TextStyle(color: tone.text, fontWeight: FontWeight.w900),
+              style: TextStyle(color: tone.text, fontWeight: FontWeight.w700),
             ),
             content: Text(
               message,
@@ -316,7 +316,7 @@ class _DetailTopBar extends StatelessWidget {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 20,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -378,7 +378,7 @@ class _MessageHero extends StatelessWidget {
                       style: TextStyle(
                         color: tone.text,
                         fontSize: 14,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -402,7 +402,7 @@ class _MessageHero extends StatelessWidget {
                 style: TextStyle(
                   color: tone.muted,
                   fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   height: 1.25,
                 ),
               ),
@@ -414,7 +414,7 @@ class _MessageHero extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 20,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.18,
             ),
           ),
@@ -459,7 +459,7 @@ class _SenderAvatar extends StatelessWidget {
         _initial(sender),
         style: const TextStyle(
           color: AppPalette.deepTeal,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -513,7 +513,7 @@ class _SectionCard extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 14,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -716,7 +716,7 @@ class _AttachmentsCard extends StatelessWidget {
                             style: TextStyle(
                               color: tone.text,
                               fontSize: 13,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -853,7 +853,7 @@ class _InlineError extends StatelessWidget {
               style: const TextStyle(
                 color: AppPalette.clay,
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -884,7 +884,7 @@ class _InfoPill extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 11,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           height: 1,
         ),
       ),

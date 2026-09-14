@@ -509,7 +509,7 @@ class _DraftQualityControls extends StatelessWidget {
                 style: TextStyle(
                   color: toneColors.text,
                   fontSize: 14,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -564,7 +564,7 @@ class _ControlLabel extends StatelessWidget {
       style: TextStyle(
         color: tone.muted,
         fontSize: 11,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0.5,
       ),
     );
@@ -641,7 +641,7 @@ class _ChoiceChipButton extends StatelessWidget {
             style: TextStyle(
               color: selected ? activeColor : tone.text,
               fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -701,7 +701,7 @@ class _AddRecipientDialogState extends State<_AddRecipientDialog> {
         style: TextStyle(
           color: tone.text,
           fontSize: 20,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
         ),
       ),
       content: Column(
@@ -760,7 +760,7 @@ class _BulkHeader extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 28,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.05,
             ),
           ),
@@ -814,7 +814,7 @@ class _HeaderStatus extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontSize: 11,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -836,7 +836,7 @@ class _SectionLabel extends StatelessWidget {
       style: TextStyle(
         color: tone.muted,
         fontSize: 11,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0.8,
       ),
     );
@@ -903,7 +903,7 @@ class _CountPill extends StatelessWidget {
                   ? AppPalette.lavender
                   : AppPalette.deepTeal,
           fontSize: 11,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -937,7 +937,7 @@ class _EmptyRecipients extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 15,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
@@ -995,7 +995,7 @@ class _AddRecipientButton extends StatelessWidget {
                 style: TextStyle(
                   color: tone.text,
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -1046,7 +1046,7 @@ class _GenerationProgress extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 14,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1116,7 +1116,7 @@ class _RecipientCard extends StatelessWidget {
               style: const TextStyle(
                 color: AppPalette.white,
                 fontSize: 12,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -1133,7 +1133,7 @@ class _RecipientCard extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 14,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -1144,7 +1144,7 @@ class _RecipientCard extends StatelessWidget {
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1237,7 +1237,7 @@ class _PreviewLabel extends StatelessWidget {
       style: TextStyle(
         color: tone.muted,
         fontSize: 11,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0.8,
       ),
     );
@@ -1327,7 +1327,7 @@ class _PreviewAndEditDialogState extends State<_PreviewAndEditDialog> {
         style: TextStyle(
           color: tone.text,
           fontSize: 20,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
         ),
       ),
       content: SizedBox(
@@ -1343,7 +1343,7 @@ class _PreviewAndEditDialogState extends State<_PreviewAndEditDialog> {
                 style: TextStyle(
                   color: tone.text,
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 18),
@@ -1426,7 +1426,7 @@ class _EditableDraftCard extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 13,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),

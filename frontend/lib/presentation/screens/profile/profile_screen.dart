@@ -153,7 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   l10n.t('settings.replyLanguage'),
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
                 _LanguageOption(
@@ -196,7 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   l10n.t('settings.appLanguage'),
                   style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -279,7 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 28,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 height: 1.05,
               ),
             ),
@@ -447,7 +447,7 @@ class _AccountCard extends StatelessWidget {
                         style: TextStyle(
                           color: tone.text,
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       )
                       : null,
@@ -561,7 +561,7 @@ class _AssistantControlPanel extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -631,7 +631,7 @@ class _LanguageTile extends StatelessWidget {
                       style: TextStyle(
                         color: tone.text,
                         fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -719,7 +719,7 @@ class _PreferenceToggle extends StatelessWidget {
                     style: TextStyle(
                       color: tone.text,
                       fontSize: 15,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -803,7 +803,7 @@ class _LanguageOption extends StatelessWidget {
                 style: TextStyle(
                   color: tone.text,
                   fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

@@ -203,7 +203,7 @@ class _TodayHeader extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 28,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.05,
             ),
           ),
@@ -279,7 +279,7 @@ class _HeaderNotice extends StatelessWidget {
             style: const TextStyle(
               color: AppPalette.clay,
               fontSize: 11,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -330,7 +330,7 @@ class _DateButton extends StatelessWidget {
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -477,7 +477,7 @@ class _FilterChipButton extends StatelessWidget {
             style: TextStyle(
               color: selected ? active : tone.text,
               fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -605,7 +605,7 @@ class _TimelineCard extends StatelessWidget {
                           style: TextStyle(
                             color: statusColor,
                             fontSize: 12,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 5),
@@ -618,7 +618,7 @@ class _TimelineCard extends StatelessWidget {
                           style: TextStyle(
                             color: tone.text,
                             fontSize: 15,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w600,
                             height: 1.25,
                           ),
                         ),
@@ -631,7 +631,7 @@ class _TimelineCard extends StatelessWidget {
                     style: TextStyle(
                       color: tone.muted,
                       fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -644,7 +644,7 @@ class _TimelineCard extends StatelessWidget {
                 style: TextStyle(
                   color: tone.muted,
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               if (summary != null && summary.isNotEmpty) ...[
@@ -711,7 +711,7 @@ class _MiniBadge extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 10.5,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w600,
           height: 1,
         ),
       ),
@@ -750,7 +750,7 @@ class _Notice extends StatelessWidget {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -791,7 +791,7 @@ class _EmptyState extends StatelessWidget {
               style: TextStyle(
                 color: tone.text,
                 fontSize: 20,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),

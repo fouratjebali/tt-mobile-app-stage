@@ -214,7 +214,7 @@ class _GreetingHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontSize: 25,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   height: 1.2,
                 ),
               ),
@@ -252,7 +252,7 @@ class _GreetingHeader extends StatelessWidget {
                     _initials(userName, userEmail),
                     style: TextStyle(
                       color: tone.text,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   )
                   : null,
@@ -362,7 +362,7 @@ class _NotificationIconButton extends StatelessWidget {
                         style: const TextStyle(
                           color: AppPalette.white,
                           fontSize: 8.5,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w600,
                           height: 1,
                         ),
                       ),
@@ -488,7 +488,7 @@ class _KPICard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: color,
                     height: 1,
                   ),
@@ -500,7 +500,7 @@ class _KPICard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: tone.muted,
                   ),
                 ),
@@ -594,7 +594,7 @@ class _SectionTitle extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 17,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -603,7 +603,7 @@ class _SectionTitle extends StatelessWidget {
           style: TextStyle(
             color: tone.muted,
             fontSize: 12,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -665,7 +665,7 @@ class _ActivityCard extends StatelessWidget {
                             style: TextStyle(
                               color: tone.text,
                               fontSize: 14,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                               height: 1.3,
                             ),
                           ),
@@ -847,7 +847,7 @@ class _ShortcutButton extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                         color: tone.text,
                       ),
                     ),
@@ -959,7 +959,7 @@ class _EmptyPanel extends StatelessWidget {
             style: TextStyle(
               color: tone.text,
               fontSize: 15,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
 
@@ -1004,7 +1004,7 @@ class _Badge extends StatelessWidget {
 
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
           color: color,
         ),
       ),
