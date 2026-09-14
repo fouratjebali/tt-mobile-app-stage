@@ -151,7 +151,7 @@ Future<void> init() async {
     () => NotificationCenterViewModel(emailUseCase: getIt<EmailUseCase>()),
   );
 
-  getIt.registerFactory<FormationsViewModel>(
+  getIt.registerLazySingleton<FormationsViewModel>(
     () => FormationsViewModel(planningApiService: getIt<PlanningApiService>()),
   );
 

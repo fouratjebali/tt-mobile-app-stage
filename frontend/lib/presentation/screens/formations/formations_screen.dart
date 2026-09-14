@@ -315,13 +315,13 @@ class _FormationsScreenState extends State<FormationsScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _viewModel.load,
+          onRefresh: _viewModel.refresh,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             children: [
               _FormationHeader(
                 onBack: () => Navigator.of(context).maybePop(),
-                onRefresh: _viewModel.load,
+                onRefresh: _viewModel.refresh,
               ),
               const SizedBox(height: 18),
               if (isLoading) const LinearProgressIndicator(minHeight: 3),
@@ -450,7 +450,7 @@ class _FormationDetailPage extends StatelessWidget {
           builder: (context, _) {
             final isLoading = viewModel.state == LoadState.loading;
             return RefreshIndicator(
-              onRefresh: viewModel.load,
+              onRefresh: viewModel.refresh,
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
                 children: [
@@ -458,7 +458,7 @@ class _FormationDetailPage extends StatelessWidget {
                     title: l10n.t(titleKey),
                     subtitle: l10n.t(subtitleKey),
                     onBack: () => Navigator.of(context).maybePop(),
-                    onRefresh: viewModel.load,
+                    onRefresh: viewModel.refresh,
                   ),
                   const SizedBox(height: 18),
                   if (isLoading) const LinearProgressIndicator(minHeight: 3),

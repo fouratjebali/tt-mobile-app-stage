@@ -29,6 +29,9 @@ class FormationsViewModel extends ChangeNotifier {
   String responsableSearch = '';
   int responsableOffset = 0;
   static const int responsablePageSize = 20;
+  static const Duration _cacheDuration = Duration(minutes: 5);
+  DateTime? _lastLoadedAt;
+  Future<void>? _activeLoad;
 
   int get sessions => activeImport?.totalSessions ?? 0;
   int get participants => activeImport?.totalParticipants ?? 0;
@@ -62,7 +65,30 @@ class FormationsViewModel extends ChangeNotifier {
   int get contactReviewCount => contactReviewSummary?.needsReview ?? 0;
   int get contactMatchedCount => contactReviewSummary?.matched ?? 0;
 
-  Future<void> load() async {
+  bool get hasLoaded => _lastLoadedAt != null && state == LoadState.success;
+
+  bool get _hasFreshCache {
+    final loadedAt = _lastLoadedAt;
+    if (loadedAt == null) return false;
+    return DateTime.now().difference(loadedAt) < _cacheDuration;
+  }
+
+  Future<void> load({bool forceRefresh = false}) {
+    if (!forceRefresh && _hasFreshCache) {
+      return Future.value();
+    }
+    final activeLoad = _activeLoad;
+    if (!forceRefresh && activeLoad != null) {
+      return activeLoad;
+    }
+    final loadFuture = _loadFromNetwork();
+    _activeLoad = loadFuture;
+    return loadFuture.whenComplete(() => _activeLoad = null);
+  }
+
+  Future<void> refresh() => load(forceRefresh: true);
+
+  Future<void> _loadFromNetwork() async {
     state = LoadState.loading;
     errorMessage = null;
     notifyListeners();
@@ -72,6 +98,7 @@ class FormationsViewModel extends ChangeNotifier {
       activeImport = imports.isNotEmpty ? imports.first : null;
       await _loadResponsables();
       await _loadDetails();
+      _lastLoadedAt = DateTime.now();
       state = LoadState.success;
     } catch (error) {
       errorMessage = error.toString();
@@ -109,6 +136,7 @@ class FormationsViewModel extends ChangeNotifier {
         orElse: () => activeImport!,
       );
       await _loadDetails();
+      _lastLoadedAt = DateTime.now();
       state = LoadState.success;
     } catch (error) {
       errorMessage = error.toString();
@@ -156,6 +184,7 @@ class FormationsViewModel extends ChangeNotifier {
         );
       }
       await _loadDetails();
+      _lastLoadedAt = DateTime.now();
       state = LoadState.success;
     } catch (error) {
       errorMessage = error.toString();
@@ -246,6 +275,7 @@ class FormationsViewModel extends ChangeNotifier {
         orElse: () => activeImport!,
       );
       await _loadDetails();
+      _lastLoadedAt = DateTime.now();
       state = LoadState.success;
     } catch (error) {
       errorMessage = error.toString();
@@ -404,17 +434,18 @@ class FormationsViewModel extends ChangeNotifier {
       contactReviews = const [];
       return;
     }
-    trainingSessions = await _planningApiService.listSessions(
-      importId: importId,
-    );
-    drafts = await _loadDraftsForImport(importId);
-    sendHistory = await _planningApiService.listSendHistory(importId: importId);
-    missingContacts = await _planningApiService.listMissingContacts(
-      importId: importId,
-    );
-    contactReviewSummary = await _planningApiService.listContactReview(
-      importId: importId,
-    );
+    final results = await Future.wait<dynamic>([
+      _planningApiService.listSessions(importId: importId),
+      _loadDraftsForImport(importId),
+      _planningApiService.listSendHistory(importId: importId),
+      _planningApiService.listMissingContacts(importId: importId),
+      _planningApiService.listContactReview(importId: importId),
+    ]);
+    trainingSessions = results[0] as List<TrainingCalendarSession>;
+    drafts = results[1] as List<TrainingDraft>;
+    sendHistory = results[2] as List<TrainingSendHistory>;
+    missingContacts = results[3] as List<MissingPlanningContact>;
+    contactReviewSummary = results[4] as PlanningContactReviewSummary;
     contactReviews = contactReviewSummary?.contacts ?? const [];
   }
 
