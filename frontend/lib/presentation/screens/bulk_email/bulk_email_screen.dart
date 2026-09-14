@@ -82,13 +82,14 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
 
   Future<void> _generateEmails() async {
     final campaign = _campaignController.text.trim();
+    final l10n = context.l10n;
 
     if (campaign.isEmpty) {
-      _showMessage('Please enter a campaign topic.');
+      _showMessage(l10n.t('bulk.enterCampaign'));
       return;
     }
     if (_recipients.isEmpty) {
-      _showMessage('Please add at least one recipient.');
+      _showMessage(l10n.t('bulk.addRecipient'));
       return;
     }
 
@@ -110,7 +111,9 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
       }
 
       _showMessage(
-        '${_controller.generatedEmails.length} emails generated successfully.',
+        l10n
+            .t('bulk.generatedCount')
+            .replaceAll('{count}', '${_controller.generatedEmails.length}'),
       );
     } catch (e) {
       if (!mounted) return;
@@ -126,17 +129,18 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
 
   void _previewAndSend() {
     final campaign = _campaignController.text.trim();
+    final l10n = context.l10n;
 
     if (campaign.isEmpty) {
-      _showMessage('Please enter a campaign topic.');
+      _showMessage(l10n.t('bulk.enterCampaign'));
       return;
     }
     if (_recipients.isEmpty) {
-      _showMessage('Please add at least one recipient.');
+      _showMessage(l10n.t('bulk.addRecipient'));
       return;
     }
     if (_controller.generatedEmails.isEmpty) {
-      _showMessage('Generate drafts first, then preview and edit them.');
+      _showMessage(l10n.t('bulk.generateFirst'));
       return;
     }
 
@@ -154,7 +158,10 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
 
     final sent = _controller.results.where((result) => result.isSuccess).length;
     _showMessage(
-      'Bulk send completed: $sent/${_controller.results.length} sent.',
+      context.l10n
+          .t('bulk.sentCount')
+          .replaceAll('{sent}', '$sent')
+          .replaceAll('{total}', '${_controller.results.length}'),
     );
   }
 
@@ -172,13 +179,18 @@ class _BulkEmailScreenState extends State<BulkEmailScreen> {
   }
 
   String _draftInstructions() {
+    final l10n = context.l10n;
+    final displayLanguage =
+        _replyLanguage == 'French'
+            ? l10n.t('language.french')
+            : l10n.t('language.english');
     return [
-      'Write in $_replyLanguage.',
-      'Tone: ${_draftTone.instruction}.',
-      'Length: ${_draftLength.instruction}.',
-      'Personalize each draft using the recipient name, role, and context.',
-      'Keep the subject clear and specific.',
-      'Do not mention AI, automation, or internal tools.',
+      l10n.t('bulk.writeIn').replaceAll('{language}', displayLanguage),
+      l10n.t('bulk.tone').replaceAll('{tone}', _draftTone.instruction),
+      l10n.t('bulk.length').replaceAll('{length}', _draftLength.instruction),
+      l10n.t('bulk.personalize'),
+      l10n.t('bulk.keepSubject'),
+      l10n.t('bulk.hideTools'),
     ].join(' ');
   }
 
@@ -406,26 +418,47 @@ class _BulkTone {
 
 enum _DraftTone {
   professional(
+    'bulk.toneProfessional',
     'Professional',
     'polished, respectful, and business-appropriate',
   ),
-  friendly('Friendly', 'warm, natural, and approachable'),
-  direct('Direct', 'clear, simple, and straight to the point');
+  friendly('bulk.toneFriendly', 'Friendly', 'warm, natural, and approachable'),
+  direct(
+    'bulk.toneDirect',
+    'Direct',
+    'clear, simple, and straight to the point',
+  );
 
-  const _DraftTone(this.label, this.instruction);
+  const _DraftTone(this.labelKey, this.fallbackLabel, this.instruction);
 
-  final String label;
+  final String labelKey;
+  final String fallbackLabel;
   final String instruction;
+
+  String label(AppLocalizations l10n) {
+    final translated = l10n.t(labelKey);
+    return translated == labelKey ? fallbackLabel : translated;
+  }
 }
 
 enum _DraftLength {
-  short('Short', 'keep it brief, around 3 to 5 sentences'),
-  detailed('Detailed', 'include helpful context while staying easy to scan');
+  short('bulk.lengthShort', 'Short', 'keep it brief, around 3 to 5 sentences'),
+  detailed(
+    'bulk.lengthDetailed',
+    'Detailed',
+    'include helpful context while staying easy to scan',
+  );
 
-  const _DraftLength(this.label, this.instruction);
+  const _DraftLength(this.labelKey, this.fallbackLabel, this.instruction);
 
-  final String label;
+  final String labelKey;
+  final String fallbackLabel;
   final String instruction;
+
+  String label(AppLocalizations l10n) {
+    final translated = l10n.t(labelKey);
+    return translated == labelKey ? fallbackLabel : translated;
+  }
 }
 
 class _DraftQualityControls extends StatelessWidget {
@@ -448,6 +481,7 @@ class _DraftQualityControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final toneColors = _BulkTone.of(context);
+    final l10n = context.l10n;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -471,7 +505,7 @@ class _DraftQualityControls extends StatelessWidget {
               ),
               const SizedBox(width: 7),
               Text(
-                'Draft style',
+                l10n.t('bulk.draftStyle'),
                 style: TextStyle(
                   color: toneColors.text,
                   fontSize: 14,
@@ -481,30 +515,34 @@ class _DraftQualityControls extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _ControlLabel(text: 'Tone'),
+          _ControlLabel(text: l10n.t('bulk.toneLabel')),
           const SizedBox(height: 7),
           _ChoiceWrap<_DraftTone>(
             value: tone,
             values: _DraftTone.values,
-            labelFor: (value) => value.label,
+            labelFor: (value) => value.label(l10n),
             onChanged: onToneChanged,
           ),
           const SizedBox(height: 12),
-          _ControlLabel(text: 'Length'),
+          _ControlLabel(text: l10n.t('bulk.lengthLabel')),
           const SizedBox(height: 7),
           _ChoiceWrap<_DraftLength>(
             value: length,
             values: _DraftLength.values,
-            labelFor: (value) => value.label,
+            labelFor: (value) => value.label(l10n),
             onChanged: onLengthChanged,
           ),
           const SizedBox(height: 12),
-          _ControlLabel(text: 'Language'),
+          _ControlLabel(text: l10n.t('bulk.languageLabel')),
           const SizedBox(height: 7),
           _ChoiceWrap<String>(
             value: language,
             values: const ['English', 'French'],
-            labelFor: (value) => value,
+            labelFor:
+                (value) =>
+                    value == 'French'
+                        ? l10n.t('language.french')
+                        : l10n.t('language.english'),
             onChanged: onLanguageChanged,
           ),
         ],
@@ -642,13 +680,14 @@ class _AddRecipientDialogState extends State<_AddRecipientDialog> {
       'initials': _recipientInitials(name),
       'name': name,
       'email': email,
-      'role': role.isEmpty ? 'Recipient' : role,
+      'role': role.isEmpty ? context.l10n.t('bulk.defaultRole') : role,
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final tone = _BulkTone.of(context);
+    final l10n = context.l10n;
 
     return AlertDialog(
       backgroundColor: tone.surface,
@@ -658,7 +697,7 @@ class _AddRecipientDialogState extends State<_AddRecipientDialog> {
         side: BorderSide(color: tone.border),
       ),
       title: Text(
-        'Add recipient',
+        l10n.t('bulk.addRecipientTitle'),
         style: TextStyle(
           color: tone.text,
           fontSize: 20,
@@ -668,18 +707,21 @@ class _AddRecipientDialogState extends State<_AddRecipientDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _DialogField(controller: _nameController, hintText: 'Name'),
+          _DialogField(
+            controller: _nameController,
+            hintText: l10n.t('bulk.name'),
+          ),
           const SizedBox(height: 10),
           _DialogField(
             controller: _emailController,
-            hintText: 'Email',
+            hintText: l10n.t('bulk.email'),
             keyboardType: TextInputType.emailAddress,
             onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 10),
           _DialogField(
             controller: _roleController,
-            hintText: 'Role',
+            hintText: l10n.t('bulk.role'),
             onSubmitted: (_) => _submit(),
           ),
         ],
@@ -687,9 +729,12 @@ class _AddRecipientDialogState extends State<_AddRecipientDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: tone.muted)),
+          child: Text(
+            l10n.t('bulk.cancel'),
+            style: TextStyle(color: tone.muted),
+          ),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Add')),
+        FilledButton(onPressed: _submit, child: Text(l10n.t('bulk.add'))),
       ],
     );
   }
@@ -703,6 +748,7 @@ class _BulkHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _BulkTone.of(context);
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 2, 2, 0),
@@ -710,7 +756,7 @@ class _BulkHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Group drafts',
+            l10n.t('bulk.headerTitle'),
             style: TextStyle(
               color: tone.text,
               fontSize: 28,
@@ -720,7 +766,7 @@ class _BulkHeader extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Prepare personalized messages for several people.',
+            l10n.t('bulk.headerSubtitle'),
             style: TextStyle(
               color: tone.muted,
               fontSize: 13,
@@ -730,7 +776,11 @@ class _BulkHeader extends StatelessWidget {
           ),
           if (draftsCount > 0) ...[
             const SizedBox(height: 10),
-            _HeaderStatus(label: '$draftsCount drafts ready'),
+            _HeaderStatus(
+              label: l10n
+                  .t('bulk.draftsReady')
+                  .replaceAll('{count}', '$draftsCount'),
+            ),
           ],
         ],
       ),
@@ -910,6 +960,7 @@ class _AddRecipientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _BulkTone.of(context);
+    final l10n = context.l10n;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -940,7 +991,7 @@ class _AddRecipientButton extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                'Add recipient',
+                l10n.t('bulk.addRecipientTitle'),
                 style: TextStyle(
                   color: tone.text,
                   fontSize: 13,
@@ -964,6 +1015,7 @@ class _GenerationProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     final tone = _BulkTone.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = context.l10n;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -990,7 +1042,7 @@ class _GenerationProgress extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Preparing personalized drafts',
+                  l10n.t('bulk.progressTitle'),
                   style: TextStyle(
                     color: tone.text,
                     fontSize: 14,
@@ -999,7 +1051,9 @@ class _GenerationProgress extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'This can take a little while for $recipientCount recipients. You can stay on this screen while we prepare them.',
+                  l10n
+                      .t('bulk.progressSubtitle')
+                      .replaceAll('{count}', '$recipientCount'),
                   style: TextStyle(
                     color: tone.muted,
                     fontSize: 12,
@@ -1037,6 +1091,7 @@ class _RecipientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tone = _BulkTone.of(context);
     final avatarColor = index.isEven ? AppPalette.deepTeal : AppPalette.amber;
+    final l10n = context.l10n;
 
     return Container(
       constraints: const BoxConstraints(minHeight: 74),
@@ -1103,7 +1158,7 @@ class _RecipientCard extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Remove recipient',
+            tooltip: l10n.t('bulk.removeRecipient'),
             onPressed: onRemove,
             icon: Icon(Icons.close_rounded, size: 19, color: tone.muted),
           ),
@@ -1258,6 +1313,7 @@ class _PreviewAndEditDialogState extends State<_PreviewAndEditDialog> {
   @override
   Widget build(BuildContext context) {
     final tone = _BulkTone.of(context);
+    final l10n = context.l10n;
 
     return AlertDialog(
       backgroundColor: tone.surface,
@@ -1267,7 +1323,7 @@ class _PreviewAndEditDialogState extends State<_PreviewAndEditDialog> {
         side: BorderSide(color: tone.border),
       ),
       title: Text(
-        'Preview and edit',
+        l10n.t('bulk.previewEdit'),
         style: TextStyle(
           color: tone.text,
           fontSize: 20,
@@ -1280,7 +1336,7 @@ class _PreviewAndEditDialogState extends State<_PreviewAndEditDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PreviewLabel(text: 'Campaign topic'),
+              _PreviewLabel(text: l10n.t('bulk.campaignTopic')),
               const SizedBox(height: 6),
               Text(
                 widget.campaign,
@@ -1291,7 +1347,7 @@ class _PreviewAndEditDialogState extends State<_PreviewAndEditDialog> {
                 ),
               ),
               const SizedBox(height: 18),
-              _PreviewLabel(text: 'Drafts'),
+              _PreviewLabel(text: l10n.t('bulk.draftsLabel')),
               const SizedBox(height: 10),
               ...List.generate(widget.drafts.length, (index) {
                 final draft = widget.drafts[index];
@@ -1308,7 +1364,10 @@ class _PreviewAndEditDialogState extends State<_PreviewAndEditDialog> {
       actions: [
         TextButton(
           onPressed: _isSending ? null : () => Navigator.pop(context),
-          child: Text('Close', style: TextStyle(color: tone.muted)),
+          child: Text(
+            l10n.t('common.close'),
+            style: TextStyle(color: tone.muted),
+          ),
         ),
         FilledButton.icon(
           onPressed: _isSending ? null : _send,
@@ -1323,7 +1382,9 @@ class _PreviewAndEditDialogState extends State<_PreviewAndEditDialog> {
                     ),
                   )
                   : const Icon(Icons.send_rounded, size: 18),
-          label: Text(_isSending ? 'Sending' : 'Send'),
+          label: Text(
+            _isSending ? l10n.t('bulk.sending') : l10n.t('bulk.send'),
+          ),
         ),
       ],
     );
@@ -1344,6 +1405,7 @@ class _EditableDraftCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = _BulkTone.of(context);
+    final l10n = context.l10n;
 
     return Container(
       width: double.infinity,
@@ -1370,13 +1432,13 @@ class _EditableDraftCard extends StatelessWidget {
           const SizedBox(height: 8),
           _EditableDraftField(
             controller: subjectController,
-            label: 'Subject',
+            label: l10n.t('bulk.subject'),
             maxLines: 1,
           ),
           const SizedBox(height: 8),
           _EditableDraftField(
             controller: bodyController,
-            label: 'Message',
+            label: l10n.t('bulk.message'),
             maxLines: 7,
           ),
         ],
