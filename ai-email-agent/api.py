@@ -213,6 +213,21 @@ def current_outlook_user(
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
     session = _require_outlook_session(authorization)
+    try:
+        profile = outlook_graph_client.get_me(session.access_token)
+        user = _user_from_graph_profile(profile)
+        refreshed_session = outlook_session_store.update_profile(
+            session.session_token,
+            user_id=user["id"],
+            email=user["email"],
+            display_name=user["display_name"],
+            photo_url=user["photo_url"],
+        )
+        if refreshed_session is not None:
+            session = refreshed_session
+    except OutlookGraphError:
+        pass
+
     return {
         "id": session.user_id,
         "email": session.email,

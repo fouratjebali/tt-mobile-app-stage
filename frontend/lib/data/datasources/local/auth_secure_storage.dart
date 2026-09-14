@@ -74,5 +74,16 @@ class AuthSecureStorage {
 
   Future<String?> readBackendToken() => _storage.read(key: _backendTokenKey);
 
+  Future<void> saveUser(AppUser user) async {
+    await Future.wait([
+      _storage.write(key: _userIdKey, value: user.id),
+      _storage.write(key: _userEmailKey, value: user.email),
+      if (user.displayName != null)
+        _storage.write(key: _userNameKey, value: user.displayName),
+      if (user.photoUrl != null)
+        _storage.write(key: _userPhotoKey, value: user.photoUrl),
+    ]);
+  }
+
   Future<void> clear() => _storage.deleteAll();
 }

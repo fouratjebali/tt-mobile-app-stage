@@ -27,7 +27,9 @@ class AuthRepositoryImpl implements AuthRepository {
     if (localUser == null) return null;
 
     try {
-      return await _backendAuthDataSource.currentUser();
+      final remoteUser = await _backendAuthDataSource.currentUser();
+      await _secureStorage.saveUser(remoteUser);
+      return remoteUser;
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 410) {
         await _secureStorage.clear();

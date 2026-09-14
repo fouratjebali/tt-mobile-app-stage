@@ -11,13 +11,14 @@ from planning.database import PlanningDatabase
 class FakeGraphClient:
     def __init__(self) -> None:
         self.sent: list[dict] = []
+        self.display_name = "Formation TT"
 
     def get_me(self, access_token: str) -> dict:
         assert access_token == "graph-access-token"
         return {
             "id": "user-1",
             "mail": "formation@tunisietelecom.tn",
-            "displayName": "Formation TT",
+            "displayName": self.display_name,
         }
 
     def send_mail(self, **kwargs) -> dict:
@@ -74,6 +75,31 @@ def test_microsoft_auth_stores_backend_session(tmp_path, monkeypatch):
     )
     assert me_response.status_code == 200
     assert me_response.json()["display_name"] == "Formation TT"
+
+
+def test_auth_me_refreshes_changed_outlook_profile(tmp_path, monkeypatch):
+    graph = FakeGraphClient()
+    configure_test_services(tmp_path, monkeypatch, graph)
+    session = api.outlook_session_store.create_session(
+        access_token="graph-access-token",
+        refresh_token="graph-refresh-token",
+        expires_at="2099-01-01T00:00:00+00:00",
+        user_id="user-1",
+        email="formation@tunisietelecom.tn",
+        display_name="Old Outlook Name",
+    )
+    graph.display_name = "New Outlook Name"
+
+    response = TestClient(api.app).get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {session.session_token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "New Outlook Name"
+    stored = api.outlook_session_store.get_session(session.session_token)
+    assert stored is not None
+    assert stored.display_name == "New Outlook Name"
 
 
 def test_send_training_draft_uses_outlook_after_approval(tmp_path, monkeypatch):

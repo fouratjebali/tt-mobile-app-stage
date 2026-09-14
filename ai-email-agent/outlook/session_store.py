@@ -140,6 +140,42 @@ class OutlookSessionStore:
             connection.commit()
         return self.get_session(session_token)
 
+    def update_profile(
+        self,
+        session_token: str,
+        *,
+        user_id: str = "",
+        email: str = "",
+        display_name: str = "",
+        photo_url: str = "",
+    ) -> OutlookSession | None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE outlook_sessions
+                SET
+                    user_id = CASE WHEN ? = '' THEN user_id ELSE ? END,
+                    email = CASE WHEN ? = '' THEN email ELSE ? END,
+                    display_name = CASE WHEN ? = '' THEN display_name ELSE ? END,
+                    photo_url = CASE WHEN ? = '' THEN photo_url ELSE ? END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE session_token = ?
+                """,
+                (
+                    user_id,
+                    user_id,
+                    email,
+                    email,
+                    display_name,
+                    display_name,
+                    photo_url,
+                    photo_url,
+                    session_token,
+                ),
+            )
+            connection.commit()
+        return self.get_session(session_token)
+
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.db_path)
