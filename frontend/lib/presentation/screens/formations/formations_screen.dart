@@ -1117,10 +1117,13 @@ class _MonthOverview extends StatelessWidget {
               value: '${viewModel.responsibleCount}',
             ),
             _FormationStatCard(
-              icon: Icons.mark_email_unread_rounded,
-              label: l10n.t('formations.missingResponsibleEmails'),
-              value: '${viewModel.responsibleMissingCount}',
-              accent: AppPalette.clay,
+              icon: Icons.rate_review_rounded,
+              label: l10n.t('formations.toReview'),
+              value: '${viewModel.waitingReviewCount}',
+              accent:
+                  viewModel.waitingReviewCount > 0
+                      ? AppPalette.amber
+                      : AppPalette.deepTeal,
             ),
           ],
         ),
