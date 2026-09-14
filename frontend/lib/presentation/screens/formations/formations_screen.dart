@@ -770,13 +770,10 @@ class _FormationWorkflowSection extends StatelessWidget {
           icon: Icons.contact_mail_rounded,
           title: l10n.t('formations.contactsStepTitle'),
           subtitle: l10n.t('formations.contactsStepSubtitle'),
-          metric: '${viewModel.contactReviewCount}',
-          metricLabel: l10n.t('formations.toCheck'),
+          metric: '${viewModel.responsibleCount}',
+          metricLabel: l10n.t('formations.total'),
           tone: tone,
-          color:
-              viewModel.contactReviewCount > 0
-                  ? AppPalette.amber
-                  : AppPalette.deepTeal,
+          color: AppPalette.deepTeal,
           onTap: onContacts,
         ),
         const SizedBox(height: 10),

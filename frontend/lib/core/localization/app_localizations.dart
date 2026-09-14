@@ -129,6 +129,7 @@ const Map<String, String> _english = {
   'formations.noActivePlanHint': 'Import the monthly Excel planning to begin.',
   'formations.workflowTitle': 'Training workflow',
   'formations.imports': 'imports',
+  'formations.total': 'total',
   'formations.toCheck': 'to check',
   'formations.importStepTitle': 'Session planning',
   'formations.importStepSubtitle': 'Import the training session Excel file.',
@@ -530,6 +531,7 @@ const Map<String, String> _french = {
       'Importez le planning Excel du mois pour demarrer.',
   'formations.workflowTitle': 'Parcours formation',
   'formations.imports': 'imports',
+  'formations.total': 'total',
   'formations.toCheck': 'a verifier',
   'formations.importStepTitle': 'Planning des sessions',
   'formations.importStepSubtitle':
